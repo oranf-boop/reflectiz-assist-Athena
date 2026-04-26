@@ -177,26 +177,47 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl } = body;
+  const { 
+    message, 
+    currentPageUrl, 
+    pagesViewed, 
+    referralSource, 
+    geo, 
+    language,
+    timeOnPage,
+    conversationHistory
+  } = body;
 
   if (!message) {
     return Response.json({ error: "message is required" }, { status: 400 });
   }
 
-  const userContent = currentPageUrl
-    ? `[Current page: ${currentPageUrl}]\n\n${message}`
-    : message;
+  const contextBlock = `
+[VISITOR CONTEXT]
+Current page: ${currentPageUrl || "unknown"}
+Pages viewed this session: ${pagesViewed ? pagesViewed.join(", ") : "unknown"}
+Referral source: ${referralSource || "direct"}
+Geo: ${geo || "unknown"}
+Language: ${language || "en"}
+Time on current page: ${timeOnPage ? timeOnPage + " seconds" : "unknown"}
+[END CONTEXT]
+`;
+
+  const history = Array.isArray(conversationHistory) ? conversationHistory : [];
+
+  const messages = [
+    ...history,
+    {
+      role: "user",
+      content: `${contextBlock}\n\n${message}`,
+    },
+  ];
 
   const response = await client.messages.create({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: userContent,
-      },
-    ],
+    messages,
   });
 
   const reply = response.content[0]?.text ?? "";
