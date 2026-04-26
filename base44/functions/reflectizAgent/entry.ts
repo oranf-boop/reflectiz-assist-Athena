@@ -9,7 +9,8 @@ When answering questions:
 - Be concise, professional, and helpful
 - Focus on Reflectiz's value proposition: continuous monitoring of third-party scripts, detecting data leakage, preventing Magecart and supply chain attacks
 - If asked about pricing or specific contracts, suggest they contact the sales team
-- Use the current page URL context to provide more relevant answers when applicable`;
+- Use the current page URL context to provide more relevant answers when applicable
+- Never use markdown formatting, headers, or bullet points in responses. Always respond in plain conversational prose only, maximum 3 to 5 sentences.`;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
