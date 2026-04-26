@@ -6,6 +6,10 @@ You help visitors understand Reflectiz's products, services, and capabilities.
 Reflectiz is a web security company that specializes in monitoring and securing third-party web assets, detecting supply chain attacks, and providing visibility into browser-side risks.
 
 When answering questions:
+- Use the [RELEVANT WEBSITE CONTENT] block provided in the user message to answer accurately
+- Naturally reference and link to the actual page URLs from that block when relevant (use plain URLs, not markdown)
+- Never invent or assume content that is not present in the retrieved pages
+- Prioritize recommending the single most relevant page to the visitor based on their intent
 - Be concise, professional, and helpful
 - Focus on Reflectiz's value proposition: continuous monitoring of third-party scripts, detecting data leakage, preventing Magecart and supply chain attacks
 - If asked about pricing or specific contracts, suggest they contact the sales team
@@ -22,6 +26,50 @@ const CORS_HEADERS = {
 const client = new Anthropic({
   apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
 });
+
+async function searchWebsiteContent(base44, query, currentPageUrl) {
+  // Extract meaningful keywords (words 4+ chars, skip common stop words)
+  const stopWords = new Set(["what", "this", "that", "with", "from", "have", "does", "your", "their", "about", "which", "when", "will", "how"]);
+  const keywords = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !stopWords.has(w));
+
+  if (keywords.length === 0) return [];
+
+  // Fetch all pages and score by keyword matches
+  const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+
+  const scored = allPages.map(page => {
+    const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
+    const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
+    const score = keywords.reduce((acc, kw) => {
+      const matches = (text.match(new RegExp(kw, "g")) || []).length;
+      return acc + matches;
+    }, 0) + urlBoost;
+    return { page, score };
+  });
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(s => s.page);
+}
+
+function formatRetrievedPages(pages) {
+  if (!pages || pages.length === 0) return "";
+  const lines = pages.map(p =>
+    `Page: ${p.pageTitle || "(no title)"}
+URL: ${p.pageUrl}
+Type: ${p.pageType || "other"}
+Content: ${(p.pageContent || "").slice(0, 500)}
+---`
+  );
+  return `[RELEVANT WEBSITE CONTENT]
+${lines.join("\n")}`;
+}
 
 async function classifyIntent(anthropicClient, messages) {
   const classificationResponse = await anthropicClient.messages.create({
@@ -58,12 +106,20 @@ Deno.serve(async (req) => {
 
   const sessionId = incomingSessionId || crypto.randomUUID();
 
+  const base44 = createClientFromRequest(req);
+
+  // RAG: search relevant website content before calling Claude
+  const relevantPages = await searchWebsiteContent(base44, message, currentPageUrl);
+  const ragBlock = formatRetrievedPages(relevantPages);
+
   // Build messages array (support multi-turn if previousMessages provided)
   const messages = [...(previousMessages || [])];
 
-  const userContent = currentPageUrl
-    ? `[Current page: ${currentPageUrl}]\n\n${message}`
-    : message;
+  const userContent = [
+    ragBlock,
+    currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
+    message,
+  ].filter(Boolean).join("\n\n");
 
   messages.push({ role: "user", content: userContent });
 
@@ -85,7 +141,6 @@ Deno.serve(async (req) => {
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
-  const base44 = createClientFromRequest(req);
   await base44.asServiceRole.entities.Conversations.create({
     sessionId,
     timestamp: new Date().toISOString(),
