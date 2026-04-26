@@ -1,0 +1,43 @@
+{
+  "name": "WebsiteContent",
+  "type": "object",
+  "properties": {
+    "pageUrl": {
+      "type": "string",
+      "title": "Page URL"
+    },
+    "pageTitle": {
+      "type": "string",
+      "title": "Page Title"
+    },
+    "pageContent": {
+      "type": "string",
+      "title": "Page Content",
+      "format": "textarea"
+    },
+    "pageType": {
+      "type": "string",
+      "title": "Page Type",
+      "enum": [
+        "blog",
+        "product",
+        "use-case",
+        "case-study",
+        "webinar",
+        "comparison",
+        "homepage",
+        "other"
+      ]
+    },
+    "lastScanned": {
+      "type": "string",
+      "format": "date",
+      "title": "Last Scanned"
+    },
+    "isActive": {
+      "type": "boolean",
+      "title": "Is Active"
+    }
+  },
+  "required": []
+}
