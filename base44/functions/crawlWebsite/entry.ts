@@ -12,8 +12,7 @@ function classifyPageType(url) {
 }
 
 function extractTextContent(html) {
-  // Remove scripts, styles, nav, footer, header
-  let text = html
+  const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<nav[\s\S]*?<\/nav>/gi, "")
@@ -22,7 +21,6 @@ function extractTextContent(html) {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  // Limit to 10000 chars to avoid hitting field size limits
   return text.slice(0, 10000);
 }
 
@@ -38,7 +36,6 @@ async function parseSitemap(url) {
   const locMatches = xml.matchAll(/<loc>([\s\S]*?)<\/loc>/g);
   for (const match of locMatches) {
     const u = match[1].trim();
-    // Recurse into nested sitemaps
     if (u.endsWith(".xml")) {
       const nested = await parseSitemap(u);
       urls.push(...nested);
@@ -49,6 +46,33 @@ async function parseSitemap(url) {
   return urls;
 }
 
+async function crawlPage(pageUrl, base44, now) {
+  const pageRes = await fetch(pageUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!pageRes.ok) return { status: "failed" };
+
+  const html = await pageRes.text();
+  const pageTitle = extractTitle(html);
+  const pageContent = extractTextContent(html);
+  const pageType = classifyPageType(pageUrl);
+
+  const existing = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl });
+
+  if (existing && existing.length > 0) {
+    await base44.asServiceRole.entities.WebsiteContent.update(existing[0].id, {
+      pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
+    });
+    return { status: "updated" };
+  } else {
+    await base44.asServiceRole.entities.WebsiteContent.create({
+      pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
+    });
+    return { status: "created" };
+  }
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me();
@@ -57,56 +81,29 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
-  const urls = await parseSitemap("https://www.reflectiz.com/sitemap.xml");
+  const reqBody = await req.json().catch(() => ({}));
+  const limit = reqBody.limit || null;
+  const batchSize = reqBody.batchSize || 5;
 
-  let created = 0;
-  let updated = 0;
-  let failed = 0;
+  const allUrls = await parseSitemap("https://www.reflectiz.com/sitemap.xml");
+  const urls = limit ? allUrls.slice(0, limit) : allUrls;
+
+  let created = 0, updated = 0, failed = 0;
   const now = new Date().toISOString().split("T")[0];
 
-  for (const pageUrl of urls) {
-    try {
-      const pageRes = await fetch(pageUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
-      });
-      if (!pageRes.ok) { failed++; continue; }
-
-      const html = await pageRes.text();
-      const pageTitle = extractTitle(html);
-      const pageContent = extractTextContent(html);
-      const pageType = classifyPageType(pageUrl);
-
-      const existing = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl });
-
-      if (existing && existing.length > 0) {
-        await base44.asServiceRole.entities.WebsiteContent.update(existing[0].id, {
-          pageTitle,
-          pageContent,
-          pageType,
-          lastScanned: now,
-          isActive: true,
-        });
-        updated++;
+  for (let i = 0; i < urls.length; i += batchSize) {
+    const batch = urls.slice(i, i + batchSize);
+    const results = await Promise.allSettled(batch.map(url => crawlPage(url, base44, now)));
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        if (result.value.status === "created") created++;
+        else if (result.value.status === "updated") updated++;
+        else failed++;
       } else {
-        await base44.asServiceRole.entities.WebsiteContent.create({
-          pageUrl,
-          pageTitle,
-          pageContent,
-          pageType,
-          lastScanned: now,
-          isActive: true,
-        });
-        created++;
+        failed++;
       }
-    } catch (e) {
-      failed++;
     }
   }
 
-  return Response.json({
-    total: urls.length,
-    created,
-    updated,
-    failed,
-  });
+  return Response.json({ total: urls.length, created, updated, failed });
 });
