@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     referralSource: referralSource ?? "",
     pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
     intentClassification,
-    conversationTranscript: JSON.stringify(messages),
+    conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
     ctaReached,
     language: language ?? "",
   });
