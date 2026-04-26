@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return Response.json({ error: "Method not allowed" }, { status: 405 });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
 
   const body = await req.json();
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
   } = body;
 
   if (!message) {
-    return Response.json({ error: "message is required" }, { status: 400 });
+    return new Response(JSON.stringify({ error: "message is required" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
 
   const contextBlock = `
