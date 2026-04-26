@@ -1,0 +1,53 @@
+{
+  "name": "Conversations",
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "title": "Session ID"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Timestamp"
+    },
+    "geo": {
+      "type": "string",
+      "title": "Geo"
+    },
+    "referralSource": {
+      "type": "string",
+      "title": "Referral Source"
+    },
+    "pagesViewed": {
+      "type": "string",
+      "title": "Pages Viewed"
+    },
+    "intentClassification": {
+      "type": "string",
+      "title": "Intent Classification",
+      "enum": [
+        "PCI_COMPLIANCE",
+        "MAGECART_PREVENTION",
+        "PRIVACY_GDPR",
+        "SUPPLY_CHAIN",
+        "TOOL_EVALUATION",
+        "GENERAL_AWARENESS"
+      ]
+    },
+    "conversationTranscript": {
+      "type": "string",
+      "title": "Conversation Transcript",
+      "format": "textarea"
+    },
+    "ctaReached": {
+      "type": "boolean",
+      "title": "CTA Reached"
+    },
+    "language": {
+      "type": "string",
+      "title": "Language"
+    }
+  },
+  "required": []
+}
