@@ -1,7 +1,9 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant for the Reflectiz website. 
+const SYSTEM_PROMPT = `CRITICAL INSTRUCTION: You must always respond in the language specified in the visitor context. If geo is France, Belgium, or Switzerland OR language starts with "fr" — respond in French. If geo is Germany or Austria OR language starts with "de" — respond in German. If geo is Spain or Latin America OR language starts with "es" — respond in Spanish. If geo is Italy OR language starts with "it" — respond in Italian. All other cases — respond in English. This overrides everything else. Check the language field in the visitor context block before writing a single word.
+
+You are a helpful AI assistant for the Reflectiz website. 
 You help visitors understand Reflectiz's products, services, and capabilities. 
 Reflectiz is a web security company that specializes in monitoring and securing third-party web assets, detecting supply chain attacks, and providing visibility into browser-side risks.
 
@@ -115,9 +117,15 @@ Deno.serve(async (req) => {
   // Build messages array (support multi-turn if previousMessages provided)
   const messages = [...(previousMessages || [])];
 
+  const visitorContext = [
+    language ? `[Visitor language: ${language}]` : "",
+    geo ? `[Visitor geo: ${geo}]` : "",
+    currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
+  ].filter(Boolean).join("\n");
+
   const userContent = [
     ragBlock,
-    currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
+    visitorContext,
     message,
   ].filter(Boolean).join("\n\n");
 
