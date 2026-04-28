@@ -47,6 +47,40 @@
     "language": {
       "type": "string",
       "title": "Language"
+    },
+    "conversationTurns": {
+      "type": "number",
+      "title": "Conversation Turns"
+    },
+    "linksClicked": {
+      "type": "number",
+      "title": "Links Clicked"
+    },
+    "ctaClicked": {
+      "type": "boolean",
+      "title": "CTA Clicked"
+    },
+    "conversationOutcome": {
+      "type": "string",
+      "title": "Conversation Outcome",
+      "enum": [
+        "CONVERTED",
+        "ENGAGED",
+        "DROPPED",
+        "BOUNCED"
+      ]
+    },
+    "sessionDuration": {
+      "type": "number",
+      "title": "Session Duration (seconds)"
+    },
+    "lastMessageRole": {
+      "type": "string",
+      "title": "Last Message Role",
+      "enum": [
+        "user",
+        "assistant"
+      ]
     }
   },
   "required": []
