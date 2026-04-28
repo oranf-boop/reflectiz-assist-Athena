@@ -1,0 +1,56 @@
+{
+  "name": "LearningReports",
+  "type": "object",
+  "properties": {
+    "reportDate": {
+      "type": "string",
+      "format": "date",
+      "title": "Report Date"
+    },
+    "weekStartDate": {
+      "type": "string",
+      "format": "date",
+      "title": "Week Start Date"
+    },
+    "totalConversations": {
+      "type": "number",
+      "title": "Total Conversations"
+    },
+    "winnerCount": {
+      "type": "number",
+      "title": "Winner Count"
+    },
+    "loserCount": {
+      "type": "number",
+      "title": "Loser Count"
+    },
+    "conversionRate": {
+      "type": "number",
+      "title": "Conversion Rate (%)"
+    },
+    "topSuccessPatterns": {
+      "type": "string",
+      "title": "Top Success Patterns",
+      "format": "textarea"
+    },
+    "topFailurePatterns": {
+      "type": "string",
+      "title": "Top Failure Patterns",
+      "format": "textarea"
+    },
+    "suggestedChanges": {
+      "type": "string",
+      "title": "Suggested Changes",
+      "format": "textarea"
+    },
+    "confidenceScore": {
+      "type": "number",
+      "title": "Confidence Score (1-10)"
+    },
+    "appliedToAgent": {
+      "type": "boolean",
+      "title": "Applied To Agent"
+    }
+  },
+  "required": []
+}
