@@ -1,0 +1,31 @@
+{
+  "name": "AgentConfig",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "title": "Version"
+    },
+    "systemPrompt": {
+      "type": "string",
+      "title": "System Prompt",
+      "format": "textarea"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date",
+      "title": "Updated At"
+    },
+    "updateReason": {
+      "type": "string",
+      "title": "Update Reason",
+      "format": "textarea"
+    },
+    "previousPrompt": {
+      "type": "string",
+      "title": "Previous Prompt",
+      "format": "textarea"
+    }
+  },
+  "required": []
+}

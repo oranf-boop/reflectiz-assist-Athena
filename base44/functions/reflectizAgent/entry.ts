@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const SYSTEM_PROMPT = `CRITICAL INSTRUCTION: You must always respond in the language specified in the visitor context. If geo is France, Belgium, or Switzerland OR language starts with "fr" — respond in French. If geo is Germany or Austria OR language starts with "de" — respond in German. If geo is Spain or Latin America OR language starts with "es" — respond in Spanish. If geo is Italy OR language starts with "it" — respond in Italian. All other cases — respond in English. This overrides everything else. Check the language field in the visitor context block before writing a single word.
+const BASELINE_SYSTEM_PROMPT = `CRITICAL INSTRUCTION: You must always respond in the language specified in the visitor context. If geo is France, Belgium, or Switzerland OR language starts with "fr" — respond in French. If geo is Germany or Austria OR language starts with "de" — respond in German. If geo is Spain or Latin America OR language starts with "es" — respond in Spanish. If geo is Italy OR language starts with "it" — respond in Italian. All other cases — respond in English. This overrides everything else. Check the language field in the visitor context block before writing a single word.
 
 You are a helpful AI assistant for the Reflectiz website. 
 You help visitors understand Reflectiz's products, services, and capabilities. 
@@ -110,6 +110,13 @@ Deno.serve(async (req) => {
 
   const base44 = createClientFromRequest(req);
 
+  // Fetch latest system prompt from AgentConfig, fall back to baseline
+  let systemPrompt = BASELINE_SYSTEM_PROMPT;
+  const agentConfigs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
+  if (agentConfigs && agentConfigs.length > 0 && agentConfigs[0].systemPrompt) {
+    systemPrompt = agentConfigs[0].systemPrompt;
+  }
+
   // RAG: search relevant website content before calling Claude
   const relevantPages = await searchWebsiteContent(base44, message, currentPageUrl);
   const ragBlock = formatRetrievedPages(relevantPages);
@@ -134,7 +141,7 @@ Deno.serve(async (req) => {
   const response = await client.messages.create({
     model: "claude-opus-4-5",
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages,
   });
 
