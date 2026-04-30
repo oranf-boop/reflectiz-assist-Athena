@@ -3,6 +3,25 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
+const TRAINING_SYSTEM_PROMPT = `Respond in visitor's language (fr for France/Belgium/Switzerland, de for Germany/Austria, es for Spain/Latin America, it for Italy, en otherwise).
+
+You are a concise AI assistant for Reflectiz, a web security company specializing in third-party script monitoring, supply chain attack detection, and browser-side risk visibility.
+
+OPENING (turn 1): 2 sentences max. Lead with an insight, never a greeting. One specific question. Use page URL to pick:
+- pci/compliance/dss: "Requirements 6.4.3 and 11.6.1 are catching a lot of teams off guard right now. Is that on your radar?"
+- magecart/supply-chain: "The attack most teams miss isn't in their own code — it's in their vendors' code. Worth a look at yours?"
+- /product/ or /platform/: "Evaluating something specific, or still mapping out what you actually need?"
+- /vs- or reflectiz-vs: "Already know what you're comparing against, or still figuring out the shortlist?"
+- /use-case/: "This use case tends to come up after something specific happens internally. What triggered the search?"
+- default: "You're not here by accident. What are you trying to solve?"
+
+ALL RESPONSES: Max 3 sentences. Plain prose only. No markdown, bullets, or headers. No filler phrases.
+
+BUYING SIGNALS (trigger CTA immediately): "audit", "deadline", "my team", "compliance gap", "CISO", "board is asking", "visibility", "blind spots", "third-party risk", "supply chain"
+CTA: "Want to see what this looks like for your setup? No commitment, just visibility. Book a time: https://www.reflectiz.com/contact/"
+
+MAX 4 turns total. Offer CTA by turn 4 regardless.`;
+
 const PERSONAS = [
   {
     name: "Marie Dubois",
@@ -118,12 +137,12 @@ const PERSONAS = [
 
 const TURNS_BY_PERSONALITY = {
   BOUNCER: 0,
-  RUSHED: 2,
-  SKEPTICAL: 3,
-  CURIOUS: 3,
-  RESEARCHER: 4,
-  EVALUATOR: 4,
-  HIGH_INTENT: 3,
+  RUSHED: 1,
+  SKEPTICAL: 2,
+  CURIOUS: 2,
+  RESEARCHER: 2,
+  EVALUATOR: 2,
+  HIGH_INTENT: 2,
 };
 
 const CONCERN_TO_INTENT = {
@@ -135,39 +154,56 @@ const CONCERN_TO_INTENT = {
   GENERAL_AWARENESS: "GENERAL_AWARENESS",
 };
 
-async function callReflectizAgent(base44, payload) {
-  const res = await base44.functions.invoke("reflectizAgent", payload);
-  return res.data;
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function claudeWithRetry(fn, maxRetries = 4) {
+  let delay = 15000;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err?.status === 429 && attempt < maxRetries) {
+        console.log(`Rate limit hit, waiting ${delay / 1000}s...`);
+        await sleep(delay);
+        delay *= 1.5;
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+// Call Claude directly as the Reflectiz agent (no HTTP invoke needed)
+async function callAgent(systemPrompt, messages, userMessage, persona) {
+  await sleep(3000);
+  const visitorContext = [
+    `[Visitor language: ${persona.language}]`,
+    `[Visitor geo: ${persona.geo}]`,
+    `[Current page: https://www.reflectiz.com${persona.landingPage}]`,
+  ].join("\n");
+
+  const fullUserContent = [visitorContext, userMessage].join("\n\n");
+  const allMessages = [...messages, { role: "user", content: fullUserContent }];
+
+  const response = await claudeWithRetry(() => anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 256,
+    system: systemPrompt,
+    messages: allMessages,
+  }));
+  return response.content[0]?.text?.trim() ?? "";
 }
 
 async function generateVisitorMessage(persona, agentMessage) {
-  const response = await anthropic.messages.create({
+  await sleep(3000);
+  const prompt = "You are roleplaying as a website visitor.\nPersonality: " + persona.personality + "\nConcern: " + persona.concern + "\nBuy score: " + persona.buyScore + "/10\nAgent said: " + agentMessage + "\nReply in ONE sentence matching your personality. BOUNCER: just say 'ok'. Only the visitor message, nothing else.";
+  const response = await claudeWithRetry(() => anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 150,
-    messages: [{
-      role: "user",
-      content: `You are roleplaying as a website visitor with this profile:
-Name: ${persona.name}
-Personality: ${persona.personality}
-Primary concern: ${persona.concern}
-Buy likelihood score: ${persona.buyScore} out of 10
-
-The chat agent just said: ${agentMessage}
-
-Generate a realistic single response this visitor would send. Follow these personality rules:
-- SKEPTICAL: challenge the claim, ask for proof, express doubt
-- CURIOUS: ask a genuine follow-up question about something specific the agent mentioned
-- HIGH_INTENT: mention a specific deadline, team pressure, or urgent pain point
-- RESEARCHER: ask a broad strategic question, want to understand the full picture
-- RUSHED: respond in 5 words or less, want the bottom line
-- EVALUATOR: ask how this compares to alternatives, want specifics
-- BOUNCER: respond with nothing or a single word like 'ok' then stop
-
-Be realistic. Real visitors are distracted, imprecise, and sometimes go off topic. Do not be a perfect customer.
-
-Respond with ONLY the visitor's message, nothing else.`,
-    }],
-  });
+    max_tokens: 100,
+    messages: [{ role: "user", content: prompt }],
+  }));
   return response.content[0]?.text?.trim() ?? "";
 }
 
@@ -175,31 +211,22 @@ function determineOutcome(persona, turns, finalAgentMessage) {
   if (persona.personality === "BOUNCER") return "BOUNCED";
   const hasCTA = /reflectiz\.com\/contact|book.*time|meeting|trial|demo/i.test(finalAgentMessage);
   if (hasCTA && persona.buyScore >= 6) return "CONVERTED";
-  if (turns >= 3) return "ENGAGED";
+  if (turns >= 2) return "ENGAGED";
   return "DROPPED";
 }
 
-async function simulatePersona(base44, persona) {
+async function simulatePersona(base44, persona, systemPrompt) {
   const sessionId = crypto.randomUUID();
-  const maxTurns = TURNS_BY_PERSONALITY[persona.personality] ?? 3;
+  const maxTurns = TURNS_BY_PERSONALITY[persona.personality] ?? 2;
   const transcript = [];
-  let conversationHistory = [];
+  const conversationHistory = [];
   let lastAgentMessage = "";
   let turnCount = 0;
 
-  // INIT call — get opening message
-  const initResult = await callReflectizAgent(base44, {
-    message: "INIT",
-    currentPageUrl: `https://www.reflectiz.com${persona.landingPage}`,
-    sessionId,
-    geo: persona.geo,
-    language: persona.language,
-    referralSource: persona.referralSource,
-    pagesViewed: persona.pagesViewed,
-    messages: [],
-  });
+  console.log(`Simulating: ${persona.name} (${persona.personality})`);
 
-  lastAgentMessage = initResult.reply ?? "";
+  // Opening message
+  lastAgentMessage = await callAgent(systemPrompt, [], "INIT", persona);
   transcript.push(`Agent: ${lastAgentMessage}`);
   conversationHistory.push({ role: "assistant", content: lastAgentMessage });
 
@@ -210,18 +237,7 @@ async function simulatePersona(base44, persona) {
     conversationHistory.push({ role: "user", content: visitorMsg });
     turnCount++;
 
-    const agentResult = await callReflectizAgent(base44, {
-      message: visitorMsg,
-      currentPageUrl: `https://www.reflectiz.com${persona.landingPage}`,
-      sessionId,
-      geo: persona.geo,
-      language: persona.language,
-      referralSource: persona.referralSource,
-      pagesViewed: persona.pagesViewed,
-      messages: conversationHistory,
-    });
-
-    lastAgentMessage = agentResult.reply ?? "";
+    lastAgentMessage = await callAgent(systemPrompt, conversationHistory.slice(0, -1), visitorMsg, persona);
     transcript.push(`Agent: ${lastAgentMessage}`);
     conversationHistory.push({ role: "assistant", content: lastAgentMessage });
   }
@@ -245,49 +261,41 @@ async function simulatePersona(base44, persona) {
     lastMessageRole: "assistant",
   });
 
-  return {
-    name: persona.name,
-    geo: persona.geo,
-    personality: persona.personality,
-    outcome,
-    turns: turnCount,
-    ctaReached,
-    reachedPhase2: turnCount >= 1,
-    reachedPhase3: ctaReached,
-  };
+  return { name: persona.name, geo: persona.geo, personality: persona.personality, outcome, turns: turnCount, ctaReached };
 }
 
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
+  try {
+    const base44 = createClientFromRequest(req);
 
-  // Simulate all personas sequentially to avoid rate limits
-  const results = [];
-  for (const persona of PERSONAS) {
-    const result = await simulatePersona(base44, persona);
-    results.push(result);
-  }
+    const body = await req.json().catch(() => ({}));
+    const limit = body.limitPersonas ?? PERSONAS.length;
+    const personasToRun = PERSONAS.slice(0, limit);
+    console.log(`Starting training with ${personasToRun.length} personas`);
 
-  // Build summary
-  const outcomeCounts = { CONVERTED: 0, ENGAGED: 0, DROPPED: 0, BOUNCED: 0 };
-  const geoCounts = {};
-  const failedPhases = [];
+    // Fetch latest system prompt (fall back to training prompt)
+    const configs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
+    const systemPrompt = configs?.[0]?.systemPrompt ?? TRAINING_SYSTEM_PROMPT;
 
-  for (const r of results) {
-    outcomeCounts[r.outcome] = (outcomeCounts[r.outcome] || 0) + 1;
-    geoCounts[r.geo] = (geoCounts[r.geo] || 0) + 1;
-    if (!r.reachedPhase2 || !r.reachedPhase3) {
-      failedPhases.push({ name: r.name, reachedPhase2: r.reachedPhase2, reachedPhase3: r.reachedPhase3 });
+    const results = [];
+    for (const persona of personasToRun) {
+      const result = await simulatePersona(base44, persona, systemPrompt);
+      results.push(result);
     }
+
+    const outcomeCounts = { CONVERTED: 0, ENGAGED: 0, DROPPED: 0, BOUNCED: 0 };
+    const geoCounts = {};
+    for (const r of results) {
+      outcomeCounts[r.outcome] = (outcomeCounts[r.outcome] || 0) + 1;
+      geoCounts[r.geo] = (geoCounts[r.geo] || 0) + 1;
+    }
+
+    const conversionRate = Math.round((outcomeCounts.CONVERTED / personasToRun.length) * 1000) / 10;
+    console.log(`Done. Conversion rate: ${conversionRate}%`);
+
+    return Response.json({ totalPersonasSimulated: personasToRun.length, conversionRate, outcomeBreakdown: outcomeCounts, geoBreakdown: geoCounts, results });
+  } catch (err) {
+    console.error("trainingAgent error:", err.message);
+    return Response.json({ error: err.message }, { status: 500 });
   }
-
-  const conversionRate = Math.round((outcomeCounts.CONVERTED / PERSONAS.length) * 1000) / 10;
-
-  return Response.json({
-    totalPersonasSimulated: PERSONAS.length,
-    conversionRate,
-    outcomeBreakdown: outcomeCounts,
-    geoBreakdown: geoCounts,
-    failedToReachPhase: failedPhases,
-    results,
-  });
 });
