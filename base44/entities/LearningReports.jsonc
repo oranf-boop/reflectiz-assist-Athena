@@ -50,6 +50,11 @@
     "appliedToAgent": {
       "type": "boolean",
       "title": "Applied To Agent"
+    },
+    "contentPerformance": {
+      "type": "string",
+      "title": "Content Performance",
+      "format": "textarea"
     }
   },
   "required": []
