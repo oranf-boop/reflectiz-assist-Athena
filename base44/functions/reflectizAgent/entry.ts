@@ -238,7 +238,44 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, messages: previousMessages } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, messages: previousMessages, trackingEvent, clickedUrl, turnNumber } = body;
+
+  // Handle link click tracking events without calling Claude
+  if (trackingEvent === "link_click") {
+    const sessionId = incomingSessionId;
+    if (!sessionId) {
+      return new Response(JSON.stringify({ error: "sessionId is required" }), { status: 400, headers: CORS_HEADERS });
+    }
+
+    const base44 = createClientFromRequest(req);
+
+    const [existing] = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
+
+    const updateTasks = [
+      base44.asServiceRole.entities.LinkClicks.create({
+        sessionId,
+        clickedUrl: clickedUrl ?? "",
+        turnNumber: turnNumber ?? 0,
+        clickedAt: new Date().toISOString(),
+        pageUrl: currentPageUrl ?? "",
+      }),
+    ];
+
+    if (existing) {
+      const newLinksClicked = (existing.linksClicked || 0) + 1;
+      const currentOutcome = existing.conversationOutcome;
+      const newOutcome = (currentOutcome === "DROPPED" || currentOutcome === "BOUNCED") ? "ENGAGED" : currentOutcome;
+      updateTasks.push(
+        base44.asServiceRole.entities.Conversations.update(existing.id, {
+          linksClicked: newLinksClicked,
+          ...(newOutcome !== currentOutcome && { conversationOutcome: newOutcome }),
+        })
+      );
+    }
+
+    await Promise.all(updateTasks);
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  }
 
   if (!message) {
     return new Response(JSON.stringify({ error: "message is required" }), { status: 400, headers: CORS_HEADERS });

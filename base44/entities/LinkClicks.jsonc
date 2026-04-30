@@ -1,0 +1,28 @@
+{
+  "name": "LinkClicks",
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "title": "Session ID"
+    },
+    "clickedUrl": {
+      "type": "string",
+      "title": "Clicked URL"
+    },
+    "turnNumber": {
+      "type": "number",
+      "title": "Turn Number"
+    },
+    "clickedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Clicked At"
+    },
+    "pageUrl": {
+      "type": "string",
+      "title": "Page URL"
+    }
+  },
+  "required": []
+}
