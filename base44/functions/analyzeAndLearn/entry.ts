@@ -94,9 +94,10 @@ function analyzeClickData(clicks, conversations) {
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-
-  if (user?.role !== "admin") {
+  const user = await base44.auth.me().catch(() => null);
+  const isScheduled = !user;
+  const isAdmin = user?.role === "admin";
+  if (!isScheduled && !isAdmin) {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
@@ -127,7 +128,7 @@ Deno.serve(async (req) => {
   // STEP 3: Run both analyses in parallel
   const [conversationResponse, contentResponse] = await Promise.all([
     anthropic.messages.create({
-      model: "claude-opus-4-5",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       messages: [{
         role: "user",
@@ -153,7 +154,7 @@ Format your response in clear numbered sections.`
       }],
     }),
     anthropic.messages.create({
-      model: "claude-opus-4-5",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 1024,
       messages: [{
         role: "user",

@@ -275,7 +275,10 @@ Deno.serve(async (req) => {
 
     // Fetch latest system prompt (fall back to training prompt)
     const configs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
-    const systemPrompt = configs?.[0]?.systemPrompt ?? TRAINING_SYSTEM_PROMPT;
+    const systemPrompt = configs?.[0]?.systemPrompt;
+    if (!systemPrompt) {
+      return Response.json({ error: "No AgentConfig found. Cannot run training without a live system prompt." }, { status: 500 });
+    }
 
     const results = [];
     for (const persona of personasToRun) {

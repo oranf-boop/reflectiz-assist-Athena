@@ -70,9 +70,10 @@ const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-
-  if (user?.role !== "admin") {
+  const user = await base44.auth.me().catch(() => null);
+  const isScheduled = !user;
+  const isAdmin = user?.role === "admin";
+  if (!isScheduled && !isAdmin) {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
@@ -126,12 +127,23 @@ Generate an improved system prompt that:
 Return only the full improved system prompt text, nothing else.`;
 
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 2048,
     messages: [{ role: "user", content: optimizationPrompt }],
   });
 
   const improvedPrompt = response.content[0]?.text?.trim() ?? currentPrompt;
+
+  // Validate generated prompt before saving
+  const MIN_PROMPT_LENGTH = 500;
+  const hasRequiredSections = improvedPrompt.includes("LANGUAGE") && improvedPrompt.includes("ROLE");
+
+  if (improvedPrompt.length < MIN_PROMPT_LENGTH || !hasRequiredSections) {
+    return Response.json({
+      error: "Generated prompt failed validation — too short or missing required sections. Not applied.",
+      promptLength: improvedPrompt.length
+    });
+  }
 
   // STEP 4: Save new AgentConfig version + mark report as applied
   const today = new Date().toISOString().split("T")[0];
