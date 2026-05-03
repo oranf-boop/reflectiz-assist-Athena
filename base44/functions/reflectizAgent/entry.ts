@@ -148,7 +148,8 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, messages: previousMessages, trackingEvent, clickedUrl, turnNumber } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, trackingEvent, clickedUrl, turnNumber } = body;
+  const conversationHistory = body.conversationHistory || body.messages || [];
 
   // Handle link click tracking events without calling Claude
   if (trackingEvent === "link_click") {
@@ -207,7 +208,7 @@ Deno.serve(async (req) => {
   const ragBlock = formatRetrievedPages(relevantPages);
 
   // Build messages array (support multi-turn if previousMessages provided)
-  const messages = [...(previousMessages || [])];
+  const messages = [...conversationHistory];
 
   const visitorContext = [
     language ? `[Visitor language: ${language}]` : "",
@@ -224,7 +225,7 @@ Deno.serve(async (req) => {
   messages.push({ role: "user", content: userContent });
 
   const response = await client.messages.create({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     system: systemPrompt,
     messages,
@@ -241,17 +242,32 @@ Deno.serve(async (req) => {
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
-  await base44.asServiceRole.entities.Conversations.create({
-    sessionId,
-    timestamp: new Date().toISOString(),
-    geo: geo ?? "",
-    referralSource: referralSource ?? "",
-    pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
-    intentClassification,
-    conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
-    ctaReached,
-    language: language ?? "",
-  });
+  const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
+
+  if (existingConversation && existingConversation.length > 0) {
+    await base44.asServiceRole.entities.Conversations.update(existingConversation[0].id, {
+      conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
+      intentClassification,
+      ctaReached,
+      conversationTurns: messages.filter(m => m.role === "user").length,
+      lastMessageRole: messages[messages.length - 1]?.role || "assistant",
+    });
+  } else {
+    await base44.asServiceRole.entities.Conversations.create({
+      sessionId,
+      timestamp: new Date().toISOString(),
+      geo: geo ?? "",
+      referralSource: referralSource ?? "",
+      pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+      intentClassification,
+      conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
+      ctaReached,
+      language: language ?? "",
+      conversationTurns: 1,
+      lastMessageRole: "assistant",
+      conversationOutcome: "BOUNCED",
+    });
+  }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
 });
