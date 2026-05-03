@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
   // STEP 1: Fetch latest actionable LearningReport
   const reports = await base44.asServiceRole.entities.LearningReports.list("-reportDate", 50);
-  const report = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 6);
+  const report = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
 
   if (!report) {
     return Response.json({ message: "No actionable report available yet." });
