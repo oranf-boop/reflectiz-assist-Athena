@@ -188,6 +188,17 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
+  // Hardcoded instant openers — no Claude, no DB, no cost
+  const INSTANT_OPENERS = {
+    INIT_HOMEPAGE_FIRST: "Most teams who land here are dealing with compliance, a recent scare, or too many blind spots. Which one fits?",
+    INIT_HOMEPAGE_RETURN_SAME_DAY: "You were here earlier — did something come up, or still thinking it through?",
+    INIT_HOMEPAGE_RETURN_DIFFERENT_DAY: "Good to see you again. Something specific bring you back?",
+  };
+
+  if (INSTANT_OPENERS[message]) {
+    return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
+  }
+
   if (!message) {
     return new Response(JSON.stringify({ error: "message is required" }), { status: 400, headers: CORS_HEADERS });
   }
