@@ -266,6 +266,18 @@ Deno.serve(async (req) => {
     .map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`)
     .join("\n\n");
 
+  const userMessageCount = messages.filter(m => m.role === "user").length;
+  const lastMessageRole = messages[messages.length - 1]?.role || "assistant";
+
+  function calcOutcome(cta, userMsgs) {
+    if (cta) return "CONVERTED";
+    if (userMsgs >= 3) return "ENGAGED";
+    if (userMsgs >= 1) return "DROPPED";
+    return "BOUNCED";
+  }
+
+  const conversationOutcome = calcOutcome(ctaReached, userMessageCount);
+
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
 
   if (existingConversation && existingConversation.length > 0) {
@@ -273,8 +285,9 @@ Deno.serve(async (req) => {
       conversationTranscript: cleanTranscript,
       intentClassification,
       ctaReached,
-      conversationTurns: messages.filter(m => m.role === "user").length,
-      lastMessageRole: messages[messages.length - 1]?.role || "assistant",
+      conversationTurns: userMessageCount,
+      lastMessageRole,
+      conversationOutcome,
     });
   } else {
     await base44.asServiceRole.entities.Conversations.create({
@@ -287,9 +300,9 @@ Deno.serve(async (req) => {
       conversationTranscript: cleanTranscript,
       ctaReached,
       language: language ?? "",
-      conversationTurns: 1,
-      lastMessageRole: "assistant",
-      conversationOutcome: "BOUNCED",
+      conversationTurns: userMessageCount,
+      lastMessageRole,
+      conversationOutcome,
     });
   }
 
