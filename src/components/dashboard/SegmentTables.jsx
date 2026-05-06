@@ -2,6 +2,21 @@ import { useMemo } from "react";
 
 const NAVY = "#103a77";
 
+function formatReferralSource(src) {
+  if (!src) return "direct";
+  try {
+    const url = src.startsWith("http") ? new URL(src) : null;
+    if (!url) return src;
+    const host = url.hostname.replace(/^www\./, "");
+    const path = url.pathname.replace(/\/$/, "");
+    // Show up to first two path segments
+    const segments = path.split("/").filter(Boolean).slice(0, 2);
+    return segments.length > 0 ? `${host}/${segments.join("/")}` : host;
+  } catch {
+    return src;
+  }
+}
+
 function SegmentTable({ title, data, columns }) {
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex-1 min-w-0">
@@ -63,7 +78,7 @@ export default function SegmentTables({ conversations }) {
     });
     return Object.entries(map)
       .map(([source, v]) => ({
-        source,
+        source: formatReferralSource(source),
         conversations: v.total,
         converted: v.converted,
         rate: `${v.total > 0 ? ((v.converted / v.total) * 100).toFixed(1) : 0}%`,

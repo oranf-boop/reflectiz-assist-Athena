@@ -253,11 +253,31 @@ Deno.serve(async (req) => {
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
+  // Build clean transcript: strip RAG block and visitor context injections
+  function cleanContent(content) {
+    if (content.startsWith("[RELEVANT WEBSITE CONTENT]") || content.startsWith("[Visitor")) {
+      // Strip everything up to and including the injected blocks, keep only actual user message
+      const parts = content.split("\n\n");
+      const clean = parts.filter(p => !p.startsWith("[RELEVANT WEBSITE CONTENT]") && !p.startsWith("[Visitor")).join("\n\n").trim();
+      return clean;
+    }
+    return content;
+  }
+
+  const cleanTranscript = messages
+    .map(m => {
+      const label = m.role === "user" ? "Visitor" : "Agent";
+      const text = cleanContent(m.content);
+      return text ? `${label}: ${text}` : null;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
 
   if (existingConversation && existingConversation.length > 0) {
     await base44.asServiceRole.entities.Conversations.update(existingConversation[0].id, {
-      conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
+      conversationTranscript: cleanTranscript,
       intentClassification,
       ctaReached,
       conversationTurns: messages.filter(m => m.role === "user").length,
@@ -271,7 +291,7 @@ Deno.serve(async (req) => {
       referralSource: referralSource ?? "",
       pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
       intentClassification,
-      conversationTranscript: messages.map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`).join("\n"),
+      conversationTranscript: cleanTranscript,
       ctaReached,
       language: language ?? "",
       conversationTurns: 1,

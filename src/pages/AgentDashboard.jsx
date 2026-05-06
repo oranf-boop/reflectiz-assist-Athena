@@ -14,12 +14,20 @@ const DATE_RANGES = [
 
 const NAVY = "#103a77";
 
+const INTERNAL_SOURCES = ["wp-admin", "lovable.dev", "base44.com", "localhost"];
+
+function isInternalSession(c) {
+  const src = c.referralSource || "";
+  return INTERNAL_SOURCES.some(s => src.includes(s));
+}
+
 export default function AgentDashboard() {
   const [conversations, setConversations] = useState([]);
   const [linkClickCount, setLinkClickCount] = useState(0);
   const [agentVersion, setAgentVersion] = useState("—");
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(30);
+  const [includeTraining, setIncludeTraining] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -45,13 +53,14 @@ export default function AgentDashboard() {
   }, []);
 
   const filteredConversations = useMemo(() => {
-    if (!range) return conversations;
-    const cutoff = subDays(new Date(), range);
+    const cutoff = range ? subDays(new Date(), range) : null;
     return conversations.filter(c => {
-      if (!c.timestamp) return false;
-      return parseISO(c.timestamp) >= cutoff;
+      if (isInternalSession(c)) return false;
+      if (!includeTraining && c.isTrainingData) return false;
+      if (cutoff && (!c.timestamp || parseISO(c.timestamp) < cutoff)) return false;
+      return true;
     });
-  }, [conversations, range]);
+  }, [conversations, range, includeTraining]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -61,21 +70,32 @@ export default function AgentDashboard() {
           <h1 className="text-xl font-bold" style={{ color: NAVY }}>Reflectiz Agent Dashboard</h1>
           <p className="text-xs text-slate-400 mt-0.5">Live performance data — updates in real time</p>
         </div>
-        <div className="flex gap-2">
-          {DATE_RANGES.map(({ label, days }) => (
-            <button
-              key={label}
-              onClick={() => setRange(days)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                range === days
-                  ? "text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-              style={range === days ? { backgroundColor: NAVY } : {}}
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+            <div
+              onClick={() => setIncludeTraining(v => !v)}
+              className={`w-8 h-4 rounded-full relative transition-colors cursor-pointer ${includeTraining ? "bg-blue-500" : "bg-slate-200"}`}
             >
-              {label}
-            </button>
-          ))}
+              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${includeTraining ? "translate-x-4" : "translate-x-0.5"}`} />
+            </div>
+            Include training data
+          </label>
+          <div className="flex gap-2">
+            {DATE_RANGES.map(({ label, days }) => (
+              <button
+                key={label}
+                onClick={() => setRange(days)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  range === days
+                    ? "text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+                style={range === days ? { backgroundColor: NAVY } : {}}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
