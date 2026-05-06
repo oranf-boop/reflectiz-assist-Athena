@@ -18,6 +18,7 @@ const INTERNAL_SOURCES = ["wp-admin", "lovable.dev", "base44.com", "localhost"];
 
 function isInternalSession(c) {
   const src = c.referralSource || "";
+  if (!src) return false; // empty referral = real visitor, keep it
   return INTERNAL_SOURCES.some(s => src.includes(s));
 }
 
@@ -107,6 +108,13 @@ export default function AgentDashboard() {
           </div>
         ) : (
           <>
+            <div className="mb-4 text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-4 py-2 inline-flex gap-4">
+              <span>Showing <strong>{filteredConversations.length}</strong> conversations</span>
+              <span>CONVERTED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "CONVERTED").length}</strong></span>
+              <span>ENGAGED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "ENGAGED").length}</strong></span>
+              <span>DROPPED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "DROPPED").length}</strong></span>
+              <span>BOUNCED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "BOUNCED").length}</strong></span>
+            </div>
             <KPICards
               conversations={filteredConversations}
               linkClicks={linkClickCount}

@@ -253,24 +253,17 @@ Deno.serve(async (req) => {
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
-  // Build clean transcript: strip RAG block and visitor context injections
-  function cleanContent(content) {
-    if (content.startsWith("[RELEVANT WEBSITE CONTENT]") || content.startsWith("[Visitor")) {
-      // Strip everything up to and including the injected blocks, keep only actual user message
-      const parts = content.split("\n\n");
-      const clean = parts.filter(p => !p.startsWith("[RELEVANT WEBSITE CONTENT]") && !p.startsWith("[Visitor")).join("\n\n").trim();
-      return clean;
-    }
-    return content;
+  // Build clean transcript: exclude any message that contains injected context blocks
+  function isCleanMessage(m) {
+    const c = m.content || "";
+    return !c.includes("[RELEVANT WEBSITE CONTENT]") &&
+           !c.includes("[Visitor language") &&
+           !c.includes("[Visitor geo");
   }
 
   const cleanTranscript = messages
-    .map(m => {
-      const label = m.role === "user" ? "Visitor" : "Agent";
-      const text = cleanContent(m.content);
-      return text ? `${label}: ${text}` : null;
-    })
-    .filter(Boolean)
+    .filter(isCleanMessage)
+    .map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`)
     .join("\n\n");
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
