@@ -87,10 +87,13 @@ function LeadCard({ conv }) {
             {conv.conversationTurns ?? 0} turns
           </div>
           <p className="text-slate-500 italic leading-relaxed" style={{ fontSize: 12 }}>
-            {conv.conversationTranscript
-              ? conv.conversationTranscript.slice(0, 150)
-              : "No transcript available"}
-            {conv.conversationTranscript && conv.conversationTranscript.length > 150 ? "…" : ""}
+            {(() => {
+              const DIRTY = ["[RELEVANT WEBSITE CONTENT]", "[Visitor language", "[Visitor geo", "[Current page"];
+              const lines = (conv.conversationTranscript || "").split("\n");
+              const clean = lines.find(l => l.trim().length > 0 && !DIRTY.some(d => l.includes(d)));
+              if (!clean) return "Conversation started — no transcript available.";
+              return clean.length > 150 ? clean.slice(0, 150) + "…" : clean;
+            })()}
           </p>
         </div>
 
@@ -150,7 +153,7 @@ export default function LeadsView({ conversations }) {
       <div className="mb-4">
         <h2 className="text-xl font-bold" style={{ color: NAVY }}>Active Leads</h2>
         <p className="text-sm text-slate-400 mt-0.5">
-          Conversations with 3 or more turns or a CTA offered — excluding test sessions
+          High-intent visitor conversations — updated in real time
         </p>
       </div>
       <div className="flex flex-col" style={{ gap: 8 }}>

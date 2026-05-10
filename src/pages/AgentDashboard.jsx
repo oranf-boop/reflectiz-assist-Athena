@@ -6,7 +6,6 @@ import KPICards from "@/components/dashboard/KPICards";
 import TrendCharts from "@/components/dashboard/TrendCharts";
 import SegmentTables from "@/components/dashboard/SegmentTables";
 import LeadsView from "@/components/dashboard/LeadsView";
-import RecentConversations from "@/components/dashboard/RecentConversations";
 
 const DATE_RANGES = [
   { label: "Last 7 days", days: 7 },
@@ -137,7 +136,7 @@ export default function AgentDashboard() {
               )}
             </div>
 
-            <RecentConversations conversations={filteredConversations} />
+
           </>
         )}
       </div>
