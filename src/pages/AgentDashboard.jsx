@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { subDays, parseISO } from "date-fns";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import KPICards from "@/components/dashboard/KPICards";
 import TrendCharts from "@/components/dashboard/TrendCharts";
 import SegmentTables from "@/components/dashboard/SegmentTables";
+import LeadsView from "@/components/dashboard/LeadsView";
 import RecentConversations from "@/components/dashboard/RecentConversations";
 
 const DATE_RANGES = [
@@ -30,6 +32,7 @@ export default function AgentDashboard() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(30);
   const [includeTraining, setIncludeTraining] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -107,13 +110,6 @@ export default function AgentDashboard() {
           </div>
         ) : (
           <>
-            <div className="mb-4 text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-4 py-2 inline-flex gap-4">
-              <span>Showing <strong>{filteredConversations.length}</strong> conversations</span>
-              <span>CONVERTED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "CONVERTED").length}</strong></span>
-              <span>ENGAGED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "ENGAGED").length}</strong></span>
-              <span>DROPPED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "DROPPED").length}</strong></span>
-              <span>BOUNCED: <strong>{filteredConversations.filter(c => c.conversationOutcome === "BOUNCED").length}</strong></span>
-            </div>
             <KPICards
               conversations={filteredConversations}
               linkClicks={linkClickCount}
@@ -121,7 +117,26 @@ export default function AgentDashboard() {
               agentVersion={agentVersion}
             />
             <TrendCharts conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
-            <SegmentTables conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
+            <LeadsView conversations={filteredConversations} />
+
+            {/* Collapsible Detailed Breakdown */}
+            <div className="mb-8">
+              <button
+                onClick={() => setBreakdownOpen(v => !v)}
+                className="flex items-center gap-2 w-full text-left px-4 py-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:bg-slate-50 transition-colors"
+              >
+                <span className="font-semibold text-sm" style={{ color: NAVY }}>Detailed Breakdown</span>
+                {breakdownOpen
+                  ? <ChevronUp className="w-4 h-4 text-slate-400 ml-auto" />
+                  : <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />}
+              </button>
+              {breakdownOpen && (
+                <div className="mt-4">
+                  <SegmentTables conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
+                </div>
+              )}
+            </div>
+
             <RecentConversations conversations={filteredConversations} />
           </>
         )}
