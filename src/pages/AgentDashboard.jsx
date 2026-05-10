@@ -116,7 +116,9 @@ export default function AgentDashboard() {
             </div>
             <KPICards
               conversations={filteredConversations}
+              linkClicks={linkClickCount}
               clickedSessionIds={clickedSessionIds}
+              agentVersion={agentVersion}
             />
             <TrendCharts conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
             <SegmentTables conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
