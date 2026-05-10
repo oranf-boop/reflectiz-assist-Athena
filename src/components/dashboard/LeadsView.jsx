@@ -88,11 +88,31 @@ function LeadCard({ conv }) {
           </div>
           <p className="text-slate-500 italic leading-relaxed" style={{ fontSize: 12 }}>
             {(() => {
-              const DIRTY = ["[RELEVANT WEBSITE CONTENT]", "[Visitor language", "[Visitor geo", "[Current page"];
+              function decodeHtml(str) {
+                return str
+                  .replace(/&#8211;/g, "–")
+                  .replace(/&#8217;/g, "\u2019")
+                  .replace(/&#8216;/g, "\u2018")
+                  .replace(/&#8220;/g, "\u201c")
+                  .replace(/&#8221;/g, "\u201d")
+                  .replace(/&amp;/g, "&")
+                  .replace(/&quot;/g, '"')
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")
+                  .replace(/&#\d+;/g, "");
+              }
               const lines = (conv.conversationTranscript || "").split("\n");
-              const clean = lines.find(l => l.trim().length > 0 && !DIRTY.some(d => l.includes(d)));
-              if (!clean) return "Conversation started — no transcript available.";
-              return clean.length > 150 ? clean.slice(0, 150) + "…" : clean;
+              const clean = lines.find(l => {
+                const t = l.trim();
+                if (t.length < 20) return false;
+                if (t.includes("&#")) return false;
+                if (/^(Page:|URL:|Type:|Content:)/.test(t)) return false;
+                if ((t.startsWith("Agent:") || t.startsWith("Visitor:")) && t.includes("[RELEVANT")) return false;
+                return t.startsWith("Agent:") || t.startsWith("Visitor:");
+              });
+              if (!clean) return "No conversation preview available";
+              const text = decodeHtml(clean.replace(/^(Agent:|Visitor:)\s*/, "").trim());
+              return text.length > 150 ? text.slice(0, 150) + "…" : text;
             })()}
           </p>
         </div>
@@ -143,6 +163,7 @@ export default function LeadsView({ conversations }) {
     .filter(c =>
       !c.isTrainingData &&
       !(c.referralSource || "").includes("wp-admin") &&
+      (c.conversationTurns >= 1) &&
       ((c.conversationTurns >= 3) || c.ctaReached)
     )
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
