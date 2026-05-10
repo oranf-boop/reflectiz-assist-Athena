@@ -1,17 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { subDays, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import KPICards from "@/components/dashboard/KPICards";
 import TrendCharts from "@/components/dashboard/TrendCharts";
 import SegmentTables from "@/components/dashboard/SegmentTables";
 import LeadsView from "@/components/dashboard/LeadsView";
-
-const DATE_RANGES = [
-  { label: "Last 7 days", days: 7 },
-  { label: "Last 30 days", days: 30 },
-  { label: "All time", days: null },
-];
+import DateFilter from "@/components/dashboard/DateFilter";
 
 const NAVY = "#103a77";
 
@@ -29,7 +24,7 @@ export default function AgentDashboard() {
   const [clickedSessionIds, setClickedSessionIds] = useState(new Set());
   const [agentVersion, setAgentVersion] = useState("—");
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState(30);
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [includeTraining, setIncludeTraining] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
 
@@ -55,14 +50,14 @@ export default function AgentDashboard() {
   }, []);
 
   const filteredConversations = useMemo(() => {
-    const cutoff = range ? subDays(new Date(), range) : null;
     return conversations.filter(c => {
       if (isInternalSession(c)) return false;
       if (!includeTraining && c.isTrainingData) return false;
-      if (cutoff && (!c.timestamp || parseISO(c.timestamp) < cutoff)) return false;
+      if (dateRange.from && (!c.timestamp || parseISO(c.timestamp) < dateRange.from)) return false;
+      if (dateRange.to && (!c.timestamp || parseISO(c.timestamp) > dateRange.to)) return false;
       return true;
     });
-  }, [conversations, range, includeTraining]);
+  }, [conversations, dateRange, includeTraining]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -82,22 +77,7 @@ export default function AgentDashboard() {
             </div>
             Include training data
           </label>
-          <div className="flex gap-2">
-            {DATE_RANGES.map(({ label, days }) => (
-              <button
-                key={label}
-                onClick={() => setRange(days)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  range === days
-                    ? "text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-                style={range === days ? { backgroundColor: NAVY } : {}}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <DateFilter onChange={setDateRange} />
         </div>
       </div>
 
