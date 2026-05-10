@@ -31,13 +31,15 @@ function InfoTooltip({ text }) {
   );
 }
 
-export default function KPICards({ conversations, linkClicks, agentVersion }) {
+export default function KPICards({ conversations, linkClicks, clickedSessionIds, agentVersion }) {
   const total = conversations.length;
-  const converted = conversations.filter(c => c.conversationOutcome === "CONVERTED").length;
-  const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : "0.0";
 
-  const ctaReached = conversations.filter(c => c.ctaReached).length;
-  const ctaRate = total > 0 ? ((ctaReached / total) * 100).toFixed(1) : "0.0";
+  // Conversion Rate = unique sessions with at least one link click
+  const clickedCount = conversations.filter(c => clickedSessionIds.has(c.sessionId)).length;
+  const conversionRate = total > 0 ? ((clickedCount / total) * 100).toFixed(1) : "0.0";
+
+  const ctaOffered = conversations.filter(c => c.ctaReached).length;
+  const ctaRate = total > 0 ? ((ctaOffered / total) * 100).toFixed(1) : "0.0";
 
   const ctaConvs = conversations.filter(c => c.ctaReached && c.conversationTurns);
   const avgTurns = ctaConvs.length > 0
@@ -46,15 +48,16 @@ export default function KPICards({ conversations, linkClicks, agentVersion }) {
 
   const cards = [
     { label: "Total Conversations", value: total.toLocaleString(), tooltip: "Total number of unique chat sessions initiated by visitors, excluding test and admin sessions." },
-    { label: "Conversion Rate", value: `${conversionRate}%`, tooltip: "Percentage of conversations where the visitor's outcome was marked as CONVERTED — meaning the agent offered a CTA and the visitor responded positively." },
-    { label: "CTA Reached Rate", value: `${ctaRate}%`, tooltip: "Percentage of conversations where the agent successfully introduced a call to action — a meeting link, free trial, or contact form — regardless of whether the visitor clicked it." },
+    { label: "Conversion Rate", value: `${conversionRate}%`, tooltip: "Percentage of conversations where the visitor actually clicked a link presented by the agent. This is the true engagement signal." },
+    { label: "CTA Offered Rate", value: `${ctaRate}%`, tooltip: "Percentage of conversations where the agent presented a meeting link or trial link to the visitor." },
     { label: "Avg Turns to CTA", value: avgTurns, tooltip: "Average number of back-and-forth exchanges before the agent introduced a CTA. Lower is better — target is 3 or fewer turns." },
     { label: "Total Link Clicks", value: linkClicks.toLocaleString(), tooltip: "Total number of times visitors clicked a link inside the chat window across all conversations." },
+    { label: "Click to Meeting Rate", value: "Coming Soon", tooltip: "Percentage of visitors who clicked a link and then appeared in the CRM as a lead. Currently tracked manually — will be automated in v2." },
     { label: "Active Agent Version", value: `v${agentVersion}`, tooltip: "The current version of the agent system prompt being used. Increments every Monday when the learning engine applies improvements." },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
       {cards.map((card) => (
         <div key={card.label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 flex flex-col items-center text-center">
           <span className="text-3xl font-bold" style={{ color: "#103a77" }}>{card.value}</span>

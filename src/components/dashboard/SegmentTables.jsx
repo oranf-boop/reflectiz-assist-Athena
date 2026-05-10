@@ -48,14 +48,14 @@ function SegmentTable({ title, data, columns }) {
   );
 }
 
-export default function SegmentTables({ conversations }) {
+export default function SegmentTables({ conversations, clickedSessionIds }) {
   const geoData = useMemo(() => {
     const map = {};
     conversations.forEach(c => {
       const key = c.geo || "Unknown";
       if (!map[key]) map[key] = { total: 0, converted: 0 };
       map[key].total++;
-      if (c.conversationOutcome === "CONVERTED") map[key].converted++;
+      if (clickedSessionIds.has(c.sessionId)) map[key].converted++;
     });
     return Object.entries(map)
       .map(([geo, v]) => ({
@@ -66,7 +66,7 @@ export default function SegmentTables({ conversations }) {
       }))
       .sort((a, b) => b.conversations - a.conversations)
       .slice(0, 10);
-  }, [conversations]);
+  }, [conversations, clickedSessionIds]);
 
   const referralData = useMemo(() => {
     const map = {};
@@ -74,7 +74,7 @@ export default function SegmentTables({ conversations }) {
       const key = c.referralSource || "direct";
       if (!map[key]) map[key] = { total: 0, converted: 0 };
       map[key].total++;
-      if (c.conversationOutcome === "CONVERTED") map[key].converted++;
+      if (clickedSessionIds.has(c.sessionId)) map[key].converted++;
     });
     return Object.entries(map)
       .map(([source, v]) => ({
@@ -85,7 +85,7 @@ export default function SegmentTables({ conversations }) {
       }))
       .sort((a, b) => b.conversations - a.conversations)
       .slice(0, 10);
-  }, [conversations]);
+  }, [conversations, clickedSessionIds]);
 
   const pageData = useMemo(() => {
     const map = {};

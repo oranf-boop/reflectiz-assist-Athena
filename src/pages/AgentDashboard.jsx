@@ -25,6 +25,7 @@ function isInternalSession(c) {
 export default function AgentDashboard() {
   const [conversations, setConversations] = useState([]);
   const [linkClickCount, setLinkClickCount] = useState(0);
+  const [clickedSessionIds, setClickedSessionIds] = useState(new Set());
   const [agentVersion, setAgentVersion] = useState("—");
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(30);
@@ -33,16 +34,14 @@ export default function AgentDashboard() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const [convs, clicks, configs] = await Promise.all([
+      const [convs, allClicks, configs] = await Promise.all([
         base44.entities.Conversations.list("-timestamp", 2000),
-        base44.entities.LinkClicks.list("-clickedAt", 1),
+        base44.entities.LinkClicks.list("-clickedAt", 5000),
         base44.entities.AgentConfig.list("-version", 50),
       ]);
       setConversations(convs || []);
-
-      // Get total link clicks count via a separate full list
-      const allClicks = await base44.entities.LinkClicks.list("-clickedAt", 5000);
       setLinkClickCount(allClicks.length);
+      setClickedSessionIds(new Set((allClicks || []).map(lc => lc.sessionId).filter(Boolean)));
 
       const maxVersion = configs && configs.length > 0
         ? Math.max(...configs.map(c => c.version || 0))
@@ -118,10 +117,11 @@ export default function AgentDashboard() {
             <KPICards
               conversations={filteredConversations}
               linkClicks={linkClickCount}
+              clickedSessionIds={clickedSessionIds}
               agentVersion={agentVersion}
             />
-            <TrendCharts conversations={filteredConversations} />
-            <SegmentTables conversations={filteredConversations} />
+            <TrendCharts conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
+            <SegmentTables conversations={filteredConversations} clickedSessionIds={clickedSessionIds} />
             <RecentConversations conversations={filteredConversations} />
           </>
         )}

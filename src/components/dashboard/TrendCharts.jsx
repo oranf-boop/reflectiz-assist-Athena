@@ -17,7 +17,7 @@ const INTENT_LABELS = {
 const NAVY = "#103a77";
 const ACCENT = "#4568ff";
 
-export default function TrendCharts({ conversations }) {
+export default function TrendCharts({ conversations, clickedSessionIds }) {
   const dailyData = useMemo(() => {
     const days = {};
     for (let i = 29; i >= 0; i--) {
@@ -29,14 +29,14 @@ export default function TrendCharts({ conversations }) {
       const d = format(parseISO(c.timestamp), "MM/dd");
       if (days[d]) {
         days[d].conversations++;
-        if (c.conversationOutcome === "CONVERTED") days[d].converted++;
+        if (clickedSessionIds.has(c.sessionId)) days[d].converted++;
       }
     });
     return Object.values(days).map(d => ({
       ...d,
       rate: d.conversations > 0 ? parseFloat(((d.converted / d.conversations) * 100).toFixed(1)) : 0,
     }));
-  }, [conversations]);
+  }, [conversations, clickedSessionIds]);
 
   const intentData = useMemo(() => {
     const map = {};
@@ -44,14 +44,14 @@ export default function TrendCharts({ conversations }) {
       const intent = c.intentClassification || "GENERAL_AWARENESS";
       if (!map[intent]) map[intent] = { total: 0, converted: 0 };
       map[intent].total++;
-      if (c.conversationOutcome === "CONVERTED") map[intent].converted++;
+      if (clickedSessionIds.has(c.sessionId)) map[intent].converted++;
     });
     return Object.entries(map).map(([intent, v]) => ({
       intent: INTENT_LABELS[intent] || intent,
       rate: v.total > 0 ? parseFloat(((v.converted / v.total) * 100).toFixed(1)) : 0,
       total: v.total,
     })).sort((a, b) => b.rate - a.rate);
-  }, [conversations]);
+  }, [conversations, clickedSessionIds]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
