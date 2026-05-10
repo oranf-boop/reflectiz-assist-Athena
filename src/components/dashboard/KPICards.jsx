@@ -48,8 +48,8 @@ export default function KPICards({ conversations, linkClicks, clickedSessionIds,
 
   const cards = [
     { label: "Total Conversations", value: total.toLocaleString(), tooltip: "Total number of unique chat sessions initiated by visitors, excluding test and admin sessions." },
-    { label: "Conversion Rate", value: `${conversionRate}%`, tooltip: "Percentage of conversations where the visitor actually clicked a link presented by the agent. This is the true engagement signal." },
     { label: "CTA Offered Rate", value: `${ctaRate}%`, tooltip: "Percentage of conversations where the agent presented a meeting link or trial link to the visitor." },
+    { label: "Conversion Rate", value: `${conversionRate}%`, tooltip: "Percentage of conversations where the visitor actually clicked a link presented by the agent. This is the true engagement signal." },
     { label: "Avg Turns to CTA", value: avgTurns, tooltip: "Average number of back-and-forth exchanges before the agent introduced a CTA. Lower is better — target is 3 or fewer turns." },
     { label: "Total Link Clicks", value: linkClicks.toLocaleString(), tooltip: "Total number of times visitors clicked a link inside the chat window across all conversations." },
   ];
