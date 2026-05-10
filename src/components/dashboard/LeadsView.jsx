@@ -53,6 +53,63 @@ function cleanDomain(src) {
   }
 }
 
+const SKIP_PATTERNS = [
+  "[RELEVANT WEBSITE CONTENT]",
+  "[Visitor geo",
+  "[Visitor language",
+  "[Current page",
+  "Page:",
+  "URL:",
+  "Type:",
+  "Content:",
+  "&#",
+];
+
+function parseTranscript(transcript) {
+  if (!transcript) return [];
+  return transcript
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.startsWith("Agent:") || l.startsWith("Visitor:"))
+    .filter(l => !SKIP_PATTERNS.some(p => l.includes(p)))
+    .map(l => {
+      const isAgent = l.startsWith("Agent:");
+      const text = l.replace(/^(Agent:|Visitor:)\s*/, "").trim();
+      return { role: isAgent ? "agent" : "visitor", text };
+    })
+    .filter(m => m.text.length > 0);
+}
+
+function TranscriptBubbles({ transcript }) {
+  const messages = parseTranscript(transcript);
+  if (messages.length === 0) return <p className="text-xs text-slate-400 italic">No transcript available.</p>;
+
+  return (
+    <div className="flex flex-col max-h-80 overflow-y-auto pr-1" style={{ gap: 8 }}>
+      {messages.map((msg, i) => (
+        <div key={i} className={`flex flex-col ${msg.role === "visitor" ? "items-end" : "items-start"}`}>
+          <span className="text-xs font-semibold mb-1" style={{ color: msg.role === "agent" ? NAVY : "#94a3b8" }}>
+            {msg.role === "agent" ? "Agent" : "Visitor"}
+          </span>
+          <div
+            style={{
+              backgroundColor: msg.role === "agent" ? "#edf0f2" : NAVY,
+              color: msg.role === "agent" ? "#1e293b" : "#ffffff",
+              borderRadius: 8,
+              padding: "10px 12px",
+              maxWidth: "85%",
+              fontSize: 12,
+              lineHeight: "1.5",
+            }}
+          >
+            {msg.text}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LeadCard({ conv }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -149,9 +206,7 @@ function LeadCard({ conv }) {
 
       {expanded && (
         <div className="mt-4 pt-4 border-t border-slate-100">
-          <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed max-h-72 overflow-y-auto">
-            {conv.conversationTranscript || "(no transcript)"}
-          </pre>
+          <TranscriptBubbles transcript={conv.conversationTranscript} />
         </div>
       )}
     </div>
@@ -163,8 +218,11 @@ export default function LeadsView({ conversations }) {
     .filter(c =>
       !c.isTrainingData &&
       !(c.referralSource || "").includes("wp-admin") &&
-      (c.conversationTurns >= 1) &&
-      ((c.conversationTurns >= 3) || c.ctaReached)
+      (
+        (c.conversationTurns >= 3) ||
+        (c.linksClicked >= 1) ||
+        (c.ctaReached && c.conversationTurns >= 2)
+      )
     )
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .slice(0, 30);
