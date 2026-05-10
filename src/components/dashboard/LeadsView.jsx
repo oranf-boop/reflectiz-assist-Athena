@@ -219,9 +219,9 @@ export default function LeadsView({ conversations }) {
       !c.isTrainingData &&
       !(c.referralSource || "").includes("wp-admin") &&
       (
-        (c.conversationTurns >= 3) ||
+        (c.conversationTurns >= 2) ||
         (c.linksClicked >= 1) ||
-        (c.ctaReached && c.conversationTurns >= 2)
+        (c.ctaReached && c.conversationTurns >= 1)
       )
     )
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
