@@ -115,7 +115,7 @@ function formatRetrievedPages(pages) {
     `Page: ${p.pageTitle || "(no title)"}
 URL: ${p.pageUrl}
 Type: ${p.pageType || "other"}
-Content: ${(p.pageContent || "").slice(0, 500)}
+Content: ${(p.pageContent || "").slice(0, 300)}
 ---`
   );
   return `[RELEVANT WEBSITE CONTENT]
@@ -247,10 +247,13 @@ Deno.serve(async (req) => {
 
   messages.push({ role: "assistant", content: reply });
 
-  // Classify intent and save conversation in parallel
-  const [intentClassification] = await Promise.all([
-    classifyIntent(client, messages),
-  ]);
+  const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
+  const userMessageCount = messages.filter(m => m.role === "user").length;
+
+  const shouldClassify = userMessageCount % 3 === 1;
+  const intentClassification = shouldClassify
+    ? await classifyIntent(client, messages)
+    : (existingConversation?.[0]?.intentClassification ?? "GENERAL_AWARENESS");
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
@@ -267,7 +270,6 @@ Deno.serve(async (req) => {
     .map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`)
     .join("\n\n");
 
-  const userMessageCount = messages.filter(m => m.role === "user").length;
   const lastMessageRole = messages[messages.length - 1]?.role || "assistant";
 
   function calcOutcome(cta, userMsgs) {
@@ -278,8 +280,6 @@ Deno.serve(async (req) => {
   }
 
   const conversationOutcome = calcOutcome(ctaReached, userMessageCount);
-
-  const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
 
   if (existingConversation && existingConversation.length > 0) {
     await base44.asServiceRole.entities.Conversations.update(existingConversation[0].id, {

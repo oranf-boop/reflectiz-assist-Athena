@@ -188,7 +188,7 @@ async function callAgent(systemPrompt, messages, userMessage, persona) {
   const allMessages = [...messages, { role: "user", content: fullUserContent }];
 
   const response = await claudeWithRetry(() => anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 256,
     system: systemPrompt,
     messages: allMessages,
@@ -200,7 +200,7 @@ async function generateVisitorMessage(persona, agentMessage) {
   await sleep(3000);
   const prompt = "You are roleplaying as a website visitor.\nPersonality: " + persona.personality + "\nConcern: " + persona.concern + "\nBuy score: " + persona.buyScore + "/10\nAgent said: " + agentMessage + "\nReply in ONE sentence matching your personality. BOUNCER: just say 'ok'. Only the visitor message, nothing else.";
   const response = await claudeWithRetry(() => anthropic.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 100,
     messages: [{ role: "user", content: prompt }],
   }));
