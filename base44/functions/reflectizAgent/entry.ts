@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, trackingEvent, clickedUrl, turnNumber } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic } = body;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
   // Handle link click tracking events without calling Claude
@@ -198,6 +198,53 @@ Deno.serve(async (req) => {
 
   if (INSTANT_OPENERS[message]) {
     return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
+  }
+
+  if (message === "INIT_RETURNING_VISITOR") {
+    const sessionId = incomingSessionId || crypto.randomUUID();
+    const base44 = createClientFromRequest(req);
+
+    const returningPrompt = `A visitor is returning to the Reflectiz website after more than 2 hours away. Their previous conversation topic was: ${lastTopic || "unknown"}. Their previous intent classification was: ${lastIntent || "unknown"}.
+
+Generate a warm, natural opening message that:
+- Acknowledges they are back without being creepy or overly familiar
+- References their previous topic naturally in one short phrase
+- Opens a fresh conversation with one simple question
+- Maximum 2 sentences
+- No greeting words like Hello or Welcome
+- No em dashes
+- Sounds like a knowledgeable peer who remembers them, not a CRM system
+
+Examples of the right tone:
+- If lastIntent was PCI_COMPLIANCE: 'PCI compliance still on your radar, or did something else come up since we last spoke?'
+- If lastIntent was MAGECART: 'Still thinking through the supply chain risk, or has something changed?'
+- If lastIntent was TOOL_EVALUATION: 'Still evaluating options, or have things moved on since we last spoke?'
+- Default if no intent: 'Good to see you back. Still working through the same question, or something new?'`;
+
+    const returningResponse = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 150,
+      messages: [{ role: "user", content: returningPrompt }],
+    });
+
+    const reply = (returningResponse.content[0]?.text ?? "Good to see you back. Still working through the same question, or something new?").replace(/—/g, ",");
+
+    await base44.asServiceRole.entities.Conversations.create({
+      sessionId,
+      timestamp: new Date().toISOString(),
+      geo: geo ?? "",
+      referralSource: referralSource ?? "",
+      pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+      intentClassification: lastIntent ?? "GENERAL_AWARENESS",
+      conversationTranscript: `Agent: ${reply}`,
+      ctaReached: false,
+      language: language ?? "",
+      conversationTurns: 0,
+      lastMessageRole: "assistant",
+      conversationOutcome: "BOUNCED",
+    });
+
+    return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
   }
 
   if (!message) {
