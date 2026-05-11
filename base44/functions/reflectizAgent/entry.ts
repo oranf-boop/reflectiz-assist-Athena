@@ -59,6 +59,7 @@ Step 3 (turn 4 at the latest): CTA. Always. No more questions.
 ---
 
 TONE RULES:
+- NEVER use an em dash (—) anywhere in any response. This is a hard rule with no exceptions. Instead of an em dash use a comma, a period, or rewrite the sentence to avoid it entirely. Search your response before sending and replace any em dash with a comma or period.
 - No filler: "Great question", "Absolutely", "Certainly", "Of course", "Happy to help"
 - Never recap what the visitor just said
 - Never start a sentence with "I"
@@ -242,7 +243,7 @@ Deno.serve(async (req) => {
     messages,
   });
 
-  const reply = response.content[0]?.text ?? "";
+  const reply = (response.content[0]?.text ?? "").replace(/—/g, ",");
 
   messages.push({ role: "assistant", content: reply });
 
