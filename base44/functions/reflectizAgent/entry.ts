@@ -186,6 +186,19 @@ Deno.serve(async (req) => {
     }
 
     await Promise.all(updateTasks);
+
+    // Fire-and-forget Slack alert for high-intent link clicks
+    const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
+    const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
+    if (isHighIntent && existing) {
+      const updatedConv = { ...existing, linksClicked: (existing.linksClicked || 0) + 1, clickedUrl };
+      fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+        body: JSON.stringify(updatedConv),
+      }).catch(() => {});
+    }
+
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
@@ -352,6 +365,25 @@ Examples of the right tone:
       lastMessageRole,
       conversationOutcome,
     });
+  }
+
+  // Fire-and-forget Slack alert for deep engagement (turns >= 4 and CTA reached)
+  if (userMessageCount >= 4 && ctaReached) {
+    fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+      body: JSON.stringify({
+        sessionId,
+        geo: geo ?? "",
+        intentClassification,
+        conversationTurns: userMessageCount,
+        ctaReached,
+        linksClicked: existingConversation?.[0]?.linksClicked ?? 0,
+        referralSource: referralSource ?? "",
+        conversationTranscript: cleanTranscript,
+        clickedUrl: "",
+      }),
+    }).catch(() => {});
   }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
