@@ -95,8 +95,10 @@ async function processEvent(base44, event) {
   }
 
   // Build date filter from queryPlan.days
-  const days = queryPlan.days || 30;
+  const days = Number(queryPlan.days) || 30;
+  console.log("queryPlan.days:", queryPlan.days, "-> using days:", days);
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  console.log("Filtering conversations since:", since);
 
   let records = [];
   try {
@@ -115,14 +117,14 @@ async function processEvent(base44, event) {
 
   const answerPrompt = `You are a helpful data analyst for Reflectiz. Answer this question: ${question}
 
-Filtered data (${records.length} conversations matched): ${JSON.stringify(records).slice(0, 8000)}
+Filtered data (${records.length} conversations matched, last ${days} days): ${JSON.stringify(records).slice(0, 8000)}
 
-Provide a clear, concise answer in Slack-friendly formatting. Use bullet points for lists. Keep it under 300 words. Include specific numbers. End with one actionable insight if relevant.`;
+Format your response for Slack. Use *bold* with single asterisks only. Use - for bullet points. No markdown headers. Keep it under 200 words. Include specific numbers. End with "Insight: [one sentence]"`;
 
   let answer;
   try {
     const answerResponse = await callGemini({
-      max_tokens: 600,
+      max_tokens: 1024,
       messages: [{ role: "user", content: answerPrompt }],
     });
     answer = (answerResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? answerResponse.content?.[0]?.text ?? "No answer generated.").trim();
