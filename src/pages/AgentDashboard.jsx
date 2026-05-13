@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { parseISO } from "date-fns";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import KPICards from "@/components/dashboard/KPICards";
 import TrendCharts from "@/components/dashboard/TrendCharts";
 import SegmentTables from "@/components/dashboard/SegmentTables";
@@ -19,6 +20,7 @@ function isInternalSession(c) {
 }
 
 export default function AgentDashboard() {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState([]);
   const [linkClickCount, setLinkClickCount] = useState(0);
   const [clickedSessionIds, setClickedSessionIds] = useState(new Set());
@@ -27,27 +29,40 @@ export default function AgentDashboard() {
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [includeTraining, setIncludeTraining] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [learningCycleRunning, setLearningCycleRunning] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const [convs, allClicks, configs] = await Promise.all([
-        base44.entities.Conversations.list("-timestamp", 2000),
-        base44.entities.LinkClicks.list("-clickedAt", 5000),
-        base44.entities.AgentConfig.list("-version", 50),
-      ]);
-      setConversations(convs || []);
-      setLinkClickCount(allClicks.length);
-      setClickedSessionIds(new Set((allClicks || []).map(lc => lc.sessionId).filter(Boolean)));
+  async function loadData() {
+    setLoading(true);
+    const [convs, allClicks, configs] = await Promise.all([
+      base44.entities.Conversations.list("-timestamp", 2000),
+      base44.entities.LinkClicks.list("-clickedAt", 5000),
+      base44.entities.AgentConfig.list("-version", 50),
+    ]);
+    setConversations(convs || []);
+    setLinkClickCount(allClicks.length);
+    setClickedSessionIds(new Set((allClicks || []).map(lc => lc.sessionId).filter(Boolean)));
+    const maxVersion = configs && configs.length > 0
+      ? Math.max(...configs.map(c => c.version || 0))
+      : "—";
+    setAgentVersion(maxVersion);
+    setLoading(false);
+  }
 
-      const maxVersion = configs && configs.length > 0
-        ? Math.max(...configs.map(c => c.version || 0))
-        : "—";
-      setAgentVersion(maxVersion);
-      setLoading(false);
+  useEffect(() => { loadData(); }, []);
+
+  async function runLearningCycle() {
+    setLearningCycleRunning(true);
+    try {
+      await base44.functions.invoke("analyzeAndLearn", {});
+      await base44.functions.invoke("applyLearning", {});
+      toast({ title: "Learning cycle complete. Agent updated." });
+      await loadData();
+    } catch {
+      toast({ title: "Learning cycle failed. Check logs.", variant: "destructive" });
+    } finally {
+      setLearningCycleRunning(false);
     }
-    loadData();
-  }, []);
+  }
 
   const filteredConversations = useMemo(() => {
     return conversations.filter(c => {
@@ -78,6 +93,15 @@ export default function AgentDashboard() {
             Include training data
           </label>
           <DateFilter onChange={setDateRange} />
+          <button
+            onClick={runLearningCycle}
+            disabled={learningCycleRunning}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: "#4568ff" }}
+          >
+            <RefreshCw className={`w-4 h-4 ${learningCycleRunning ? "animate-spin" : ""}`} />
+            {learningCycleRunning ? "Running..." : "Run Learning Cycle"}
+          </button>
         </div>
       </div>
 
