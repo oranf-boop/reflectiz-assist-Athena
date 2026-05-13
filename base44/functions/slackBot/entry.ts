@@ -1,8 +1,25 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-east5";
 const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN");
+
+async function getVertexClient() {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const tokenResponse = await jwt.getAccessToken();
+  return new Anthropic({
+    apiKey: tokenResponse.token,
+    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
+    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  });
+}
 
 const QUERY_PLANNER_PROMPT = `You are a data analyst for Reflectiz, a B2B cybersecurity company. You have access to conversation data from the Reflectiz website chat agent. When asked a question, generate a Base44 database query plan to answer it.
 
@@ -41,7 +58,8 @@ async function processEvent(base44, event) {
     return;
   }
 
-  // STEP 3: Ask Claude to generate a query plan
+  const anthropic = await getVertexClient();
+
   let queryPlan;
   try {
     const planResponse = await anthropic.messages.create({
@@ -57,7 +75,6 @@ async function processEvent(base44, event) {
     return;
   }
 
-  // STEP 4: Fetch records from Base44
   let records = [];
   try {
     const entity = base44.asServiceRole.entities[queryPlan.entity];
@@ -75,7 +92,6 @@ async function processEvent(base44, event) {
     return;
   }
 
-  // STEP 5: Ask Claude to generate the answer
   const answerPrompt = `You are a helpful data analyst for Reflectiz. Here is the data that was retrieved to answer this question: ${question}
 
 Data: ${JSON.stringify(records).slice(0, 8000)}
@@ -95,7 +111,6 @@ Provide a clear, concise answer in Slack-friendly formatting. Use bullet points 
     return;
   }
 
-  // STEP 6: Post answer back to Slack
   await postToSlack(channel, answer);
 }
 
@@ -112,7 +127,7 @@ Deno.serve(async (req) => {
 
   const body = await req.json();
 
-  // STEP 1: Handle Slack URL verification challenge — must be first
+  // Handle Slack URL verification challenge — must be first
   if (body.type === "url_verification") {
     return new Response(body.challenge, {
       status: 200,
@@ -120,11 +135,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  // STEP 7: Return 200 immediately, process asynchronously
   const event = body.event;
   if (event?.type === "app_mention") {
     const base44 = createClientFromRequest(req);
-    // Fire and forget
     processEvent(base44, event).catch(console.error);
   }
 

@@ -1,7 +1,24 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-east5";
+
+async function getVertexClient() {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const tokenResponse = await jwt.getAccessToken();
+  return new Anthropic({
+    apiKey: tokenResponse.token,
+    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
+    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  });
+}
 
 function mostCommon(arr) {
   if (!arr.length) return null;
@@ -31,13 +48,11 @@ function extractPatterns(conversations) {
 }
 
 function analyzeClickData(clicks, conversations) {
-  // Build a map of sessionId -> conversation for quick lookup
   const convMap = {};
   for (const c of conversations) convMap[c.sessionId] = c;
 
-  // URL click frequency
   const urlFreq = {};
-  const urlByOutcome = {}; // url -> { converted: 0, dropped: 0 }
+  const urlByOutcome = {};
   const turnFreq = {};
   const contentTypeFreq = {};
   const segmentFreq = { geo: {}, referralSource: {}, intentClassification: {} };
@@ -48,10 +63,8 @@ function analyzeClickData(clicks, conversations) {
     const outcome = conv?.conversationOutcome ?? "unknown";
     const turn = click.turnNumber ?? 0;
 
-    // URL frequency
     urlFreq[url] = (urlFreq[url] || 0) + 1;
 
-    // URL by outcome
     if (!urlByOutcome[url]) urlByOutcome[url] = { converted: 0, dropped: 0 };
     if (outcome === "CONVERTED" || (outcome === "ENGAGED" && (conv?.conversationTurns || 0) >= 3)) {
       urlByOutcome[url].converted++;
@@ -59,10 +72,8 @@ function analyzeClickData(clicks, conversations) {
       urlByOutcome[url].dropped++;
     }
 
-    // Turn frequency
     turnFreq[turn] = (turnFreq[turn] || 0) + 1;
 
-    // Content type from URL
     let contentType = "other";
     if (url.includes("/blog/")) contentType = "blog";
     else if (url.includes("/case-study/") || url.includes("/customers/")) contentType = "case-study";
@@ -71,7 +82,6 @@ function analyzeClickData(clicks, conversations) {
     else if (url.includes("/vs-") || url.includes("/compare")) contentType = "comparison";
     contentTypeFreq[contentType] = (contentTypeFreq[contentType] || 0) + 1;
 
-    // Segment frequency
     if (conv) {
       for (const seg of ["geo", "referralSource", "intentClassification"]) {
         const val = conv[seg] || "unknown";
@@ -101,7 +111,8 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
-  // STEP 1: Fetch conversations and link clicks from last 7 days in parallel
+  const anthropic = await getVertexClient();
+
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [allConversations, allClicks] = await Promise.all([
@@ -120,12 +131,10 @@ Deno.serve(async (req) => {
     c.conversationOutcome === "DROPPED" || c.conversationOutcome === "BOUNCED"
   );
 
-  // STEP 2: Extract conversation patterns + click data
   const winnerPatterns = extractPatterns(winners);
   const loserPatterns = extractPatterns(losers);
   const clickData = analyzeClickData(recentClicks, recent);
 
-  // STEP 3: Run both analyses in parallel
   const [conversationResponse, contentResponse] = await Promise.all([
     anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -191,12 +200,10 @@ Provide a concise summary covering:
   const analysisText = conversationResponse.content[0]?.text ?? "";
   const contentPerformance = contentResponse.content[0]?.text ?? "";
 
-  // Extract confidence score
   const scoreMatch = analysisText.match(/confidence[^0-9]*([0-9]+)\s*(?:\/\s*10)?/i) ||
                      analysisText.match(/([0-9]+)\s*\/\s*10/);
   const confidenceScore = scoreMatch ? Math.min(10, Math.max(1, parseInt(scoreMatch[1]))) : 5;
 
-  // Split analysis into sections
   const successMatch = analysisText.match(/(?:1\.|reasons.*succeeded)([\s\S]*?)(?:2\.|reasons.*fail)/i);
   const failureMatch = analysisText.match(/(?:2\.|reasons.*fail)([\s\S]*?)(?:3\.|suggested.*opening)/i);
   const suggestedMatch = analysisText.match(/(?:3\.|suggested.*opening)([\s\S]*?)(?:6\.|confidence)/i);
@@ -212,7 +219,6 @@ Provide a concise summary covering:
   const today = new Date().toISOString().split("T")[0];
   const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  // STEP 4: Save report
   const report = await base44.asServiceRole.entities.LearningReports.create({
     reportDate: today,
     weekStartDate: weekStart,
@@ -228,7 +234,6 @@ Provide a concise summary covering:
     contentPerformance,
   });
 
-  // STEP 5: Return full report
   return Response.json({
     report,
     fullAnalysis: analysisText,

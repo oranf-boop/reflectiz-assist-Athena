@@ -1,5 +1,24 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
+
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-east5";
+
+async function getVertexClient() {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const tokenResponse = await jwt.getAccessToken();
+  return new Anthropic({
+    apiKey: tokenResponse.token,
+    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
+    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  });
+}
 
 const BASELINE_SYSTEM_PROMPT = `LANGUAGE — OVERRIDES EVERYTHING:
 Always respond in the language specified in the visitor context. fr → French. de → German. es → Spanish. it → Italian. All others → English. Check this before writing a single word.
@@ -66,8 +85,6 @@ TONE RULES:
 - Plain prose only — no markdown, bullets, or headers in responses
 - Off-topic inputs: one sentence redirect — "What actually brought you here today?"`;
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
-
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me().catch(() => null);
@@ -77,7 +94,8 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
-  // STEP 1: Fetch latest actionable LearningReport
+  const anthropic = await getVertexClient();
+
   const reports = await base44.asServiceRole.entities.LearningReports.list("-reportDate", 50);
   const report = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
 
@@ -85,7 +103,6 @@ Deno.serve(async (req) => {
     return Response.json({ message: "No actionable report available yet." });
   }
 
-  // STEP 2: Fetch or initialize AgentConfig
   const configs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
   let currentConfig = configs[0] || null;
 
@@ -102,7 +119,6 @@ Deno.serve(async (req) => {
   const currentPrompt = currentConfig.systemPrompt;
   const nextVersion = (currentConfig.version || 1) + 1;
 
-  // STEP 3: Ask Claude to generate improved prompt
   const optimizationPrompt = `You are optimizing a B2B website chat agent system prompt for Reflectiz, a cybersecurity company. Your goal is to improve conversion rates by applying learnings from real conversation data.
 
 Here is the current system prompt:
@@ -134,7 +150,6 @@ Return only the full improved system prompt text, nothing else.`;
 
   const improvedPrompt = response.content[0]?.text?.trim() ?? currentPrompt;
 
-  // Validate generated prompt before saving
   const MIN_PROMPT_LENGTH = 500;
   const hasRequiredSections = improvedPrompt.includes("LANGUAGE") && improvedPrompt.includes("ROLE");
 
@@ -145,7 +160,6 @@ Return only the full improved system prompt text, nothing else.`;
     });
   }
 
-  // STEP 4: Save new AgentConfig version + mark report as applied
   const today = new Date().toISOString().split("T")[0];
 
   const [newConfig] = await Promise.all([
@@ -159,7 +173,6 @@ Return only the full improved system prompt text, nothing else.`;
     base44.asServiceRole.entities.LearningReports.update(report.id, { appliedToAgent: true }),
   ]);
 
-  // STEP 6: Return summary
   return Response.json({
     updatedToVersion: nextVersion,
     reportApplied: report.reportDate,

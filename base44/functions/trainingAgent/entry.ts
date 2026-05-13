@@ -1,7 +1,24 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-east5";
+
+async function getVertexClient() {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const tokenResponse = await jwt.getAccessToken();
+  return new Anthropic({
+    apiKey: tokenResponse.token,
+    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
+    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  });
+}
 
 const TRAINING_SYSTEM_PROMPT = `Respond in visitor's language (fr for France/Belgium/Switzerland, de for Germany/Austria, es for Spain/Latin America, it for Italy, en otherwise).
 
@@ -23,135 +40,23 @@ CTA: "Want to see what this looks like for your setup? No commitment, just visib
 MAX 4 turns total. Offer CTA by turn 4 regardless.`;
 
 const PERSONAS = [
-  {
-    name: "Marie Dubois",
-    geo: "France",
-    language: "fr",
-    referralSource: "organic",
-    landingPage: "/blog/pci-dss-compliance",
-    pagesViewed: ["/blog/pci-dss-compliance", "/plans"],
-    personality: "HIGH_INTENT",
-    concern: "PCI_COMPLIANCE",
-    buyScore: 8,
-  },
-  {
-    name: "James Mitchell",
-    geo: "United States",
-    language: "en",
-    referralSource: "competitor-campaign",
-    landingPage: "/reflectiz-vs-source-defense",
-    pagesViewed: ["/reflectiz-vs-source-defense", "/product"],
-    personality: "EVALUATOR",
-    concern: "TOOL_EVALUATION",
-    buyScore: 7,
-  },
-  {
-    name: "Sarah Chen",
-    geo: "United Kingdom",
-    language: "en",
-    referralSource: "organic",
-    landingPage: "/blog/magecart-attack",
-    pagesViewed: ["/blog/magecart-attack"],
-    personality: "CURIOUS",
-    concern: "MAGECART",
-    buyScore: 5,
-  },
-  {
-    name: "Klaus Weber",
-    geo: "Germany",
-    language: "de",
-    referralSource: "organic",
-    landingPage: "/blog/gdpr-pixel-tracking",
-    pagesViewed: ["/blog/gdpr-pixel-tracking", "/use-cases/privacy"],
-    personality: "RESEARCHER",
-    concern: "PRIVACY_GDPR",
-    buyScore: 4,
-  },
-  {
-    name: "Yossi Ben-David",
-    geo: "Israel",
-    language: "en",
-    referralSource: "direct",
-    landingPage: "/product",
-    pagesViewed: ["/product", "/customers"],
-    personality: "HIGH_INTENT",
-    concern: "TOOL_EVALUATION",
-    buyScore: 9,
-  },
-  {
-    name: "Carlos Ruiz",
-    geo: "Spain",
-    language: "es",
-    referralSource: "organic",
-    landingPage: "/use-cases/magecart-prevention",
-    pagesViewed: ["/use-cases/magecart-prevention"],
-    personality: "CURIOUS",
-    concern: "MAGECART",
-    buyScore: 6,
-  },
-  {
-    name: "Mike Davidson",
-    geo: "United States",
-    language: "en",
-    referralSource: "organic",
-    landingPage: "/blog/supply-chain-attacks",
-    pagesViewed: ["/blog/supply-chain-attacks"],
-    personality: "SKEPTICAL",
-    concern: "SUPPLY_CHAIN",
-    buyScore: 3,
-  },
-  {
-    name: "Emma van der Berg",
-    geo: "Netherlands",
-    language: "en",
-    referralSource: "organic",
-    landingPage: "/blog/pci-dss-compliance",
-    pagesViewed: ["/blog/pci-dss-compliance", "/use-cases/pci-compliance"],
-    personality: "HIGH_INTENT",
-    concern: "PCI_COMPLIANCE",
-    buyScore: 8,
-  },
-  {
-    name: "Tom Reynolds",
-    geo: "Australia",
-    language: "en",
-    referralSource: "organic",
-    landingPage: "/",
-    pagesViewed: ["/"],
-    personality: "RESEARCHER",
-    concern: "GENERAL_AWARENESS",
-    buyScore: 4,
-  },
-  {
-    name: "Anonymous",
-    geo: "United States",
-    language: "en",
-    referralSource: "organic",
-    landingPage: "/",
-    pagesViewed: ["/"],
-    personality: "BOUNCER",
-    concern: "GENERAL_AWARENESS",
-    buyScore: 1,
-  },
+  { name: "Marie Dubois", geo: "France", language: "fr", referralSource: "organic", landingPage: "/blog/pci-dss-compliance", pagesViewed: ["/blog/pci-dss-compliance", "/plans"], personality: "HIGH_INTENT", concern: "PCI_COMPLIANCE", buyScore: 8 },
+  { name: "James Mitchell", geo: "United States", language: "en", referralSource: "competitor-campaign", landingPage: "/reflectiz-vs-source-defense", pagesViewed: ["/reflectiz-vs-source-defense", "/product"], personality: "EVALUATOR", concern: "TOOL_EVALUATION", buyScore: 7 },
+  { name: "Sarah Chen", geo: "United Kingdom", language: "en", referralSource: "organic", landingPage: "/blog/magecart-attack", pagesViewed: ["/blog/magecart-attack"], personality: "CURIOUS", concern: "MAGECART", buyScore: 5 },
+  { name: "Klaus Weber", geo: "Germany", language: "de", referralSource: "organic", landingPage: "/blog/gdpr-pixel-tracking", pagesViewed: ["/blog/gdpr-pixel-tracking", "/use-cases/privacy"], personality: "RESEARCHER", concern: "PRIVACY_GDPR", buyScore: 4 },
+  { name: "Yossi Ben-David", geo: "Israel", language: "en", referralSource: "direct", landingPage: "/product", pagesViewed: ["/product", "/customers"], personality: "HIGH_INTENT", concern: "TOOL_EVALUATION", buyScore: 9 },
+  { name: "Carlos Ruiz", geo: "Spain", language: "es", referralSource: "organic", landingPage: "/use-cases/magecart-prevention", pagesViewed: ["/use-cases/magecart-prevention"], personality: "CURIOUS", concern: "MAGECART", buyScore: 6 },
+  { name: "Mike Davidson", geo: "United States", language: "en", referralSource: "organic", landingPage: "/blog/supply-chain-attacks", pagesViewed: ["/blog/supply-chain-attacks"], personality: "SKEPTICAL", concern: "SUPPLY_CHAIN", buyScore: 3 },
+  { name: "Emma van der Berg", geo: "Netherlands", language: "en", referralSource: "organic", landingPage: "/blog/pci-dss-compliance", pagesViewed: ["/blog/pci-dss-compliance", "/use-cases/pci-compliance"], personality: "HIGH_INTENT", concern: "PCI_COMPLIANCE", buyScore: 8 },
+  { name: "Tom Reynolds", geo: "Australia", language: "en", referralSource: "organic", landingPage: "/", pagesViewed: ["/"], personality: "RESEARCHER", concern: "GENERAL_AWARENESS", buyScore: 4 },
+  { name: "Anonymous", geo: "United States", language: "en", referralSource: "organic", landingPage: "/", pagesViewed: ["/"], personality: "BOUNCER", concern: "GENERAL_AWARENESS", buyScore: 1 },
 ];
 
-const TURNS_BY_PERSONALITY = {
-  BOUNCER: 0,
-  RUSHED: 1,
-  SKEPTICAL: 2,
-  CURIOUS: 2,
-  RESEARCHER: 2,
-  EVALUATOR: 2,
-  HIGH_INTENT: 2,
-};
+const TURNS_BY_PERSONALITY = { BOUNCER: 0, RUSHED: 1, SKEPTICAL: 2, CURIOUS: 2, RESEARCHER: 2, EVALUATOR: 2, HIGH_INTENT: 2 };
 
 const CONCERN_TO_INTENT = {
-  PCI_COMPLIANCE: "PCI_COMPLIANCE",
-  MAGECART: "MAGECART_PREVENTION",
-  PRIVACY_GDPR: "PRIVACY_GDPR",
-  SUPPLY_CHAIN: "SUPPLY_CHAIN",
-  TOOL_EVALUATION: "TOOL_EVALUATION",
-  GENERAL_AWARENESS: "GENERAL_AWARENESS",
+  PCI_COMPLIANCE: "PCI_COMPLIANCE", MAGECART: "MAGECART_PREVENTION", PRIVACY_GDPR: "PRIVACY_GDPR",
+  SUPPLY_CHAIN: "SUPPLY_CHAIN", TOOL_EVALUATION: "TOOL_EVALUATION", GENERAL_AWARENESS: "GENERAL_AWARENESS",
 };
 
 function sleep(ms) {
@@ -175,8 +80,7 @@ async function claudeWithRetry(fn, maxRetries = 4) {
   }
 }
 
-// Call Claude directly as the Reflectiz agent (no HTTP invoke needed)
-async function callAgent(systemPrompt, messages, userMessage, persona) {
+async function callAgent(anthropic, systemPrompt, messages, userMessage, persona) {
   await sleep(3000);
   const visitorContext = [
     `[Visitor language: ${persona.language}]`,
@@ -196,7 +100,7 @@ async function callAgent(systemPrompt, messages, userMessage, persona) {
   return response.content[0]?.text?.trim() ?? "";
 }
 
-async function generateVisitorMessage(persona, agentMessage) {
+async function generateVisitorMessage(anthropic, persona, agentMessage) {
   await sleep(3000);
   const prompt = "You are roleplaying as a website visitor.\nPersonality: " + persona.personality + "\nConcern: " + persona.concern + "\nBuy score: " + persona.buyScore + "/10\nAgent said: " + agentMessage + "\nReply in ONE sentence matching your personality. BOUNCER: just say 'ok'. Only the visitor message, nothing else.";
   const response = await claudeWithRetry(() => anthropic.messages.create({
@@ -215,7 +119,7 @@ function determineOutcome(persona, turns, finalAgentMessage) {
   return "DROPPED";
 }
 
-async function simulatePersona(base44, persona, systemPrompt) {
+async function simulatePersona(anthropic, base44, persona, systemPrompt) {
   const sessionId = crypto.randomUUID();
   const maxTurns = TURNS_BY_PERSONALITY[persona.personality] ?? 2;
   const transcript = [];
@@ -225,19 +129,17 @@ async function simulatePersona(base44, persona, systemPrompt) {
 
   console.log(`Simulating: ${persona.name} (${persona.personality})`);
 
-  // Opening message
-  lastAgentMessage = await callAgent(systemPrompt, [], "INIT", persona);
+  lastAgentMessage = await callAgent(anthropic, systemPrompt, [], "INIT", persona);
   transcript.push(`Agent: ${lastAgentMessage}`);
   conversationHistory.push({ role: "assistant", content: lastAgentMessage });
 
-  // Follow-up turns
   for (let i = 0; i < maxTurns; i++) {
-    const visitorMsg = await generateVisitorMessage(persona, lastAgentMessage);
+    const visitorMsg = await generateVisitorMessage(anthropic, persona, lastAgentMessage);
     transcript.push(`Visitor: ${visitorMsg}`);
     conversationHistory.push({ role: "user", content: visitorMsg });
     turnCount++;
 
-    lastAgentMessage = await callAgent(systemPrompt, conversationHistory.slice(0, -1), visitorMsg, persona);
+    lastAgentMessage = await callAgent(anthropic, systemPrompt, conversationHistory.slice(0, -1), visitorMsg, persona);
     transcript.push(`Agent: ${lastAgentMessage}`);
     conversationHistory.push({ role: "assistant", content: lastAgentMessage });
   }
@@ -267,13 +169,13 @@ async function simulatePersona(base44, persona, systemPrompt) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const anthropic = await getVertexClient();
 
     const body = await req.json().catch(() => ({}));
     const limit = body.limitPersonas ?? PERSONAS.length;
     const personasToRun = PERSONAS.slice(0, limit);
     console.log(`Starting training with ${personasToRun.length} personas`);
 
-    // Fetch latest system prompt (fall back to training prompt)
     const configs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
     const systemPrompt = configs?.[0]?.systemPrompt;
     if (!systemPrompt) {
@@ -282,7 +184,7 @@ Deno.serve(async (req) => {
 
     const results = [];
     for (const persona of personasToRun) {
-      const result = await simulatePersona(base44, persona, systemPrompt);
+      const result = await simulatePersona(anthropic, base44, persona, systemPrompt);
       results.push(result);
     }
 

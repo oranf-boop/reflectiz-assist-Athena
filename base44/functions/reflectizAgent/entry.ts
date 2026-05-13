@@ -1,5 +1,26 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
+
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-east5";
+
+async function getVertexClient() {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const tokenResponse = await jwt.getAccessToken();
+  const accessToken = tokenResponse.token;
+
+  return new Anthropic({
+    apiKey: accessToken,
+    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
+    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  });
+}
 
 const BASELINE_SYSTEM_PROMPT = `LANGUAGE, OVERRIDES EVERYTHING:
 Always respond in the language specified in the visitor context. fr: French. de: German. es: Spanish. it: Italian. All others: English. Check this before writing a single word.
@@ -74,12 +95,7 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
-const client = new Anthropic({
-  apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
-});
-
 async function searchWebsiteContent(base44, query, currentPageUrl) {
-  // Extract meaningful keywords (words 4+ chars, skip common stop words)
   const stopWords = new Set(["what", "this", "that", "with", "from", "have", "does", "your", "their", "about", "which", "when", "will", "how"]);
   const keywords = query
     .toLowerCase()
@@ -89,7 +105,6 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   if (keywords.length === 0) return [];
 
-  // Fetch all pages and score by keyword matches
   const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
 
   const scored = allPages.map(page => {
@@ -122,8 +137,8 @@ Content: ${(p.pageContent || "").slice(0, 300)}
 ${lines.join("\n")}`;
 }
 
-async function classifyIntent(anthropicClient, messages) {
-  const classificationResponse = await anthropicClient.messages.create({
+async function classifyIntent(client, messages) {
+  const classificationResponse = await client.messages.create({
     model: "claude-haiku-4-5",
     max_tokens: 50,
     system: "Classify the user's intent from the conversation into exactly one of these categories: PCI_COMPLIANCE, MAGECART_PREVENTION, PRIVACY_GDPR, SUPPLY_CHAIN, TOOL_EVALUATION, GENERAL_AWARENESS. Respond with only the category name, nothing else.",
@@ -187,7 +202,6 @@ Deno.serve(async (req) => {
 
     await Promise.all(updateTasks);
 
-    // Fire-and-forget Slack alert for high-intent link clicks
     const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
     if (isHighIntent && existing) {
@@ -213,6 +227,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
   }
 
+  const client = await getVertexClient();
+
   if (message === "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
     const base44 = createClientFromRequest(req);
@@ -226,13 +242,7 @@ Generate a warm, natural opening message that:
 - Maximum 2 sentences
 - No greeting words like Hello or Welcome
 - No em dashes
-- Sounds like a knowledgeable peer who remembers them, not a CRM system
-
-Examples of the right tone:
-- If lastIntent was PCI_COMPLIANCE: 'PCI compliance still on your radar, or did something else come up since we last spoke?'
-- If lastIntent was MAGECART: 'Still thinking through the supply chain risk, or has something changed?'
-- If lastIntent was TOOL_EVALUATION: 'Still evaluating options, or have things moved on since we last spoke?'
-- Default if no intent: 'Good to see you back. Still working through the same question, or something new?'`;
+- Sounds like a knowledgeable peer who remembers them, not a CRM system`;
 
     const returningResponse = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -242,7 +252,7 @@ Examples of the right tone:
 
     const reply = (returningResponse.content[0]?.text ?? "Good to see you back. Still working through the same question, or something new?").replace(/—/g, ",");
 
-    await base44.asServiceRole.entities.Conversations.create({
+    await createClientFromRequest(req).asServiceRole.entities.Conversations.create({
       sessionId,
       timestamp: new Date().toISOString(),
       geo: geo ?? "",
@@ -265,21 +275,17 @@ Examples of the right tone:
   }
 
   const sessionId = incomingSessionId || crypto.randomUUID();
-
   const base44 = createClientFromRequest(req);
 
-  // Fetch latest system prompt from AgentConfig, fall back to baseline
   let systemPrompt = BASELINE_SYSTEM_PROMPT;
   const agentConfigs = await base44.asServiceRole.entities.AgentConfig.list("-version", 1);
   if (agentConfigs && agentConfigs.length > 0 && agentConfigs[0].systemPrompt) {
     systemPrompt = agentConfigs[0].systemPrompt;
   }
 
-  // RAG: search relevant website content before calling Claude
   const relevantPages = await searchWebsiteContent(base44, message, currentPageUrl);
   const ragBlock = formatRetrievedPages(relevantPages);
 
-  // Build messages array (support multi-turn if previousMessages provided)
   const messages = [...conversationHistory];
 
   const visitorContext = [
@@ -288,12 +294,7 @@ Examples of the right tone:
     currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
   ].filter(Boolean).join("\n");
 
-  const userContent = [
-    ragBlock,
-    visitorContext,
-    message,
-  ].filter(Boolean).join("\n\n");
-
+  const userContent = [ragBlock, visitorContext, message].filter(Boolean).join("\n\n");
   messages.push({ role: "user", content: userContent });
 
   const response = await client.messages.create({
@@ -304,7 +305,6 @@ Examples of the right tone:
   });
 
   const reply = (response.content[0]?.text ?? "").replace(/—/g, ",");
-
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
@@ -317,7 +317,6 @@ Examples of the right tone:
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
-  // Build clean transcript: exclude any message that contains injected context blocks
   function isCleanMessage(m) {
     const c = m.content || "";
     return !c.includes("[RELEVANT WEBSITE CONTENT]") &&
@@ -367,7 +366,6 @@ Examples of the right tone:
     });
   }
 
-  // Fire-and-forget Slack alert for deep engagement (turns >= 4 and CTA reached)
   if (userMessageCount >= 4 && ctaReached) {
     fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
       method: "POST",
