@@ -2,7 +2,8 @@ import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const PROJECT_ID = "dashboarderv0";
-const REGION = "us-east5";
+const REGION = "us-central1";
+const GEMINI_MODEL = "gemini-2.5-flash";
 
 async function getAccessToken() {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
@@ -15,24 +16,36 @@ async function getAccessToken() {
   return token;
 }
 
-async function callClaude({ model, max_tokens, system, messages }) {
+async function callGemini({ system, messages, max_tokens }) {
   const token = await getAccessToken();
-  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic/models/${model}:rawPredict`;
-  const body = { anthropic_version: "vertex-2023-10-16", max_tokens, messages };
-  if (system) body.system = system;
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+
+  const contents = messages.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const body = {
+    contents,
+    generationConfig: { maxOutputTokens: max_tokens || 1024 },
+  };
+  if (system) {
+    body.systemInstruction = { parts: [{ text: system }] };
+  }
+
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Vertex AI error ${res.status}: ${errText}`);
+    throw new Error(`Gemini error ${res.status}: ${errText}`);
   }
-  return res.json();
+  const data = await res.json();
+  // Normalize to Anthropic-like response shape so callers work unchanged
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return { content: [{ text }] };
 }
 
 const BASELINE_SYSTEM_PROMPT = `LANGUAGE, OVERRIDES EVERYTHING:
@@ -151,8 +164,7 @@ ${lines.join("\n")}`;
 }
 
 async function classifyIntent(messages) {
-  const result = await callClaude({
-    model: "claude-haiku-4-5",
+  const result = await callGemini({
     max_tokens: 50,
     system: "Classify the user's intent from the conversation into exactly one of these categories: PCI_COMPLIANCE, MAGECART_PREVENTION, PRIVACY_GDPR, SUPPLY_CHAIN, TOOL_EVALUATION, GENERAL_AWARENESS. Respond with only the category name, nothing else.",
     messages: [
@@ -257,8 +269,7 @@ Generate a warm, natural opening message that:
 - No em dashes
 - Sounds like a knowledgeable peer who remembers them, not a CRM system`;
 
-    const returningResponse = await callClaude({
-      model: "claude-haiku-4-5",
+    const returningResponse = await callGemini({
       max_tokens: 150,
       messages: [{ role: "user", content: returningPrompt }],
     });
@@ -310,8 +321,7 @@ Generate a warm, natural opening message that:
   const userContent = [ragBlock, visitorContext, message].filter(Boolean).join("\n\n");
   messages.push({ role: "user", content: userContent });
 
-  const response = await callClaude({
-    model: "claude-sonnet-4-6",
+  const response = await callGemini({
     max_tokens: 1024,
     system: systemPrompt,
     messages,

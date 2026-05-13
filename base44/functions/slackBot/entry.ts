@@ -2,10 +2,11 @@ import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const PROJECT_ID = "dashboarderv0";
-const REGION = "us-east5";
+const REGION = "us-central1";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN");
 
-async function callClaude({ model, max_tokens, system, messages }) {
+async function callGemini({ system, messages, max_tokens }) {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
     email: sa.client_email,
@@ -13,16 +14,30 @@ async function callClaude({ model, max_tokens, system, messages }) {
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
   const { token } = await jwt.getAccessToken();
-  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic/models/${model}:rawPredict`;
-  const body = { anthropic_version: "vertex-2023-10-16", max_tokens, messages };
-  if (system) body.system = system;
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+
+  const contents = messages.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const body = {
+    contents,
+    generationConfig: { maxOutputTokens: max_tokens || 1024 },
+  };
+  if (system) {
+    body.systemInstruction = { parts: [{ text: system }] };
+  }
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Vertex AI error ${res.status}: ${await res.text()}`);
-  return res.json();
+  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return { content: [{ text }] };
 }
 
 const QUERY_PLANNER_PROMPT = `You are a data analyst for Reflectiz, a B2B cybersecurity company. You have access to conversation data from the Reflectiz website chat agent. When asked a question, generate a Base44 database query plan to answer it.
@@ -64,8 +79,7 @@ async function processEvent(base44, event) {
 
   let queryPlan;
   try {
-    const planResponse = await callClaude({
-      model: "claude-haiku-4-5@20251001",
+    const planResponse = await callGemini({
       max_tokens: 512,
       system: QUERY_PLANNER_PROMPT,
       messages: [{ role: "user", content: question }],
@@ -102,8 +116,7 @@ Provide a clear, concise answer in Slack-friendly formatting. Use bullet points 
 
   let answer;
   try {
-    const answerResponse = await callClaude({
-      model: "claude-haiku-4-5@20251001",
+    const answerResponse = await callGemini({
       max_tokens: 600,
       messages: [{ role: "user", content: answerPrompt }],
     });
