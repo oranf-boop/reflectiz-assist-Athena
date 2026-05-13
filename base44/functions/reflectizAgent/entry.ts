@@ -1,25 +1,38 @@
-import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-east5";
 
-async function getVertexClient() {
+async function getAccessToken() {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
     email: sa.client_email,
     key: sa.private_key,
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
-  const tokenResponse = await jwt.getAccessToken();
-  const accessToken = tokenResponse.token;
+  const { token } = await jwt.getAccessToken();
+  return token;
+}
 
-  return new Anthropic({
-    apiKey: accessToken,
-    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
-    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+async function callClaude({ model, max_tokens, system, messages }) {
+  const token = await getAccessToken();
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic/models/${model}:rawPredict`;
+  const body = { anthropic_version: "vertex-2023-10-16", max_tokens, messages };
+  if (system) body.system = system;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Vertex AI error ${res.status}: ${errText}`);
+  }
+  return res.json();
 }
 
 const BASELINE_SYSTEM_PROMPT = `LANGUAGE, OVERRIDES EVERYTHING:
@@ -137,8 +150,8 @@ Content: ${(p.pageContent || "").slice(0, 300)}
 ${lines.join("\n")}`;
 }
 
-async function classifyIntent(client, messages) {
-  const classificationResponse = await client.messages.create({
+async function classifyIntent(messages) {
+  const result = await callClaude({
     model: "claude-haiku-4-5",
     max_tokens: 50,
     system: "Classify the user's intent from the conversation into exactly one of these categories: PCI_COMPLIANCE, MAGECART_PREVENTION, PRIVACY_GDPR, SUPPLY_CHAIN, TOOL_EVALUATION, GENERAL_AWARENESS. Respond with only the category name, nothing else.",
@@ -149,7 +162,7 @@ async function classifyIntent(client, messages) {
       },
     ],
   });
-  const raw = classificationResponse.content[0]?.text?.trim() ?? "";
+  const raw = result.content[0]?.text?.trim() ?? "";
   const valid = ["PCI_COMPLIANCE", "MAGECART_PREVENTION", "PRIVACY_GDPR", "SUPPLY_CHAIN", "TOOL_EVALUATION", "GENERAL_AWARENESS"];
   return valid.includes(raw) ? raw : "GENERAL_AWARENESS";
 }
@@ -227,7 +240,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
   }
 
-  const client = await getVertexClient();
+  // client replaced by callClaude helper
 
   if (message === "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
@@ -244,8 +257,8 @@ Generate a warm, natural opening message that:
 - No em dashes
 - Sounds like a knowledgeable peer who remembers them, not a CRM system`;
 
-    const returningResponse = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const returningResponse = await callClaude({
+      model: "claude-haiku-4-5",
       max_tokens: 150,
       messages: [{ role: "user", content: returningPrompt }],
     });
@@ -297,8 +310,8 @@ Generate a warm, natural opening message that:
   const userContent = [ragBlock, visitorContext, message].filter(Boolean).join("\n\n");
   messages.push({ role: "user", content: userContent });
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+  const response = await callClaude({
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: systemPrompt,
     messages,
@@ -312,7 +325,7 @@ Generate a warm, natural opening message that:
 
   const shouldClassify = userMessageCount % 3 === 1;
   const intentClassification = shouldClassify
-    ? await classifyIntent(client, messages)
+    ? await classifyIntent(messages)
     : (existingConversation?.[0]?.intentClassification ?? "GENERAL_AWARENESS");
 
   const ctaReached = /meeting|trial|contact/i.test(reply);

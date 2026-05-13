@@ -1,23 +1,27 @@
-import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-east5";
 
-async function getVertexClient() {
+async function callClaude({ model, max_tokens, system, messages }) {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
     email: sa.client_email,
     key: sa.private_key,
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
-  const tokenResponse = await jwt.getAccessToken();
-  return new Anthropic({
-    apiKey: tokenResponse.token,
-    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
-    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  const { token } = await jwt.getAccessToken();
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic/models/${model}:rawPredict`;
+  const body = { anthropic_version: "vertex-2023-10-16", max_tokens, messages };
+  if (system) body.system = system;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Vertex AI error ${res.status}: ${await res.text()}`);
+  return res.json();
 }
 
 const BASELINE_SYSTEM_PROMPT = `LANGUAGE — OVERRIDES EVERYTHING:
@@ -94,8 +98,6 @@ Deno.serve(async (req) => {
     return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
   }
 
-  const anthropic = await getVertexClient();
-
   const reports = await base44.asServiceRole.entities.LearningReports.list("-reportDate", 50);
   const report = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
 
@@ -142,8 +144,8 @@ Generate an improved system prompt that:
 
 Return only the full improved system prompt text, nothing else.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+  const response = await callClaude({
+    model: "claude-sonnet-4-6",
     max_tokens: 2048,
     messages: [{ role: "user", content: optimizationPrompt }],
   });

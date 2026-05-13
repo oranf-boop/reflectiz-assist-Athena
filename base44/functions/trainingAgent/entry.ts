@@ -1,23 +1,27 @@
-import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-east5";
 
-async function getVertexClient() {
+async function callClaude({ model, max_tokens, system, messages }) {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
     email: sa.client_email,
     key: sa.private_key,
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
-  const tokenResponse = await jwt.getAccessToken();
-  return new Anthropic({
-    apiKey: tokenResponse.token,
-    baseURL: `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic`,
-    defaultHeaders: { "x-goog-request-params": `project_id=${PROJECT_ID}` },
+  const { token } = await jwt.getAccessToken();
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/anthropic/models/${model}:rawPredict`;
+  const body = { anthropic_version: "vertex-2023-10-16", max_tokens, messages };
+  if (system) body.system = system;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Vertex AI error ${res.status}: ${await res.text()}`);
+  return res.json();
 }
 
 const TRAINING_SYSTEM_PROMPT = `Respond in visitor's language (fr for France/Belgium/Switzerland, de for Germany/Austria, es for Spain/Latin America, it for Italy, en otherwise).
@@ -69,8 +73,8 @@ async function claudeWithRetry(fn, maxRetries = 4) {
     try {
       return await fn();
     } catch (err) {
-      if (err?.status === 429 && attempt < maxRetries) {
-        console.log(`Rate limit hit, waiting ${delay / 1000}s...`);
+      if (attempt < maxRetries) {
+        console.log(`Error, waiting ${delay / 1000}s... ${err.message}`);
         await sleep(delay);
         delay *= 1.5;
       } else {
@@ -80,7 +84,7 @@ async function claudeWithRetry(fn, maxRetries = 4) {
   }
 }
 
-async function callAgent(anthropic, systemPrompt, messages, userMessage, persona) {
+async function callAgent(systemPrompt, messages, userMessage, persona) {
   await sleep(3000);
   const visitorContext = [
     `[Visitor language: ${persona.language}]`,
@@ -91,8 +95,8 @@ async function callAgent(anthropic, systemPrompt, messages, userMessage, persona
   const fullUserContent = [visitorContext, userMessage].join("\n\n");
   const allMessages = [...messages, { role: "user", content: fullUserContent }];
 
-  const response = await claudeWithRetry(() => anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await claudeWithRetry(() => callClaude({
+    model: "claude-haiku-4-5@20251001",
     max_tokens: 256,
     system: systemPrompt,
     messages: allMessages,
@@ -100,11 +104,11 @@ async function callAgent(anthropic, systemPrompt, messages, userMessage, persona
   return response.content[0]?.text?.trim() ?? "";
 }
 
-async function generateVisitorMessage(anthropic, persona, agentMessage) {
+async function generateVisitorMessage(persona, agentMessage) {
   await sleep(3000);
   const prompt = "You are roleplaying as a website visitor.\nPersonality: " + persona.personality + "\nConcern: " + persona.concern + "\nBuy score: " + persona.buyScore + "/10\nAgent said: " + agentMessage + "\nReply in ONE sentence matching your personality. BOUNCER: just say 'ok'. Only the visitor message, nothing else.";
-  const response = await claudeWithRetry(() => anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await claudeWithRetry(() => callClaude({
+    model: "claude-haiku-4-5@20251001",
     max_tokens: 100,
     messages: [{ role: "user", content: prompt }],
   }));
