@@ -40,22 +40,17 @@ async function callGemini({ system, messages, max_tokens }) {
   return { content: [{ text }] };
 }
 
-const QUERY_PLANNER_PROMPT = `You are a data analyst for Reflectiz, a B2B cybersecurity company. You have access to conversation data from the Reflectiz website chat agent. When asked a question, generate a Base44 database query plan to answer it.
+const QUERY_PLANNER_PROMPT = `You extract database query parameters from natural language questions about chat analytics data. Always respond with only a valid JSON object, no explanation, no markdown formatting, no code blocks.
 
-The database has these entities:
-- Conversations: fields are sessionId, timestamp, geo, referralSource, intentClassification, conversationTurns, ctaReached, linksClicked, conversationOutcome, language, isTrainingData, conversationTranscript
-- LinkClicks: fields are sessionId, clickedUrl, turnNumber, clickedAt, pageUrl
-- LearningReports: fields are reportDate, totalConversations, winnerCount, loserCount, conversionRate, confidenceScore, topSuccessPatterns, topFailurePatterns, suggestedChanges
-
-Respond with a JSON object containing:
+JSON format:
 {
-  "entity": "Conversations" or "LinkClicks" or "LearningReports",
-  "filters": { "field": "value" },
-  "analysis": "what calculation or summary to perform on the results",
-  "responseFormat": "how to format the answer for Slack"
-}
-
-Only respond with the JSON, nothing else.`;
+  "days": number (how many days back to look, default 30),
+  "intentFilter": string or null (one of: PCI_COMPLIANCE, MAGECART_PREVENTION, PRIVACY_GDPR, SUPPLY_CHAIN, TOOL_EVALUATION, GENERAL_AWARENESS, or null for all),
+  "geoFilter": string or null (country name or null for all),
+  "outcomeFilter": string or null (CONVERTED, ENGAGED, DROPPED, BOUNCED, or null for all),
+  "groupBy": string (one of: intent, geo, outcome, referral, day),
+  "question": string (restate the question simply)
+}`;
 
 async function postToSlack(channel, text) {
   await fetch("https://slack.com/api/chat.postMessage", {
@@ -84,33 +79,43 @@ async function processEvent(base44, event) {
       system: QUERY_PLANNER_PROMPT,
       messages: [{ role: "user", content: question }],
     });
-    const raw = planResponse.content[0]?.text?.trim() ?? "{}";
-    queryPlan = JSON.parse(raw);
-  } catch {
+    const rawText = (planResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? planResponse.content?.[0]?.text ?? "").trim();
+    console.log("Raw Gemini response:", rawText);
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log("No JSON found in response:", rawText);
+      await postToSlack(channel, "I understood your question but had trouble forming the query. Try asking something specific like: 'how many PCI conversations this week?' or 'show conversations from France in the last 30 days'");
+      return;
+    }
+    queryPlan = JSON.parse(jsonMatch[0]);
+  } catch (err) {
+    console.log("Query plan parse error:", err.message);
     await postToSlack(channel, "Sorry, I couldn't parse your question into a query. Try rephrasing.");
     return;
   }
 
+  // Build date filter from queryPlan.days
+  const days = queryPlan.days || 30;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
   let records = [];
   try {
-    const entity = base44.asServiceRole.entities[queryPlan.entity];
-    if (!entity) throw new Error("Unknown entity: " + queryPlan.entity);
-
-    const filters = queryPlan.filters && Object.keys(queryPlan.filters).length > 0
-      ? queryPlan.filters
-      : null;
-
-    records = filters
-      ? await entity.filter(filters, "-created_date", 200)
-      : await entity.list("-created_date", 200);
+    const allConvs = await base44.asServiceRole.entities.Conversations.list("-created_date", 500);
+    records = allConvs.filter(c => {
+      if (c.timestamp && c.timestamp < since) return false;
+      if (queryPlan.intentFilter && c.intentClassification !== queryPlan.intentFilter) return false;
+      if (queryPlan.geoFilter && !(c.geo || "").toLowerCase().includes(queryPlan.geoFilter.toLowerCase())) return false;
+      if (queryPlan.outcomeFilter && c.conversationOutcome !== queryPlan.outcomeFilter) return false;
+      return true;
+    });
   } catch (err) {
     await postToSlack(channel, `Database error: ${err.message}`);
     return;
   }
 
-  const answerPrompt = `You are a helpful data analyst for Reflectiz. Here is the data that was retrieved to answer this question: ${question}
+  const answerPrompt = `You are a helpful data analyst for Reflectiz. Answer this question: ${question}
 
-Data: ${JSON.stringify(records).slice(0, 8000)}
+Filtered data (${records.length} conversations matched): ${JSON.stringify(records).slice(0, 8000)}
 
 Provide a clear, concise answer in Slack-friendly formatting. Use bullet points for lists. Keep it under 300 words. Include specific numbers. End with one actionable insight if relevant.`;
 
@@ -120,7 +125,7 @@ Provide a clear, concise answer in Slack-friendly formatting. Use bullet points 
       max_tokens: 600,
       messages: [{ role: "user", content: answerPrompt }],
     });
-    answer = answerResponse.content[0]?.text?.trim() ?? "No answer generated.";
+    answer = (answerResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? answerResponse.content?.[0]?.text ?? "No answer generated.").trim();
   } catch (err) {
     await postToSlack(channel, `Analysis error: ${err.message}`);
     return;
