@@ -99,24 +99,24 @@ Provide a clear, concise answer in Slack-friendly formatting. Use bullet points 
   await postToSlack(channel, answer);
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
-    });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   const body = await req.json();
 
-  // STEP 1: Handle Slack URL verification challenge
+  // STEP 1: Handle Slack URL verification challenge — must be first
   if (body.type === "url_verification") {
     return new Response(body.challenge, {
       status: 200,
-      headers: { "Content-Type": "text/plain" },
+      headers: { ...CORS_HEADERS, "Content-Type": "text/plain" },
     });
   }
 
@@ -130,6 +130,6 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
 });
