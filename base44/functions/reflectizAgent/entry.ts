@@ -127,7 +127,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length >= 4 && !stopWords.has(w));
+    .filter(w => w.length >= 3 && !stopWords.has(w));
 
   if (keywords.length === 0) return [];
 
@@ -140,7 +140,14 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       const matches = (text.match(new RegExp(kw, "g")) || []).length;
       return acc + matches;
     }, 0) + urlBoost;
-    return { page, score };
+    const companyCaseStudyBoost =
+      (page.pageType === "case-study" || page.pageType === "customers") &&
+      keywords.some(kw =>
+        (page.pageTitle || "").toLowerCase().includes(kw) ||
+        (page.pageUrl || "").toLowerCase().includes(kw)
+      ) ? 10 : 0;
+
+    return { page, score: score + urlBoost + companyCaseStudyBoost };
   });
 
   return scored
