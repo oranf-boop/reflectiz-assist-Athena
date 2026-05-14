@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
   const INSTANT_OPENERS = {
     INIT_HOMEPAGE_FIRST: "Most teams who land here are dealing with compliance, a recent scare, or too many blind spots. Which one fits?",
     INIT_HOMEPAGE_RETURN_SAME_DAY: "You were here earlier. Did something come up, or still thinking it through?",
-    INIT_HOMEPAGE_RETURN_DIFFERENT_DAY: "Good to see you again. Something specific bring you back?",
+    INIT_HOMEPAGE_RETURN_DIFFERENT_DAY: "Something specific bring you back?",
   };
 
   if (INSTANT_OPENERS[message]) {
