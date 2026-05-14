@@ -265,23 +265,33 @@ Deno.serve(async (req) => {
     const sessionId = incomingSessionId || crypto.randomUUID();
     const base44 = createClientFromRequest(req);
 
-    const returningPrompt = `A visitor is returning to the Reflectiz website after more than 2 hours away. Their previous conversation topic was: ${lastTopic || "unknown"}. Their previous intent classification was: ${lastIntent || "unknown"}.
+    const intentOpeners = {
+      PCI_COMPLIANCE: "PCI compliance still on the agenda, or did something new come up?",
+      MAGECART_PREVENTION: "Still thinking through the supply chain risk angle?",
+      TOOL_EVALUATION: "Still in evaluation mode, or has something moved forward?",
+      PRIVACY_GDPR: "Still working through the privacy compliance question?",
+      SUPPLY_CHAIN: "Supply chain risk still a concern, or did something shift?",
+    };
+    const intentHint = intentOpeners[lastIntent] || "Something bring you back today?";
 
-Generate a warm, natural opening message that:
-- Acknowledges they are back without being creepy or overly familiar
-- References their previous topic naturally in one short phrase
-- Opens a fresh conversation with one simple question
-- Maximum 2 sentences
-- No greeting words like Hello or Welcome
+    const returningPrompt = `A visitor is returning to the Reflectiz website after more than 2 hours away. Their previous intent classification was: ${lastIntent || "unknown"}.
+
+Generate a natural one-sentence opening message that:
+- Uses this intent-based hint as your starting point: "${intentHint}"
+- You may use it verbatim or lightly rephrase it to feel natural
+- References their previous topic, never the fact they are returning
+- Ends with a question
+- Maximum 1 sentence total
+- NEVER say "Good to see you again", "Welcome back", or "Great to have you back" -- these feel presumptuous and CRM-like
 - No em dashes
-- Sounds like a knowledgeable peer who remembers them, not a CRM system`;
+- Tone: a knowledgeable peer who remembers the topic, not a system recognizing a contact`;
 
     const returningResponse = await callGemini({
       max_tokens: 150,
       messages: [{ role: "user", content: returningPrompt }],
     });
 
-    const reply = (returningResponse.content[0]?.text ?? "Good to see you back. Still working through the same question, or something new?").replace(/—/g, ",");
+    const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/—/g, ",");
 
     await createClientFromRequest(req).asServiceRole.entities.Conversations.create({
       sessionId,
