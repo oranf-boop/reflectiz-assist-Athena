@@ -345,10 +345,15 @@ Generate a natural one-sentence opening message that:
   });
 
   const rawReply = response.content[0]?.text ?? "";
-  const reply = rawReply
+  let reply = rawReply
     .replace(/—/g, ",")
     .replace(/--/g, ",")
     .replace(/–/g, ",");
+
+  // Detect truncated URLs (e.g. "at www." or trailing incomplete URL patterns)
+  if (/at www\.\s*$|https?:\/\/[^\s]*$|www\.[a-z]*$/.test(reply.trimEnd())) {
+    reply += " Please visit reflectiz.com/blog for our latest research.";
+  }
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
