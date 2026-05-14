@@ -344,7 +344,11 @@ Generate a natural one-sentence opening message that:
     messages,
   });
 
-  const reply = (response.content[0]?.text ?? "").replace(/—/g, ",");
+  const rawReply = response.content[0]?.text ?? "";
+  const reply = rawReply
+    .replace(/—/g, ",")
+    .replace(/--/g, ",")
+    .replace(/–/g, ",");
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
