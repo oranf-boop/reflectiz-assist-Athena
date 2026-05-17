@@ -157,32 +157,31 @@ Deno.serve(async (req) => {
       max_tokens: 2048,
       messages: [{
         role: "user",
-        content: `You are analyzing website chat conversations for Reflectiz, a B2B cybersecurity company. Your job is to identify what made successful conversations work and what caused failures, then suggest specific improvements to the agent's opening messages, tone, and conversation flow.
+        content: `You are analyzing website chat conversations for Reflectiz, a B2B cybersecurity company. Analyze the winning and losing conversation patterns provided and return ONLY a valid JSON object with no markdown, no explanation, no code blocks.
 
-Here are the winning conversation patterns:
-${JSON.stringify(winnerPatterns, null, 2)}
+Winner patterns: ${JSON.stringify(winnerPatterns, null, 2)}
+Loser patterns: ${JSON.stringify(loserPatterns, null, 2)}
+Total conversations: ${recent.length}
+Winners: ${winners.length}
+Losers: ${losers.length}
 
-Here are the losing conversation patterns:
-${JSON.stringify(loserPatterns, null, 2)}
-
-Total sample: ${recent.length} conversations (${winners.length} winners, ${losers.length} losers) from the last 7 days.
-
-Based on this data provide:
-1. Top 3 reasons conversations succeeded
-2. Top 3 reasons conversations failed
-3. Specific suggested changes to the agent's opening message
-4. Specific suggested changes to conversation flow
-5. Any patterns by geo, referral source, or page type worth acting on
-6. A confidence score from 1-10 on how actionable these insights are based on sample size
-
-Format your response in clear numbered sections.`
+Return exactly this JSON structure:
+{
+  "successReasons": "paragraph describing top 3 reasons conversations succeeded",
+  "failureReasons": "paragraph describing top 3 reasons conversations failed",
+  "openingMessageChanges": "specific suggested changes to opening messages",
+  "conversationFlowChanges": "specific suggested changes to conversation flow",
+  "geoAndSourceInsights": "patterns by geo referral source or page type",
+  "confidenceScore": 5,
+  "confidenceReason": "one sentence explaining the score"
+}`
       }],
     }),
     callGemini({
       max_tokens: 1024,
       messages: [{
         role: "user",
-        content: `You are analyzing link click data from a B2B website chat agent for Reflectiz, a cybersecurity company. Summarize what the data tells us about content performance.
+        content: `You are analyzing link click data from a B2B website chat agent for Reflectiz, a cybersecurity company. Return ONLY a valid JSON object with no markdown, no explanation, no code blocks.
 
 Total clicks in the last 7 days: ${clickData.totalClicks}
 
@@ -203,29 +202,62 @@ Top clicking segments:
 URL performance by outcome (converted vs dropped visitors):
 ${Object.entries(clickData.urlByOutcome).slice(0, 10).map(([url, o]) => `  ${url}: ${o.converted} converted, ${o.dropped} dropped`).join("\n")}
 
-Provide a concise summary covering:
-1. Which content is driving the most engagement and from which visitor segments
-2. Which content is being clicked by converters vs drop-offs (what's working vs not)
-3. At what point in the conversation are visitors clicking links (early curiosity vs late validation)
-4. Specific recommendations for which content the agent should prioritize recommending`
+Return exactly this JSON structure:
+{
+  "topPerformingContent": "which content drives most engagement and from which visitor segments",
+  "converterContent": "what content converted visitors click vs dropoffs",
+  "clickTiming": "at what turn visitors click links early curiosity vs late validation",
+  "contentRecommendations": "specific content the agent should prioritize recommending"
+}`
       }],
     }),
   ]);
 
-  const analysisText = conversationResponse.content[0]?.text ?? "";
-  const contentPerformance = contentResponse.content[0]?.text ?? "";
+  // Parse conversation analysis JSON
+  const convRawText = conversationResponse.content[0]?.text ?? "";
+  const convJsonMatch = convRawText.match(/\{[\s\S]*\}/);
+  const analysis = convJsonMatch ? JSON.parse(convJsonMatch[0]) : null;
 
-  const scoreMatch = analysisText.match(/confidence[^0-9]*([0-9]+)\s*(?:\/\s*10)?/i) ||
-                     analysisText.match(/([0-9]+)\s*\/\s*10/);
-  const confidenceScore = scoreMatch ? Math.min(10, Math.max(1, parseInt(scoreMatch[1]))) : 5;
+  let parsedAnalysis = null;
+  if (convJsonMatch) {
+    try {
+      parsedAnalysis = JSON.parse(convJsonMatch[0]);
+      console.log("Parsed analysis keys:", Object.keys(parsedAnalysis));
+    } catch (e) {
+      console.log("JSON parse error for analysis:", e.message);
+      console.log("Raw conv text (first 500):", convJsonMatch[0].slice(0, 500));
+    }
+  } else {
+    console.log("No JSON match in conversation response. Raw (first 300):", convRawText.slice(0, 300));
+  }
 
-  const successMatch = analysisText.match(/(?:1\.|reasons.*succeeded)([\s\S]*?)(?:2\.|reasons.*fail)/i);
-  const failureMatch = analysisText.match(/(?:2\.|reasons.*fail)([\s\S]*?)(?:3\.|suggested.*opening)/i);
-  const suggestedMatch = analysisText.match(/(?:3\.|suggested.*opening)([\s\S]*?)(?:6\.|confidence)/i);
+  const topSuccessPatterns = parsedAnalysis?.successReasons ?? convRawText;
+  const topFailurePatterns = parsedAnalysis?.failureReasons ?? "";
+  const suggestedChanges = [
+    parsedAnalysis?.openingMessageChanges,
+    parsedAnalysis?.conversationFlowChanges,
+    parsedAnalysis?.geoAndSourceInsights,
+  ].filter(Boolean).join("\n\n");
+  const confidenceScore = typeof parsedAnalysis?.confidenceScore === "number"
+    ? Math.min(10, Math.max(1, parsedAnalysis.confidenceScore))
+    : 5;
 
-  const topSuccessPatterns = successMatch?.[1]?.trim() ?? analysisText;
-  const topFailurePatterns = failureMatch?.[1]?.trim() ?? "";
-  const suggestedChanges = suggestedMatch?.[1]?.trim() ?? "";
+  // Parse content performance JSON
+  const contentRawText = contentResponse.content[0]?.text ?? "";
+  const contentJsonMatch = contentRawText.match(/\{[\s\S]*\}/);
+  let parsedContent = null;
+  if (contentJsonMatch) {
+    try { parsedContent = JSON.parse(contentJsonMatch[0]); } catch (_) {}
+  }
+
+  const contentPerformance = parsedContent
+    ? [
+        parsedContent.topPerformingContent,
+        parsedContent.converterContent,
+        parsedContent.clickTiming,
+        parsedContent.contentRecommendations,
+      ].filter(Boolean).join("\n\n")
+    : contentRawText;
 
   const conversionRate = recent.length > 0
     ? Math.round((winners.length / recent.length) * 1000) / 10
@@ -251,7 +283,7 @@ Provide a concise summary covering:
 
   return Response.json({
     report,
-    fullAnalysis: analysisText,
+    fullAnalysis: { analysis: parsedAnalysis, contentAnalysis: parsedContent },
     contentPerformance,
     patterns: { winners: winnerPatterns, losers: loserPatterns },
     clickData,
