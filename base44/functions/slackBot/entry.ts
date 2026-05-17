@@ -23,7 +23,7 @@ async function callGemini({ system, messages, max_tokens }) {
 
   const body = {
     contents,
-    generationConfig: { maxOutputTokens: max_tokens || 1024 },
+    generationConfig: { maxOutputTokens: 2048 },
   };
   if (system) {
     body.systemInstruction = { parts: [{ text: system }] };
@@ -119,7 +119,9 @@ async function processEvent(base44, event) {
 
 Filtered data (${records.length} conversations matched, last ${days} days): ${JSON.stringify(records).slice(0, 8000)}
 
-Format your response for Slack. Use *bold* with single asterisks only. Use - for bullet points. No markdown headers. Keep it under 300 words. Include specific numbers. End with "Insight: [one sentence]"
+Format your response for Slack. Use *bold* with single asterisks only. Use the bullet character (•) for all list items, not dashes. Example: • PCI Compliance: 2 conversations. No markdown headers. Keep it under 300 words. Include specific numbers. End with "Insight: [one sentence]"
+
+You must always include all three sections: By Intent, By Outcome, and Notable Conversations. Never cut the response short. If data is limited, show what is available for each section.
 
 Always display intent classifications in human readable format:
 PCI_COMPLIANCE = PCI Compliance
