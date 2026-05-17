@@ -153,7 +153,8 @@ When the question asks for a log or list of conversations, format the response l
 Insight: [one genuinely useful observation]"
 
 Never dump raw transcript text into Slack. Summarize and structure instead.
-Display outcomes in title case: Converted, Engaged, Dropped, Bounced. Never show outcomes in all caps.`;
+Display outcomes in title case: Converted, Engaged, Dropped, Bounced. Never show outcomes in all caps.
+Answer only the specific question asked. Do not append a full conversation summary unless the question specifically asks for one. Keep the response focused and concise -- one clear answer, one insight, done.`;
 
   let answer;
   try {

@@ -400,6 +400,7 @@ Generate a natural one-sentence opening message that:
       conversationTurns: userMessageCount,
       lastMessageRole,
       conversationOutcome,
+      pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
     });
   } else {
     await base44.asServiceRole.entities.Conversations.create({
