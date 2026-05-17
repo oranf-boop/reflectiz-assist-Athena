@@ -84,10 +84,10 @@ async function processEvent(base44, event) {
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.log("No JSON found in response:", rawText);
-      await postToSlack(channel, "I understood your question but had trouble forming the query. Try asking something specific like: 'how many PCI conversations this week?' or 'show conversations from France in the last 30 days'");
-      return;
+      queryPlan = { days: 30, intentFilter: null, geoFilter: null, outcomeFilter: null, groupBy: "intent", question: question };
+    } else {
+      queryPlan = JSON.parse(jsonMatch[0]);
     }
-    queryPlan = JSON.parse(jsonMatch[0]);
   } catch (err) {
     console.log("Query plan parse error:", err.message);
     await postToSlack(channel, "Sorry, I couldn't parse your question into a query. Try rephrasing.");
@@ -119,12 +119,39 @@ async function processEvent(base44, event) {
 
 Filtered data (${records.length} conversations matched, last ${days} days): ${JSON.stringify(records).slice(0, 8000)}
 
-Format your response for Slack. Use *bold* with single asterisks only. Use - for bullet points. No markdown headers. Keep it under 200 words. Include specific numbers. End with "Insight: [one sentence]"`;
+Format your response for Slack. Use *bold* with single asterisks only. Use - for bullet points. No markdown headers. Keep it under 300 words. Include specific numbers. End with "Insight: [one sentence]"
+
+Always display intent classifications in human readable format:
+PCI_COMPLIANCE = PCI Compliance
+MAGECART_PREVENTION = Magecart Prevention
+PRIVACY_GDPR = Privacy and GDPR
+SUPPLY_CHAIN = Supply Chain Security
+TOOL_EVALUATION = Tool Evaluation
+GENERAL_AWARENESS = General Awareness
+Never show raw database enum values like PCI_COMPLIANCE in responses.
+
+When the question asks for a log or list of conversations, format the response like this:
+"Here is a summary of [X] conversations from [time period]:
+
+*By Intent:*
+- PCI Compliance: X conversations
+- Magecart Prevention: X conversations
+
+*By Outcome:*
+- Engaged: X | Dropped: X | Bounced: X
+
+*Notable conversations:*
+- [Geo] visitor, [Intent], [turns] turns, [outcome]
+- [Geo] visitor, [Intent], [turns] turns, [outcome]
+
+Insight: [one genuinely useful observation]"
+
+Never dump raw transcript text into Slack. Summarize and structure instead.`;
 
   let answer;
   try {
     const answerResponse = await callGemini({
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [{ role: "user", content: answerPrompt }],
     });
     answer = (answerResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? answerResponse.content?.[0]?.text ?? "No answer generated.").trim();
