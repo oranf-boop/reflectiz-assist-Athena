@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     base44.asServiceRole.entities.LinkClicks.list("-clickedAt", 2000),
   ]);
 
-  const recent = allConversations.filter(c => c.timestamp && c.timestamp >= sevenDaysAgo);
+  const recent = allConversations.filter(c => c.timestamp && c.timestamp >= sevenDaysAgo && !c.isTrainingData);
   const recentClicks = allClicks.filter(c => c.clickedAt && c.clickedAt >= sevenDaysAgo);
 
   const winners = recent.filter(c =>
