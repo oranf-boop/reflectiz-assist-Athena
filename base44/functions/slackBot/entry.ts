@@ -23,7 +23,7 @@ async function callGemini({ system, messages, max_tokens }) {
 
   const body = {
     contents,
-    generationConfig: { maxOutputTokens: 2048 },
+    generationConfig: { maxOutputTokens: 3000 },
   };
   if (system) {
     body.systemInstruction = { parts: [{ text: system }] };
@@ -103,13 +103,17 @@ async function processEvent(base44, event) {
   let records = [];
   try {
     const allConvs = await base44.asServiceRole.entities.Conversations.list("-created_date", 500);
+    const INTERNAL_SOURCES = ["wp-admin", "lovableproject.com", "base44.com"];
     records = allConvs.filter(c => {
+      if (c.isTrainingData) return false;
+      const src = c.referralSource || "";
+      if (INTERNAL_SOURCES.some(s => src.includes(s))) return false;
       if (c.timestamp && c.timestamp < since) return false;
       if (queryPlan.intentFilter && c.intentClassification !== queryPlan.intentFilter) return false;
       if (queryPlan.geoFilter && !(c.geo || "").toLowerCase().includes(queryPlan.geoFilter.toLowerCase())) return false;
       if (queryPlan.outcomeFilter && c.conversationOutcome !== queryPlan.outcomeFilter) return false;
       return true;
-    });
+    }).slice(0, 200);
   } catch (err) {
     await postToSlack(channel, `Database error: ${err.message}`);
     return;
@@ -117,7 +121,7 @@ async function processEvent(base44, event) {
 
   const answerPrompt = `You are a helpful data analyst for Reflectiz. Answer this question: ${question}
 
-Filtered data (${records.length} conversations matched, last ${days} days): ${JSON.stringify(records).slice(0, 8000)}
+Filtered data (based on ${records.length} real visitor conversations, last ${days} days): ${JSON.stringify(records).slice(0, 12000)}
 
 Format your response for Slack. Use *bold* with single asterisks only. Use the bullet character (•) for all list items, not dashes. Example: • PCI Compliance: 2 conversations. No markdown headers. Keep it under 300 words. Include specific numbers. End with "Insight: [one sentence]"
 
@@ -148,7 +152,8 @@ When the question asks for a log or list of conversations, format the response l
 
 Insight: [one genuinely useful observation]"
 
-Never dump raw transcript text into Slack. Summarize and structure instead.`;
+Never dump raw transcript text into Slack. Summarize and structure instead.
+Display outcomes in title case: Converted, Engaged, Dropped, Bounced. Never show outcomes in all caps.`;
 
   let answer;
   try {
