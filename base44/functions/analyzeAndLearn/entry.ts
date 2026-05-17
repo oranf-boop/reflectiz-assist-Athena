@@ -222,13 +222,9 @@ Return exactly this JSON structure:
   if (convJsonMatch) {
     try {
       parsedAnalysis = JSON.parse(convJsonMatch[0]);
-      console.log("Parsed analysis keys:", Object.keys(parsedAnalysis));
     } catch (e) {
-      console.log("JSON parse error for analysis:", e.message);
-      console.log("Raw conv text (first 500):", convJsonMatch[0].slice(0, 500));
+      console.error("JSON parse error for analysis:", e.message);
     }
-  } else {
-    console.log("No JSON match in conversation response. Raw (first 300):", convRawText.slice(0, 300));
   }
 
   const topSuccessPatterns = parsedAnalysis?.successReasons ?? convRawText;

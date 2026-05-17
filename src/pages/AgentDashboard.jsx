@@ -11,7 +11,7 @@ import DateFilter from "@/components/dashboard/DateFilter";
 
 const NAVY = "#103a77";
 
-const INTERNAL_SOURCES = ["wp-admin", "lovable.dev", "base44.com", "localhost"];
+const INTERNAL_SOURCES = ["wp-admin", "lovable.dev", "base44.com", "localhost", "lovableproject.com"];
 
 function isInternalSession(c) {
   const src = c.referralSource || "";
