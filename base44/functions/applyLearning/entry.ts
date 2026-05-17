@@ -105,11 +105,7 @@ TONE RULES:
 - Off-topic inputs: one sentence redirect — "What actually brought you here today?"`;
 
 Deno.serve(async (req) => {
-  const bodyText = await req.text();
-  const body = bodyText ? JSON.parse(bodyText) : {};
-  const dryRun = !!body.dryRun;
-
-  const base44 = createClientFromRequest(new Request(req, { body: bodyText }));
+  const base44 = createClientFromRequest(req);
   const user = await base44.auth.me().catch(() => null);
   const isScheduled = !user;
   const isAdmin = user?.role === "admin";
@@ -177,17 +173,6 @@ Return only the full improved system prompt text, nothing else.`;
     return Response.json({
       error: "Generated prompt failed validation — too short or missing required sections. Not applied.",
       promptLength: improvedPrompt.length
-    });
-  }
-
-  if (dryRun) {
-    return Response.json({
-      dryRun: true,
-      wouldUpdateToVersion: nextVersion,
-      reportDate: report.reportDate,
-      confidenceScore: report.confidenceScore,
-      currentVersion: currentConfig.version,
-      improvedPrompt,
     });
   }
 
