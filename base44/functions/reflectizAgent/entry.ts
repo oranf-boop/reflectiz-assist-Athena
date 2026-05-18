@@ -168,7 +168,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
     // FIX 1: boost webinar/event pages
     const eventBoost = hasEventIntent &&
-      (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/"))
+      (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/") || pageUrl.includes("/learning-hub/"))
       ? 15 : 0;
 
     // FIX 4: boost blog/learning hub pages on content topic queries
