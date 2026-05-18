@@ -396,20 +396,12 @@ Generate a natural one-sentence opening message that:
   });
 
   const rawReply = response.content[0]?.text ?? "";
-  let reply = rawReply
+  const reply = rawReply
     .replace(/—/g, ",")
     .replace(/--/g, ",")
-    .replace(/–/g, ",");
-
-  // Detect truncated URLs (e.g. "at www." or trailing incomplete URL patterns)
-  if (/at www\.\s*$|https?:\/\/[^\s]*$|www\.[a-z]*$/.test(reply.trimEnd())) {
-    reply = reply.trimEnd().replace(/at www\.$|www\.[a-z]*$/, "").trimEnd();
-  }
-
-  // Fix bare reflectiz.com references that are missing the https:// prefix
-  reply = reply.replace(/(?<!https?:\/\/)(www\.)?reflectiz\.com/g, (match) => {
-    return match.startsWith("www.") ? `https://${match}` : `https://www.reflectiz.com`;
-  });
+    .replace(/–/g, ",")
+    .replace(/www\.https:\/\//g, "https://www.")
+    .replace(/(?<![:/])(?<![a-z])reflectiz\.com/g, "https://www.reflectiz.com");
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
