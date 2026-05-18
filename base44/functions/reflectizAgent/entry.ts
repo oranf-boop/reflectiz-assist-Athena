@@ -131,12 +131,19 @@ const CORS_HEADERS = {
 };
 
 async function searchWebsiteContent(base44, query, currentPageUrl) {
-  const stopWords = new Set(["what", "this", "that", "with", "from", "have", "does", "your", "their", "about", "which", "when", "will", "how"]);
+  const stopWords = new Set([
+    "what", "this", "that", "with", "from", "have", "does", "your", "their", "about",
+    "which", "when", "will", "how", "can", "you", "tell", "me", "are", "the", "for",
+    "its", "get", "all", "any", "our", "more", "was", "has", "been", "not", "but",
+    "they", "them", "use", "used", "using", "see", "let", "just", "also", "into",
+  ]);
   const queryLower = query.toLowerCase();
+  // Extract keywords and strip trailing 's' for simple plural stemming
   const keywords = queryLower
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length >= 3 && !stopWords.has(w));
+    .filter(w => w.length >= 3 && !stopWords.has(w))
+    .map(w => w.endsWith("s") && w.length > 4 ? w.slice(0, -1) : w);
 
   if (keywords.length === 0) return [];
 
@@ -168,8 +175,9 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
     // FIX 1: boost webinar/event pages
     const eventBoost = hasEventIntent &&
-      (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/") || pageUrl.includes("/learning-hub/"))
-      ? 15 : 0;
+      (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/") || pageUrl.includes("/learning-hub/") ||
+       (page.pageTitle || "").toLowerCase().includes("webinar") || (page.pageTitle || "").toLowerCase().includes("panel"))
+      ? 20 : 0;
 
     // FIX 4: boost blog/learning hub pages on content topic queries
     const contentTopicBoost = hasContentTopicIntent &&
@@ -179,11 +187,12 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost };
   });
 
-  return scored
+  const top5 = scored
     .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(s => s.page);
+    .slice(0, 5);
+
+  return top5.slice(0, 3).map(s => s.page);
 }
 
 function formatRetrievedPages(pages) {
