@@ -106,6 +106,12 @@ Step 1 (turn 1): One observation based on their page. One question.
 Step 2 (turns 2 to 3): One new insight they did not know. Maximum 2 clarifying questions total across the whole conversation.
 Step 3 (turn 4 at the latest): CTA. Always. No more questions.
 
+READING REQUEST RULE:
+When a visitor explicitly says they are not ready for a meeting but want to read something, this is a Phase 2 moment. Do not offer a CTA. Do not mention booking a call. Find the most relevant article or case study from the retrieved content and share it with a direct link and one sentence explaining why it is relevant to their specific situation. Only move to CTA after they have engaged with the content.
+
+CONTENT INTEGRITY RULE:
+When a visitor asks for an article, blog post, or reading material, always check the [RELEVANT WEBSITE CONTENT] block first. If relevant pages exist, link to the most relevant one directly with its full URL. Only say you do not have a specific article if the retrieved content block is completely empty. Never send visitors to the blog homepage as a fallback when specific articles exist in the retrieved content.
+
 ---
 
 TONE RULES:
@@ -126,8 +132,8 @@ const CORS_HEADERS = {
 
 async function searchWebsiteContent(base44, query, currentPageUrl) {
   const stopWords = new Set(["what", "this", "that", "with", "from", "have", "does", "your", "their", "about", "which", "when", "will", "how"]);
-  const keywords = query
-    .toLowerCase()
+  const queryLower = query.toLowerCase();
+  const keywords = queryLower
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(w => w.length >= 3 && !stopWords.has(w));
@@ -136,21 +142,41 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
 
+  // FIX 1: event/webinar boost keywords
+  const eventKeywords = ["event", "webinar", "conference", "upcoming"];
+  const hasEventIntent = eventKeywords.some(kw => queryLower.includes(kw));
+
+  // FIX 4: supply chain / content topic boost keywords
+  const contentTopicKeywords = ["supply chain", "third party", "fourth party", "script", "magecart", "skimming", "article", "read", "blog", "learn"];
+  const hasContentTopicIntent = contentTopicKeywords.some(kw => queryLower.includes(kw));
+
   const scored = allPages.map(page => {
     const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
+    const pageUrl = (page.pageUrl || "").toLowerCase();
     const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
     const score = keywords.reduce((acc, kw) => {
       const matches = (text.match(new RegExp(kw, "g")) || []).length;
       return acc + matches;
-    }, 0) + urlBoost;
+    }, 0);
+
     const companyCaseStudyBoost =
       (page.pageType === "case-study" || page.pageType === "customers") &&
       keywords.some(kw =>
         (page.pageTitle || "").toLowerCase().includes(kw) ||
-        (page.pageUrl || "").toLowerCase().includes(kw)
+        pageUrl.includes(kw)
       ) ? 10 : 0;
 
-    return { page, score: score + urlBoost + companyCaseStudyBoost };
+    // FIX 1: boost webinar/event pages
+    const eventBoost = hasEventIntent &&
+      (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/"))
+      ? 15 : 0;
+
+    // FIX 4: boost blog/learning hub pages on content topic queries
+    const contentTopicBoost = hasContentTopicIntent &&
+      (pageUrl.includes("/blog/") || pageUrl.includes("/learning-hub/") || pageUrl.includes("/resources/"))
+      ? 10 : 0;
+
+    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost };
   });
 
   return scored
