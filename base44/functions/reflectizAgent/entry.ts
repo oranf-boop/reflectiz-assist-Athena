@@ -403,8 +403,13 @@ Generate a natural one-sentence opening message that:
 
   // Detect truncated URLs (e.g. "at www." or trailing incomplete URL patterns)
   if (/at www\.\s*$|https?:\/\/[^\s]*$|www\.[a-z]*$/.test(reply.trimEnd())) {
-    reply += " Please visit reflectiz.com/blog for our latest research.";
+    reply = reply.trimEnd().replace(/at www\.$|www\.[a-z]*$/, "").trimEnd();
   }
+
+  // Fix bare reflectiz.com references that are missing the https:// prefix
+  reply = reply.replace(/(?<!https?:\/\/)(www\.)?reflectiz\.com/g, (match) => {
+    return match.startsWith("www.") ? `https://${match}` : `https://www.reflectiz.com`;
+  });
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
