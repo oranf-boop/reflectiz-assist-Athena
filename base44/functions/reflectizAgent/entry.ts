@@ -247,7 +247,8 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, language, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic } = body;
+  let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
   // Handle link click tracking events without calling Claude
@@ -375,13 +376,20 @@ Generate a natural one-sentence opening message that:
     systemPrompt = agentConfigs[0].systemPrompt;
   }
 
+  // FIX 1: Detect Hebrew input from message content
+  const containsHebrew = /[\u0590-\u05FF]/.test(message);
+  if (containsHebrew) {
+    language = "he";
+  }
+
   const relevantPages = await searchWebsiteContent(base44, message, currentPageUrl);
   const ragBlock = formatRetrievedPages(relevantPages);
 
   const messages = [...conversationHistory];
 
+  const languageLabel = language === "he" ? "he (Hebrew -- respond in Hebrew)" : language;
   const visitorContext = [
-    language ? `[Visitor language: ${language}]` : "",
+    languageLabel ? `[Visitor language: ${languageLabel}]` : "",
     geo ? `[Visitor geo: ${geo}]` : "",
     currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
   ].filter(Boolean).join("\n");
@@ -390,7 +398,7 @@ Generate a natural one-sentence opening message that:
   messages.push({ role: "user", content: userContent });
 
   const response = await callGemini({
-    max_tokens: 1024,
+    max_tokens: 2048,
     system: systemPrompt,
     messages,
   });
@@ -403,6 +411,13 @@ Generate a natural one-sentence opening message that:
 
   reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
   reply = reply.replace(/www\.https:\/\//g, "https://");
+
+  // FIX 3: If visitor asked for reading material and reply has no URL, append first retrieved page URL
+  const asksForContent = /article|read|blog|resource|learn|case study|research/i.test(message);
+  const replyHasUrl = /https?:\/\//.test(reply);
+  if (asksForContent && !replyHasUrl && relevantPages.length > 0 && relevantPages[0].pageUrl) {
+    reply += ` Read more here: ${relevantPages[0].pageUrl}`;
+  }
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
