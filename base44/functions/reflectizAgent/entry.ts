@@ -191,12 +191,21 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost };
   });
 
-  const top5 = scored
+  const sorted = scored
     .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 
-  return top5.slice(0, 3).map(s => s.page);
+  // Force live panel discussion to position 0 for event-intent queries
+  if (hasEventIntent) {
+    const panelIndex = sorted.findIndex(s => (s.page.pageUrl || "").includes("live-panel-discussion"));
+    if (panelIndex > -1) {
+      const panelPage = sorted.splice(panelIndex, 1)[0];
+      sorted.unshift(panelPage);
+    }
+  }
+
+  return sorted.slice(0, 3).map(s => s.page);
 }
 
 function formatRetrievedPages(pages) {
