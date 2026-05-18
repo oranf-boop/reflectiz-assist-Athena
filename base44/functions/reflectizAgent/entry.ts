@@ -396,12 +396,13 @@ Generate a natural one-sentence opening message that:
   });
 
   const rawReply = response.content[0]?.text ?? "";
-  const reply = rawReply
+  let reply = rawReply
     .replace(/—/g, ",")
     .replace(/--/g, ",")
-    .replace(/–/g, ",")
-    .replace(/www\.https:\/\//g, "https://www.")
-    .replace(/(?<![:/])(?<![a-z])reflectiz\.com/g, "https://www.reflectiz.com");
+    .replace(/–/g, ",");
+
+  reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
+  reply = reply.replace(/www\.https:\/\//g, "https://");
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
