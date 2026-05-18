@@ -1,18 +1,23 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
+const HUB_PAGES = [
+  "https://www.reflectiz.com/learning-hub/",
+  "https://www.reflectiz.com/events/",
+];
+
 function classifyPageType(url) {
   if (url === "https://www.reflectiz.com/" || url === "https://www.reflectiz.com") return "homepage";
   if (url.includes("/blog/")) return "blog";
   if (url.includes("/use-case/") || url.includes("/use-cases/")) return "use-case";
   if (url.includes("/product/")) return "product";
   if (url.includes("/customers/") || url.includes("/case-study/")) return "case-study";
-  if (url.includes("/webinar/") || url.includes("/event/")) return "webinar";
+  if (url.includes("/webinar/") || url.includes("/events/") || url.includes("/event/") || url.includes("/learning-hub/")) return "webinar";
   if (url.includes("/vs-") || url.includes("/compare")) return "comparison";
   return "other";
 }
 
 function extractTextContent(html) {
-  const text = html
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<nav[\s\S]*?<\/nav>/gi, "")
@@ -20,8 +25,8 @@ function extractTextContent(html) {
     .replace(/<header[\s\S]*?<\/header>/gi, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
-  return text.slice(0, 10000);
+    .trim()
+    .slice(0, 10000);
 }
 
 function extractTitle(html) {
@@ -29,24 +34,56 @@ function extractTitle(html) {
   return match ? match[1].replace(/\s+/g, " ").trim() : "";
 }
 
+// Parses sitemap and returns { url, lastmod } pairs
 async function parseSitemap(url) {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" } });
   const xml = await res.text();
-  const urls = [];
-  const locMatches = xml.matchAll(/<loc>([\s\S]*?)<\/loc>/g);
-  for (const match of locMatches) {
-    const u = match[1].trim();
+  const entries = [];
+  // Match each <url> block to get both loc and lastmod
+  const urlBlocks = xml.matchAll(/<url>([\s\S]*?)<\/url>/g);
+  for (const block of urlBlocks) {
+    const locMatch = block[1].match(/<loc>([\s\S]*?)<\/loc>/);
+    const lastmodMatch = block[1].match(/<lastmod>([\s\S]*?)<\/lastmod>/);
+    if (!locMatch) continue;
+    const u = locMatch[1].trim();
+    const lastmod = lastmodMatch ? lastmodMatch[1].trim() : null;
     if (u.endsWith(".xml")) {
       const nested = await parseSitemap(u);
-      urls.push(...nested);
+      entries.push(...nested);
     } else {
-      urls.push(u);
+      entries.push({ url: u, lastmod });
     }
   }
-  return urls;
+  // Also capture any bare <loc> entries not wrapped in <url> (sitemap index entries)
+  if (entries.length === 0) {
+    const locMatches = xml.matchAll(/<loc>([\s\S]*?)<\/loc>/g);
+    for (const match of locMatches) {
+      const u = match[1].trim();
+      if (u.endsWith(".xml")) {
+        const nested = await parseSitemap(u);
+        entries.push(...nested);
+      } else {
+        entries.push({ url: u, lastmod: null });
+      }
+    }
+  }
+  return entries;
 }
 
-async function withRetry(fn, maxRetries = 4) {
+// Extract internal reflectiz.com links from a hub page HTML
+function extractInternalLinks(html, baseHost) {
+  const links = new Set();
+  const matches = html.matchAll(/href=["'](https?:\/\/www\.reflectiz\.com\/[^"'#?]+)["']/g);
+  for (const m of matches) {
+    const u = m[1].trim().replace(/\/$/, "") + "/";
+    if (u.startsWith(`https://${baseHost}/`) && !u.includes("/wp-content/") && !u.includes("/wp-admin/")) {
+      links.add(u);
+    }
+  }
+  return [...links];
+}
+
+async function withRetry(fn, maxRetries = 3) {
   let delay = 1000;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -66,9 +103,9 @@ async function withRetry(fn, maxRetries = 4) {
 async function crawlPage(pageUrl, base44, now) {
   const pageRes = await fetch(pageUrl, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(12000),
   });
-  if (!pageRes.ok) return { status: "failed" };
+  if (!pageRes.ok) return { status: "failed", url: pageUrl };
 
   const html = await pageRes.text();
   const pageTitle = extractTitle(html);
@@ -85,29 +122,21 @@ async function crawlPage(pageUrl, base44, now) {
         pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
       })
     );
-    return { status: "updated" };
+    return { status: "updated", html };
   } else {
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.create({
         pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
       })
     );
-    return { status: "created" };
+    return { status: "created", html };
   }
 }
 
-Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
-
-  const allUrls = await parseSitemap("https://www.reflectiz.com/sitemap.xml");
-  const batchSize = 3;
-  const delayMs = 800;
-  const now = new Date().toISOString().split("T")[0];
-
+async function processBatch(urls, base44, now, batchSize = 3, delayMs = 600) {
   let created = 0, updated = 0, failed = 0;
-
-  for (let i = 0; i < allUrls.length; i += batchSize) {
-    const batch = allUrls.slice(i, i + batchSize);
+  for (let i = 0; i < urls.length; i += batchSize) {
+    const batch = urls.slice(i, i + batchSize);
     const results = await Promise.allSettled(batch.map(url => crawlPage(url, base44, now)));
     for (const result of results) {
       if (result.status === "fulfilled") {
@@ -118,12 +147,71 @@ Deno.serve(async (req) => {
         failed++;
       }
     }
-    if (i + batchSize < allUrls.length) {
+    if (i + batchSize < urls.length) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
+  return { created, updated, failed };
+}
 
-  console.log(`Scheduled crawl complete: created=${created}, updated=${updated}, failed=${failed}`);
+Deno.serve(async (req) => {
+  const base44 = createClientFromRequest(req);
+  const now = new Date().toISOString().split("T")[0];
 
-  return Response.json({ created, updated, failed, total: allUrls.length });
+  // Calculate cutoff: only crawl pages modified in the last 2 days (catch new + recently updated)
+  const cutoffDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  // STEP 1: Parse sitemap and filter to recently modified pages
+  const allEntries = await parseSitemap("https://www.reflectiz.com/sitemap.xml");
+
+  // Filter: pages with lastmod >= cutoff OR no lastmod (crawl them to be safe)
+  const recentEntries = allEntries.filter(e => !e.lastmod || e.lastmod.slice(0, 10) >= cutoffDate);
+  const recentUrls = recentEntries.map(e => e.url);
+
+  console.log(`Sitemap total: ${allEntries.length}, recent (last 2 days): ${recentUrls.length}`);
+
+  // STEP 2: Discover off-sitemap URLs from hub pages
+  const hubUrls = new Set();
+  for (const hubPage of HUB_PAGES) {
+    try {
+      const res = await fetch(hubPage, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (res.ok) {
+        const html = await res.text();
+        const links = extractInternalLinks(html, "www.reflectiz.com");
+        links.forEach(l => hubUrls.add(l));
+        console.log(`Hub ${hubPage}: found ${links.length} links`);
+      }
+    } catch (e) {
+      console.log(`Hub fetch failed for ${hubPage}: ${e.message}`);
+    }
+  }
+
+  // Combine: recent sitemap URLs + hub-discovered URLs not already in sitemap
+  const sitemapUrlSet = new Set(allEntries.map(e => e.url));
+  const offSitemapUrls = [...hubUrls].filter(u => !sitemapUrlSet.has(u));
+  console.log(`Off-sitemap URLs discovered from hubs: ${offSitemapUrls.length}`);
+
+  const urlsToCrawl = [...new Set([...recentUrls, ...offSitemapUrls])];
+  console.log(`Total URLs to crawl this run: ${urlsToCrawl.length}`);
+
+  // STEP 3: Crawl all collected URLs
+  const { created, updated, failed } = await processBatch(urlsToCrawl, base44, now);
+
+  const summary = {
+    sitemap_total: allEntries.length,
+    recent_from_sitemap: recentUrls.length,
+    off_sitemap_discovered: offSitemapUrls.length,
+    total_crawled: urlsToCrawl.length,
+    created,
+    updated,
+    failed,
+    cutoff_date: cutoffDate,
+    run_date: now,
+  };
+
+  console.log("Scheduled crawl complete:", JSON.stringify(summary));
+  return Response.json(summary);
 });
