@@ -157,6 +157,8 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
   const contentTopicKeywords = ["supply chain", "third party", "fourth party", "script", "magecart", "skimming", "article", "read", "blog", "learn"];
   const hasContentTopicIntent = contentTopicKeywords.some(kw => queryLower.includes(kw));
 
+  const recencySignals = ["upcoming", "register", "live", "join us", "may 2026", "june 2026", "july 2026"];
+
   const scored = allPages.map(page => {
     const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
     const pageUrl = (page.pageUrl || "").toLowerCase();
@@ -165,6 +167,8 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       const matches = (text.match(new RegExp(kw, "g")) || []).length;
       return acc + matches;
     }, 0);
+
+    const recencyBoost = hasEventIntent && recencySignals.some(sig => text.includes(sig)) ? 20 : 0;
 
     const companyCaseStudyBoost =
       (page.pageType === "case-study" || page.pageType === "customers") &&
@@ -184,7 +188,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       (pageUrl.includes("/blog/") || pageUrl.includes("/learning-hub/") || pageUrl.includes("/resources/"))
       ? 10 : 0;
 
-    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost };
+    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost };
   });
 
   const top5 = scored
