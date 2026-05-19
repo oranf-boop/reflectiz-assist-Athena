@@ -137,7 +137,31 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     "its", "get", "all", "any", "our", "more", "was", "has", "been", "not", "but",
     "they", "them", "use", "used", "using", "see", "let", "just", "also", "into",
   ]);
-  const queryLower = query.toLowerCase();
+
+  // FIX 1: Translate Hebrew security terms to English before keyword extraction
+  const hebrewKeywords = {
+    "שרשרת אספקה": "supply chain",
+    "שרשרת": "supply chain",
+    "אספקה": "supply chain",
+    "צד שלישי": "third party",
+    "סקריפט": "script",
+    "פיקסל": "pixel",
+    "מגקארט": "magecart",
+    "אבטחה": "security",
+    "ציות": "compliance",
+    "פרטיות": "privacy",
+    "סיכון": "risk",
+    "התקפה": "attack",
+    "מאמר": "article blog",
+    "מדריך": "guide",
+    "דוח": "report",
+  };
+  let searchQuery = query;
+  Object.entries(hebrewKeywords).forEach(([hebrew, english]) => {
+    searchQuery = searchQuery.replace(new RegExp(hebrew, "g"), english);
+  });
+
+  const queryLower = searchQuery.toLowerCase();
   // Extract keywords and strip trailing 's' for simple plural stemming
   const keywords = queryLower
     .replace(/[^a-z0-9\s]/g, " ")
@@ -188,7 +212,13 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       (pageUrl.includes("/blog/") || pageUrl.includes("/learning-hub/") || pageUrl.includes("/resources/"))
       ? 10 : 0;
 
-    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost };
+    // FIX 2: boost supply chain specific pages for supply chain queries
+    const supplyChainQuery = queryLower.includes("supply chain") || queryLower.includes("supply-chain");
+    const supplyChainBoost = supplyChainQuery &&
+      (pageUrl.includes("supply-chain") || pageUrl.includes("ai-supply-chain"))
+      ? 15 : 0;
+
+    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost + supplyChainBoost };
   });
 
   const sorted = scored
