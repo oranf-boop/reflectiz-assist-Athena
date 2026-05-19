@@ -114,9 +114,23 @@ Deno.serve(async (req) => {
   }
 
   const reports = await base44.asServiceRole.entities.LearningReports.list("-reportDate", 50);
-  const report = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  const report = reports.find(r =>
+    r.appliedToAgent === false &&
+    (r.confidenceScore || 0) >= 3 &&
+    (r.totalConversations || 0) >= 30 &&
+    r.reportDate >= sevenDaysAgo
+  );
 
   if (!report) {
+    const anyPending = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
+    if (anyPending) {
+      const tooOld = (anyPending.reportDate || "") < sevenDaysAgo;
+      const tooSmall = (anyPending.totalConversations || 0) < 30;
+      if (tooOld) return Response.json({ message: "Report too old to apply safely. Waiting for a more recent report.", reportDate: anyPending.reportDate });
+      if (tooSmall) return Response.json({ message: `Sample size too small to trust (${anyPending.totalConversations} conversations). Minimum required: 30.`, reportDate: anyPending.reportDate });
+    }
     return Response.json({ message: "No actionable report available yet." });
   }
 
