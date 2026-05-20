@@ -1,0 +1,20 @@
+{
+  "name": "PageOpeners",
+  "type": "object",
+  "properties": {
+    "pageUrl": {
+      "type": "string",
+      "title": "Page URL"
+    },
+    "opener": {
+      "type": "string",
+      "title": "Opener"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date",
+      "title": "Generated At"
+    }
+  },
+  "required": []
+}

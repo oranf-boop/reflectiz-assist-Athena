@@ -373,12 +373,91 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
   }
 
-  // Code-driven opener selection for all INIT variants (zero latency, zero API cost)
+  // Dynamic page-aware opener for all INIT variants
   if (message && message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
-    const opener = selectOpener(currentPageUrl, body.timeOnPage, body.visitorType, lastIntent);
-    if (opener) {
-      return new Response(JSON.stringify({ reply: opener, sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
+    const sessionId = incomingSessionId || crypto.randomUUID();
+
+    // Skip form/contact pages — no opener needed
+    const staticResult = selectOpener(currentPageUrl, body.timeOnPage, body.visitorType, lastIntent);
+    if (staticResult === null) {
+      return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
     }
+
+    const base44 = createClientFromRequest(req);
+
+    // Run cache lookup and page content fetch in parallel
+    const [cachedOpeners, relevantPagesForOpener] = await Promise.all([
+      currentPageUrl
+        ? base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl })
+        : Promise.resolve([]),
+      currentPageUrl
+        ? base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl })
+        : Promise.resolve([]),
+    ]);
+
+    // Check cache: use if generated within last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const cached = cachedOpeners.find(c => c.generatedAt >= sevenDaysAgo);
+    if (cached?.opener) {
+      return new Response(JSON.stringify({ reply: cached.opener, sessionId }), { headers: CORS_HEADERS });
+    }
+
+    // Get page metadata for prompt
+    const matchingPage = relevantPagesForOpener[0];
+    const pageTitle = matchingPage?.pageTitle || "";
+    const pageType = matchingPage?.pageType || "";
+
+    // If no page content available, fall back to static opener
+    if (!pageTitle && !pageType) {
+      return new Response(JSON.stringify({ reply: staticResult, sessionId }), { headers: CORS_HEADERS });
+    }
+
+    // Generate dynamic opener with Gemini
+    const openerPrompt = `Generate a single opening message for a chat widget on this specific web page.
+
+Page title: ${pageTitle}
+Page URL: ${currentPageUrl}
+Page type: ${pageType}
+Visitor time on page: ${body.timeOnPage || 0} seconds
+
+Rules:
+- Maximum 1 sentence, under 20 words
+- Must reference something specific from the page title or topic
+- End with a question
+- Sound like a knowledgeable peer, not a salesperson
+- No greeting words
+- No em dashes
+- No double hyphens
+
+Examples of the right tone:
+- Remote monitoring page: "Remote monitoring is a different approach, curious what drew you to this angle?"
+- Castore case study: "Castore handled supply chain risk at retail scale, dealing with something similar?"
+- PCI compliance blog: "Requirements 6.4.3 and 11.6.1 are catching teams off guard, is that on your radar?"
+- Homepage: "Most teams here are dealing with compliance, a recent scare, or blind spots, which one fits?"
+
+Return only the opener sentence, nothing else.`;
+
+    const openerResponse = await callGemini({
+      max_tokens: 80,
+      messages: [{ role: "user", content: openerPrompt }],
+    });
+
+    let opener = (openerResponse.content[0]?.text ?? staticResult).trim()
+      .replace(/^["']|["']$/g, "") // strip surrounding quotes
+      .replace(/—/g, ",")
+      .replace(/--/g, ",");
+
+    if (!opener) opener = staticResult;
+
+    // Cache the result (fire-and-forget — don't block the response)
+    const today = new Date().toISOString().split("T")[0];
+    if (cachedOpeners.length > 0) {
+      base44.asServiceRole.entities.PageOpeners.update(cachedOpeners[0].id, { opener, generatedAt: today }).catch(() => {});
+    } else {
+      base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, generatedAt: today }).catch(() => {});
+    }
+
+    return new Response(JSON.stringify({ reply: opener, sessionId }), { headers: CORS_HEADERS });
   }
 
   // client replaced by callClaude helper
