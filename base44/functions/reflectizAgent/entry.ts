@@ -123,6 +123,39 @@ TONE RULES:
 - Plain prose only, no markdown, bullets, or headers in responses
 - Off-topic inputs: one sentence redirect: "What actually brought you here today?"`;
 
+function selectOpener(url, timeOnPage, visitorType, lastIntent) {
+  if (!url) return null;
+  const u = url.toLowerCase();
+
+  if (visitorType === "returning" && lastIntent) return null; // handled by INIT_RETURNING_VISITOR
+
+  if (u.includes("/registration") || u.includes("/free-trial")) return null; // form pages
+  if (u.includes("/contact")) return null; // form pages
+  if (u.includes("/plans") || u.includes("/pricing")) return "Looking at fit for your team, or further along in the evaluation?";
+  if (u.includes("/platform/") || u.includes("/product/") || u.includes("/solution/") || u.includes("/remote-monitoring") || u.includes("/how-it-works")) return "Evaluating something specific, or still mapping out what you actually need?";
+  if (u.includes("/vs-") || u.includes("/compare") || u.includes("reflectiz-vs")) return "Already know what you are comparing against, or still figuring out the shortlist?";
+  if (u.includes("/use-case") || u.includes("/use_case")) return "This use case tends to come up after something specific happens internally. What triggered the search?";
+  if (u.includes("/customers") || u.includes("/case-study") || u.includes("/success-story")) return "Looking for proof it works in your industry, or just getting a feel for the customer base?";
+  if (u.includes("/webinar") || u.includes("/event") || u.includes("/learning-hub")) return "Looking to learn something specific, or just keeping up with what is happening in the space?";
+  if (u.includes("/blog/") && (u.includes("pci") || u.includes("compliance") || u.includes("dss"))) return "Requirements 6.4.3 and 11.6.1 are catching a lot of teams off guard right now. Is that on your radar?";
+  if (u.includes("/blog/") && (u.includes("magecart") || u.includes("skimming") || u.includes("supply-chain"))) return "The attack most teams miss is not in their own code. It is in their vendors code. Worth a look at yours?";
+  if (u.includes("/blog/") && (u.includes("privacy") || u.includes("gdpr") || u.includes("pixel"))) return "Your marketing pixels might be sharing more than you think. Is that a concern for your team?";
+  if (u.includes("/blog/")) return "Something on this page caught your attention. What was it?";
+  if (u.includes("/industries/")) return "Security requirements vary a lot by industry. What sector are you in?";
+  if (u.includes("/why-reflectiz") || u.includes("/about")) return "Doing some research on Reflectiz specifically, or comparing options more broadly?";
+
+  // Homepage detection
+  const isHomepage = u === "https://www.reflectiz.com/" || u === "https://www.reflectiz.com" || u.endsWith("reflectiz.com/");
+  if (isHomepage) {
+    if (!timeOnPage || timeOnPage < 15) return "What brought you here today -- compliance, a recent concern, or just exploring?";
+    if (timeOnPage < 45) return "You have been looking around -- anything specific catch your eye, or still getting the lay of the land?";
+    return "Spending some time here -- usually means something specific is on your radar. What is it?";
+  }
+
+  // Default
+  return "You are not here by accident. What are you trying to solve?";
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -330,15 +363,22 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
-  // Hardcoded instant openers, no Claude, no DB, no cost
+  // Hardcoded instant openers, no Gemini, no DB, no cost
   const INSTANT_OPENERS = {
-    INIT_HOMEPAGE_FIRST: "Most teams who land here are dealing with compliance, a recent scare, or too many blind spots. Which one fits?",
     INIT_HOMEPAGE_RETURN_SAME_DAY: "You were here earlier. Did something come up, or still thinking it through?",
     INIT_HOMEPAGE_RETURN_DIFFERENT_DAY: "Something specific bring you back?",
   };
 
   if (INSTANT_OPENERS[message]) {
     return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
+  }
+
+  // Code-driven opener selection for all INIT variants (zero latency, zero API cost)
+  if (message && message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
+    const opener = selectOpener(currentPageUrl, body.timeOnPage, body.visitorType, lastIntent);
+    if (opener) {
+      return new Response(JSON.stringify({ reply: opener, sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
+    }
   }
 
   // client replaced by callClaude helper
