@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription } = body;
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
@@ -413,44 +413,39 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.PageOpeners.delete(cached.id).catch(() => {});
     }
 
-    // Build page context for Gemini
+    // Use client-supplied title/description first, fall back to DB content
     const matchingPage = pageContentResults[0];
-    const pageTitle = matchingPage?.pageTitle || "";
+    const contextTitle = clientPageTitle || matchingPage?.pageTitle || currentPageUrl;
+    const contextContent = pageDescription || (matchingPage?.pageContent || "").slice(0, 300);
 
-    const openerPrompt = `You are writing the first message a chat agent sends to a visitor on this specific webpage. Return ONLY the message text, nothing else, no JSON, no explanation.
+    const openerPrompt = `Write one opening message for a chat widget. Return only the sentence, nothing else.
 
-Page title: ${pageTitle || currentPageUrl}
-Page content summary: ${(matchingPage?.pageContent || "").slice(0, 300)}
+Page the visitor is reading: ${contextTitle}
+${contextContent ? `Page description: ${contextContent}` : ""}
 
-Write ONE sentence that:
-- References something specific from this page topic
+Rules:
+- Under 20 words
+- References the specific page topic
 - Ends with a question
-- Sounds like a knowledgeable peer
-- Is under 20 words
-- Has no greeting words, no em dashes, no double hyphens
+- No greeting words
+- No em dashes
+- No double hyphens
+- Sound like a knowledgeable peer`;
 
-Return only the sentence.`;
+    const openerResponse = await callGemini({
+      max_tokens: 150,
+      messages: [{ role: "user", content: openerPrompt }],
+    });
+    const opener = ((openerResponse.content[0]?.text ?? "").trim().replace(/—/g, ",").replace(/--/g, ",")) || "What brought you to Reflectiz today?";
+    const bubbleText = opener.replace(/\?$/, "").slice(0, 60);
 
-    const FALLBACK_OPENER = "What brought you to Reflectiz today?";
-    let opener = FALLBACK_OPENER;
-    let bubbleText = "";
-
-    try {
-      const openerResponse = await callGemini({
-        max_tokens: 100,
-        messages: [{ role: "user", content: openerPrompt }],
-      });
-      const rawText = (openerResponse.content[0]?.text ?? "").trim().replace(/—/g, ",").replace(/--/g, ",");
-      if (isValidOpener(rawText)) opener = rawText;
-      bubbleText = opener.replace(/\?$/, "").slice(0, 60);
-    } catch (geminiErr) {
-      console.error("Gemini opener error:", geminiErr.message);
-    }
-
-    // Cache only when both fields are present
-    if (isValidOpener(opener) && bubbleText) {
-      const today = new Date().toISOString().split("T")[0];
-      base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, bubbleText, generatedAt: today }).catch(() => {});
+    if (opener !== "What brought you to Reflectiz today?") {
+      base44.asServiceRole.entities.PageOpeners.create({
+        pageUrl: currentPageUrl,
+        opener,
+        bubbleText,
+        generatedAt: new Date().toISOString(),
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
