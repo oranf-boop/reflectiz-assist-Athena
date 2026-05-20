@@ -472,7 +472,7 @@ Return only the JSON object. Nothing else.`;
 
     try {
       const openerResponse = await callGemini({
-        max_tokens: 200,
+        max_tokens: 512,
         messages: [{ role: "user", content: openerPrompt }],
       });
       const rawText = (openerResponse.content[0]?.text ?? "").trim();
