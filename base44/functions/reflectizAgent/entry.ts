@@ -385,6 +385,15 @@ Deno.serve(async (req) => {
 
     const base44 = createClientFromRequest(req);
 
+    // Validation: opener must be a real conversation starter
+    function isValidOpener(text) {
+      if (!text || text.length < 20) return false;
+      if (!text.trim().endsWith("?")) return false;
+      const badPatterns = /\b(client|monitoring for|page|website)\b/i;
+      if (badPatterns.test(text)) return false;
+      return true;
+    }
+
     // Run cache lookup and page content fetch in parallel
     const [cachedOpeners, relevantPagesForOpener] = await Promise.all([
       currentPageUrl
@@ -395,65 +404,65 @@ Deno.serve(async (req) => {
         : Promise.resolve([]),
     ]);
 
-    // Check cache: use if generated within last 7 days
+    // Check cache: exact URL match, generated within last 7 days, passes validation
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const cached = cachedOpeners.find(c => c.generatedAt >= sevenDaysAgo);
-    if (cached?.opener) {
+    const cached = cachedOpeners?.[0];
+    if (cached?.opener && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
       return new Response(JSON.stringify({ reply: cached.opener, sessionId }), { headers: CORS_HEADERS });
+    }
+
+    // If cached opener is invalid, delete it
+    if (cached && !isValidOpener(cached.opener)) {
+      base44.asServiceRole.entities.PageOpeners.delete(cached.id).catch(() => {});
     }
 
     // Get page metadata for prompt
     const matchingPage = relevantPagesForOpener[0];
     const pageTitle = matchingPage?.pageTitle || "";
-    const pageType = matchingPage?.pageType || "";
 
     // If no page content available, fall back to static opener
-    if (!pageTitle && !pageType) {
+    if (!pageTitle) {
       return new Response(JSON.stringify({ reply: staticResult, sessionId }), { headers: CORS_HEADERS });
     }
 
     // Generate dynamic opener with Gemini
-    const openerPrompt = `Generate a single opening message for a chat widget on this specific web page.
+    const openerPrompt = `You are writing the first message a chat agent sends to a website visitor. This must be a genuine conversation starter, not a label or description.
 
 Page title: ${pageTitle}
 Page URL: ${currentPageUrl}
-Page type: ${pageType}
-Visitor time on page: ${body.timeOnPage || 0} seconds
 
-Rules:
-- Maximum 1 sentence, under 20 words
-- Must reference something specific from the page title or topic
-- End with a question
-- Sound like a knowledgeable peer, not a salesperson
-- No greeting words
-- No em dashes
-- No double hyphens
+Write exactly ONE sentence that:
+- Opens a real conversation with this specific visitor
+- References something specific and interesting from the page topic
+- Ends with a genuine question the visitor would want to answer
+- Sounds like a knowledgeable peer, not a salesperson
+- Is under 20 words total
+- Has no greeting words (no Hi, Hello, Welcome)
+- Has no em dashes and no double hyphens
 
-Examples of the right tone:
-- Remote monitoring page: "Remote monitoring is a different approach, curious what drew you to this angle?"
-- Castore case study: "Castore handled supply chain risk at retail scale, dealing with something similar?"
-- PCI compliance blog: "Requirements 6.4.3 and 11.6.1 are catching teams off guard, is that on your radar?"
-- Homepage: "Most teams here are dealing with compliance, a recent scare, or blind spots, which one fits?"
+Good examples:
+- For remote monitoring page: "Agentless monitoring changes the conversation around client-side risk quite a bit, curious what drew you here?"
+- For Castore case study: "Managing supply chain risk across 30+ storefronts is a real challenge, dealing with something similar?"
+- For PCI blog: "Requirements 6.4.3 and 11.6.1 are tripping up a lot of teams right now, is that what brought you here?"
 
-Return only the opener sentence, nothing else.`;
+Return only the single sentence. Nothing else. No explanation. No preamble.`;
 
     const openerResponse = await callGemini({
       max_tokens: 80,
       messages: [{ role: "user", content: openerPrompt }],
     });
 
-    let opener = (openerResponse.content[0]?.text ?? staticResult).trim()
-      .replace(/^["']|["']$/g, "") // strip surrounding quotes
+    let opener = (openerResponse.content[0]?.text ?? "").trim()
+      .replace(/^["']|["']$/g, "")
       .replace(/—/g, ",")
       .replace(/--/g, ",");
 
-    if (!opener) opener = staticResult;
+    // Validate generated opener; fall back to static if invalid
+    if (!isValidOpener(opener)) opener = staticResult;
 
-    // Cache the result (fire-and-forget — don't block the response)
-    const today = new Date().toISOString().split("T")[0];
-    if (cachedOpeners.length > 0) {
-      base44.asServiceRole.entities.PageOpeners.update(cachedOpeners[0].id, { opener, generatedAt: today }).catch(() => {});
-    } else {
+    // Cache only valid openers (fire-and-forget)
+    if (isValidOpener(opener)) {
+      const today = new Date().toISOString().split("T")[0];
       base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, generatedAt: today }).catch(() => {});
     }
 
