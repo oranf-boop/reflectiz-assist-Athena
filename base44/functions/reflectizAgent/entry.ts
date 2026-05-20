@@ -418,19 +418,31 @@ Deno.serve(async (req) => {
     const contextTitle = clientPageTitle || matchingPage?.pageTitle || currentPageUrl;
     const contextContent = pageDescription || (matchingPage?.pageContent || "").slice(0, 300);
 
-    const openerPrompt = `Write one opening message for a chat widget. Return only the sentence, nothing else.
+    const openerPrompt = `You are writing the first chat message a visitor sees on a specific webpage. You must reference something concrete and specific from this page.
 
-Page the visitor is reading: ${contextTitle}
-${contextContent ? `Page description: ${contextContent}` : ""}
+Page title: ${contextTitle}
+Page description: ${contextContent}
 
-Rules:
-- Under 20 words
-- References the specific page topic
-- Ends with a question
-- No greeting words
-- No em dashes
-- No double hyphens
-- Sound like a knowledgeable peer`;
+Write ONE sentence that:
+- Mentions something SPECIFIC from the page title or description (a company name, a specific number, a specific challenge, a specific technology)
+- Ends with a genuine question the visitor would want to answer
+- Sounds like a knowledgeable peer who read the same page
+- Is between 10 and 20 words
+- Has no greeting words like Hi or Hello
+- Has no em dashes
+- Has no double hyphens
+
+GOOD examples based on this specific page:
+If page is about Broadway Gaming PCI compliance: "Zero audit findings across dozens of brands is a strong result -- how close is your team to that benchmark?"
+If page is about remote monitoring: "Monitoring from outside the stack catches what embedded tools miss -- is that the gap you are trying to close?"
+If page is about Castore supply chain: "Managing 30 storefronts worth of third-party scripts without visibility is a real risk -- dealing with something similar?"
+
+BAD examples (too generic, do not write these):
+"Interested in achieving PCI"
+"What brought you to Reflectiz today?"
+"Evaluating something specific?"
+
+Return ONLY the sentence. Nothing else.`;
 
     const openerResponse = await callGemini({
       max_tokens: 150,
