@@ -10,6 +10,10 @@
       "type": "string",
       "title": "Opener"
     },
+    "bubbleText": {
+      "type": "string",
+      "title": "Bubble Text"
+    },
     "generatedAt": {
       "type": "string",
       "format": "date",

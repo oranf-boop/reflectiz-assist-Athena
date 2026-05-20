@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const cached = cachedOpeners?.[0];
     if (cached?.opener && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
-      return new Response(JSON.stringify({ reply: cached.opener, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText ?? "", sessionId }), { headers: CORS_HEADERS });
     }
 
     // If cached opener is invalid, delete it
@@ -449,48 +449,56 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ reply: staticResult, sessionId }), { headers: CORS_HEADERS });
     }
 
-    // Generate dynamic opener with Gemini
-    const openerPrompt = `You are writing the first message a chat agent sends to a website visitor. This must be a genuine conversation starter, not a label or description.
+    // Generate dynamic opener + bubbleText with Gemini
+    const openerPrompt = `You are writing two short messages for a chat widget on this specific webpage.
 
 Page title: ${pageTitle}
 Page URL: ${currentPageUrl}
 
-Write exactly ONE sentence that:
-- Opens a real conversation with this specific visitor
-- References something specific and interesting from the page topic
-- Ends with a genuine question the visitor would want to answer
-- Sounds like a knowledgeable peer, not a salesperson
-- Is under 20 words total
-- Has no greeting words (no Hi, Hello, Welcome)
-- Has no em dashes and no double hyphens
+Return ONLY a valid JSON object with two fields:
 
-Good examples:
-- For remote monitoring page: "Agentless monitoring changes the conversation around client-side risk quite a bit, curious what drew you here?"
-- For Castore case study: "Managing supply chain risk across 30+ storefronts is a real challenge, dealing with something similar?"
-- For PCI blog: "Requirements 6.4.3 and 11.6.1 are tripping up a lot of teams right now, is that what brought you here?"
+{
+  "opener": "one sentence opening message for the chat, under 20 words, ends with a question, no greeting words, no em dashes",
+  "bubbleText": "one short punchy statement for a notification bubble, under 10 words, creates curiosity, no question mark, no em dashes, no greeting words"
+}
 
-Return only the single sentence. Nothing else. No explanation. No preamble.`;
+Examples of good bubbleText:
+- Remote monitoring page: "Your blind spots are bigger than you think"
+- Castore case study: "How Castore secured 30 stores at once"
+- PCI blog: "6.4.3 and 11.6.1 are tripping teams up"
+- Finance page: "Payment pages carry more risk than you think"
+- Homepage: "Your site has more exposure than you think"
+
+Return only the JSON object. Nothing else.`;
 
     const openerResponse = await callGemini({
-      max_tokens: 80,
+      max_tokens: 200,
       messages: [{ role: "user", content: openerPrompt }],
     });
 
-    let opener = (openerResponse.content[0]?.text ?? "").trim()
-      .replace(/^["']|["']$/g, "")
-      .replace(/—/g, ",")
-      .replace(/--/g, ",");
+    let opener = staticResult;
+    let bubbleText = "";
 
-    // Validate generated opener; fall back to static if invalid
-    if (!isValidOpener(opener)) opener = staticResult;
-
-    // Cache only valid openers (fire-and-forget)
-    if (isValidOpener(opener)) {
-      const today = new Date().toISOString().split("T")[0];
-      base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, generatedAt: today }).catch(() => {});
+    try {
+      const rawText = (openerResponse.content[0]?.text ?? "").trim();
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const rawOpener = (parsed.opener ?? "").trim().replace(/^["']|["']$/g, "").replace(/—/g, ",").replace(/--/g, ",");
+        if (isValidOpener(rawOpener)) opener = rawOpener;
+        bubbleText = (parsed.bubbleText ?? "").trim().replace(/^["']|["']$/g, "").replace(/—/g, ",").replace(/--/g, ",");
+      }
+    } catch (_) {
+      // fall back to staticResult opener, empty bubbleText
     }
 
-    return new Response(JSON.stringify({ reply: opener, sessionId }), { headers: CORS_HEADERS });
+    // Cache valid openers + bubbleText (fire-and-forget)
+    if (isValidOpener(opener)) {
+      const today = new Date().toISOString().split("T")[0];
+      base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, bubbleText, generatedAt: today }).catch(() => {});
+    }
+
+    return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
   }
 
   // client replaced by callClaude helper
