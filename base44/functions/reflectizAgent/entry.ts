@@ -147,9 +147,9 @@ function selectOpener(url, timeOnPage, visitorType, lastIntent) {
   // Homepage detection
   const isHomepage = u === "https://www.reflectiz.com/" || u === "https://www.reflectiz.com" || u.endsWith("reflectiz.com/");
   if (isHomepage) {
-    if (!timeOnPage || timeOnPage < 15) return "What brought you here today -- compliance, a recent concern, or just exploring?";
-    if (timeOnPage < 45) return "You have been looking around -- anything specific catch your eye, or still getting the lay of the land?";
-    return "Spending some time here -- usually means something specific is on your radar. What is it?";
+    if (!timeOnPage || timeOnPage < 15) return "What brought you here today, compliance, a recent concern, or just exploring?";
+    if (timeOnPage < 45) return "You have been looking around, anything specific catch your eye, or still getting the lay of the land?";
+    return "Spending some time here, usually means something specific is on your radar. What is it?";
   }
 
   // Default
@@ -562,6 +562,7 @@ Generate a natural one-sentence opening message that:
   const rawReply = response.content[0]?.text ?? "";
   let reply = rawReply
     .replace(/—/g, ",")
+    .replace(/ -- /g, ", ")
     .replace(/--/g, ",")
     .replace(/–/g, ",");
 
