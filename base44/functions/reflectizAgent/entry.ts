@@ -43,8 +43,11 @@ async function callGemini({ system, messages, max_tokens }) {
     throw new Error(`Gemini error ${res.status}: ${errText}`);
   }
   const data = await res.json();
-  // Normalize to Anthropic-like response shape so callers work unchanged
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  // Join all parts in case Gemini splits the response across multiple parts
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const text = parts.map(p => p.text ?? "").join("") || "";
+  const finishReason = data.candidates?.[0]?.finishReason ?? "unknown";
+  console.log("Gemini parts count:", parts.length, "finishReason:", finishReason, "text len:", text.length);
   return { content: [{ text }] };
 }
 
@@ -399,21 +402,15 @@ Deno.serve(async (req) => {
       ? contextTitle.replace(/\s*[-|]\s*Reflectiz.*$/i, "").trim()
       : "";
 
-    const openerPrompt = `Write a complete chat opener sentence for a visitor on this page: "${titleSnippet}"
+    const openerPrompt = `You are a chat agent for Reflectiz, a web security company. A visitor just landed on a page titled: "${titleSnippet}"
 
-Requirements:
-- Must be a COMPLETE sentence ending with ?
-- Under 20 words total
-- Reference a specific detail from the title
-- No greeting words
+Ask them one short, specific question about this topic. The question must:
+- Be a complete sentence (not a fragment)
+- End with a question mark
+- Be 10-18 words long
+- Sound like a knowledgeable colleague, not a salesperson
 
-Here are 3 complete examples:
-Title "How Broadway Gaming Achieved PCI DSS 4.0.1 Compliance" -> "Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"
-Title "Magecart Attack Prevention for eCommerce" -> "Magecart attacks are skimming payment data on checkout pages right now -- is yours monitored?"
-Title "GDPR and Third-Party Script Compliance" -> "Third-party scripts are the top source of GDPR violations -- is that on your radar?"
-
-Now write one complete sentence for: "${titleSnippet}"
-Output only the sentence:`;
+Respond with only the question, nothing else.`;
 
 
     let opener = "What brought you to Reflectiz today?";
@@ -422,7 +419,7 @@ Output only the sentence:`;
     try {
       console.log("CALLING GEMINI for opener, titleSnippet:", titleSnippet);
       const openerResponse = await callGemini({
-        max_tokens: 200,
+        max_tokens: 1024,
         messages: [{ role: "user", content: openerPrompt }],
       });
       let generated = (openerResponse.content[0]?.text ?? "").trim();
@@ -483,7 +480,7 @@ Generate a natural one-sentence opening message that:
 - Tone: a knowledgeable peer who remembers the topic, not a system recognizing a contact`;
 
     const returningResponse = await callGemini({
-      max_tokens: 150,
+      max_tokens: 1024,
       messages: [{ role: "user", content: returningPrompt }],
     });
 
