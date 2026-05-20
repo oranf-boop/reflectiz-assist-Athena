@@ -144,37 +144,12 @@ For "what version are you" or "who made you" or similar meta questions: respond 
 FINANCIAL SERVICES RECOMMENDATION:
 When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ — but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
 
-function selectOpener(url, timeOnPage, visitorType, lastIntent) {
-  if (!url) return null;
+const FORM_PAGES = ["/registration", "/free-trial", "/contact"];
+
+function isFormPage(url) {
+  if (!url) return false;
   const u = url.toLowerCase();
-
-  if (visitorType === "returning" && lastIntent) return null; // handled by INIT_RETURNING_VISITOR
-
-  if (u.includes("/registration") || u.includes("/free-trial")) return null; // form pages
-  if (u.includes("/contact")) return null; // form pages
-  if (u.includes("/plans") || u.includes("/pricing")) return "Looking at fit for your team, or further along in the evaluation?";
-  if (u.includes("/platform/") || u.includes("/product/") || u.includes("/solution/") || u.includes("/remote-monitoring") || u.includes("/how-it-works")) return "Evaluating something specific, or still mapping out what you actually need?";
-  if (u.includes("/vs-") || u.includes("/compare") || u.includes("reflectiz-vs")) return "Already know what you are comparing against, or still figuring out the shortlist?";
-  if (u.includes("/use-case") || u.includes("/use_case")) return "This use case tends to come up after something specific happens internally. What triggered the search?";
-  if (u.includes("/customers") || u.includes("/case-study") || u.includes("/success-story")) return "Looking for proof it works in your industry, or just getting a feel for the customer base?";
-  if (u.includes("/webinar") || u.includes("/event") || u.includes("/learning-hub")) return "Looking to learn something specific, or just keeping up with what is happening in the space?";
-  if (u.includes("/blog/") && (u.includes("pci") || u.includes("compliance") || u.includes("dss"))) return "Requirements 6.4.3 and 11.6.1 are catching a lot of teams off guard right now. Is that on your radar?";
-  if (u.includes("/blog/") && (u.includes("magecart") || u.includes("skimming") || u.includes("supply-chain"))) return "The attack most teams miss is not in their own code. It is in their vendors code. Worth a look at yours?";
-  if (u.includes("/blog/") && (u.includes("privacy") || u.includes("gdpr") || u.includes("pixel"))) return "Your marketing pixels might be sharing more than you think. Is that a concern for your team?";
-  if (u.includes("/blog/")) return "Something on this page caught your attention. What was it?";
-  if (u.includes("/industries/")) return "Security requirements vary a lot by industry. What sector are you in?";
-  if (u.includes("/why-reflectiz") || u.includes("/about")) return "Doing some research on Reflectiz specifically, or comparing options more broadly?";
-
-  // Homepage detection
-  const isHomepage = u === "https://www.reflectiz.com/" || u === "https://www.reflectiz.com" || u.endsWith("reflectiz.com/");
-  if (isHomepage) {
-    if (!timeOnPage || timeOnPage < 15) return "What brought you here today, compliance, a recent concern, or just exploring?";
-    if (timeOnPage < 45) return "You have been looking around, anything specific catch your eye, or still getting the lay of the land?";
-    return "Spending some time here, usually means something specific is on your radar. What is it?";
-  }
-
-  // Default
-  return "You are not here by accident. What are you trying to solve?";
+  return FORM_PAGES.some(p => u.includes(p));
 }
 
 const CORS_HEADERS = {
@@ -402,14 +377,12 @@ Deno.serve(async (req) => {
     const sessionId = incomingSessionId || crypto.randomUUID();
 
     // Skip form/contact pages — no opener needed
-    const staticResult = selectOpener(currentPageUrl, body.timeOnPage, body.visitorType, lastIntent);
-    if (staticResult === null) {
+    if (isFormPage(currentPageUrl)) {
       return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
 
-    // Validation: opener must be a real conversation starter
     function isValidOpener(text) {
       if (!text || text.length < 20) return false;
       if (!text.trim().endsWith("?")) return false;
@@ -418,8 +391,8 @@ Deno.serve(async (req) => {
       return true;
     }
 
-    // Run cache lookup and page content fetch in parallel
-    const [cachedOpeners, relevantPagesForOpener] = await Promise.all([
+    // Check cache and fetch page content in parallel
+    const [cachedOpeners, pageContentResults] = await Promise.all([
       currentPageUrl
         ? base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl })
         : Promise.resolve([]),
@@ -428,46 +401,46 @@ Deno.serve(async (req) => {
         : Promise.resolve([]),
     ]);
 
-    // Check cache: exact URL match, generated within last 7 days, passes validation, has bubbleText
+    // Return cached result if valid (has both opener and bubbleText, within 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const cached = cachedOpeners?.[0];
     if (cached?.opener && cached?.bubbleText && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
       return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
 
-    // If cached opener is invalid or missing bubbleText, delete it
+    // Delete stale/invalid cache entry
     if (cached) {
       base44.asServiceRole.entities.PageOpeners.delete(cached.id).catch(() => {});
     }
 
-    // Get page metadata for prompt — fall back to URL-based context if no title found
-    const matchingPage = relevantPagesForOpener[0];
+    // Build page context for Gemini
+    const matchingPage = pageContentResults[0];
     const pageTitle = matchingPage?.pageTitle || "";
-    const pageTitleForPrompt = pageTitle || `unknown — use the URL to infer the topic`;
+    const pageContentSnippet = (matchingPage?.pageContent || "").slice(0, 600);
+    const pageContext = pageTitle
+      ? `Page title: ${pageTitle}\nPage URL: ${currentPageUrl}\nPage content excerpt: ${pageContentSnippet}`
+      : `Page URL: ${currentPageUrl}`;
 
-    // Always call Gemini for a page-specific opener and bubbleText
-    const openerPrompt = `You are writing two short messages for a chat widget on this specific webpage.
+    const openerPrompt = `You are writing two short messages for a chat widget on a specific webpage.
 
-Page title: ${pageTitleForPrompt}
-Page URL: ${currentPageUrl}
+${pageContext}
 
-Return ONLY a valid JSON object with two fields:
+Return ONLY a valid JSON object with exactly these two fields:
 
 {
-  "opener": "one sentence opening message for the chat, under 20 words, ends with a question, no greeting words, no em dashes",
-  "bubbleText": "one short punchy statement for a notification bubble, under 10 words, creates curiosity, no question mark, no em dashes, no greeting words"
+  "opener": "one sentence opening message, under 20 words, ends with a question, relevant to this specific page content, no greeting words, no em dashes",
+  "bubbleText": "one short punchy statement for a notification bubble, under 10 words, creates curiosity about this specific page topic, no question mark, no em dashes, no greeting words"
 }
 
-Examples of good bubbleText:
-- Remote monitoring page: "Your blind spots are bigger than you think"
-- Castore case study: "How Castore secured 30 stores at once"
-- PCI blog: "6.4.3 and 11.6.1 are tripping teams up"
-- Finance page: "Payment pages carry more risk than you think"
-- Homepage: "Your site has more exposure than you think"
+Examples of good outputs:
+- Remote monitoring page: { "opener": "Evaluating coverage gaps, or just mapping out what you actually need?", "bubbleText": "Your blind spots are bigger than you think" }
+- Castore case study: { "opener": "Looking for proof it works in your industry, or just getting a feel for the customer base?", "bubbleText": "How Castore secured 30 stores at once" }
+- PCI blog: { "opener": "Requirements 6.4.3 and 11.6.1 are catching teams off guard. Is that on your radar?", "bubbleText": "6.4.3 and 11.6.1 are tripping teams up" }
 
 Return only the JSON object. Nothing else.`;
 
-    let opener = staticResult;
+    const FALLBACK_OPENER = "What brought you to Reflectiz today?";
+    let opener = FALLBACK_OPENER;
     let bubbleText = "";
 
     try {
@@ -487,7 +460,7 @@ Return only the JSON object. Nothing else.`;
       console.error("Gemini opener error:", geminiErr.message);
     }
 
-    // Cache valid openers + bubbleText only when Gemini succeeded (bubbleText non-empty is the signal)
+    // Cache only when both fields are present
     if (isValidOpener(opener) && bubbleText) {
       const today = new Date().toISOString().split("T")[0];
       base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, bubbleText, generatedAt: today }).catch(() => {});
