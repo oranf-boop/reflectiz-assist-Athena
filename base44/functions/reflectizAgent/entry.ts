@@ -394,24 +394,23 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
-    const openerPrompt = `You are writing a one-sentence chat opener for a B2B website visitor. Look at the page they are on and write a question that shows you understand what they are reading.
+    // Extract a key phrase from title to anchor the opener
+    const titleSnippet = contextTitle
+      ? contextTitle.replace(/\s*[-|]\s*Reflectiz.*$/i, "").trim()
+      : "";
 
-Page title: ${contextTitle}
-Page description: ${contextContent}
+    const openerPrompt = `Fill in this template to create a chat opener. Return ONLY the completed sentence, nothing else.
 
-Instructions:
-1. Pick one specific detail from the page title (a company name, a specific number, a specific technology, a specific challenge)
-2. Write a question that references that specific detail
-3. The question must be 10-20 words
-4. Do not start with Hi, Hello, or any greeting
-5. The question must end with ?
+Template: "${titleSnippet} -- is [short question ending with ?]"
 
-Here are 3 examples of good outputs:
-"Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"
-"Shopify leaves gaps in third-party script monitoring -- is that the problem you are trying to solve?"
-"Remote monitoring catches what embedded tools miss -- is that the visibility gap you are dealing with?"
+Rules:
+- Replace [short question ending with ?] with a specific question a visitor would care about
+- Keep total length under 20 words
+- Output must end with ?
+- Output only the final sentence
 
-Now write ONE question for the page above. Output only the question text, nothing else.`;
+Example output: "Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"`;
+
 
     let opener = "What brought you to Reflectiz today?";
     let bubbleText = "";
