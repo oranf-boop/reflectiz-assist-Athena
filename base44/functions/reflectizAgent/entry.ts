@@ -399,17 +399,21 @@ Deno.serve(async (req) => {
       ? contextTitle.replace(/\s*[-|]\s*Reflectiz.*$/i, "").trim()
       : "";
 
-    const openerPrompt = `Fill in this template to create a chat opener. Return ONLY the completed sentence, nothing else.
+    const openerPrompt = `Write a complete chat opener sentence for a visitor on this page: "${titleSnippet}"
 
-Template: "${titleSnippet} -- is [short question ending with ?]"
+Requirements:
+- Must be a COMPLETE sentence ending with ?
+- Under 20 words total
+- Reference a specific detail from the title
+- No greeting words
 
-Rules:
-- Replace [short question ending with ?] with a specific question a visitor would care about
-- Keep total length under 20 words
-- Output must end with ?
-- Output only the final sentence
+Here are 3 complete examples:
+Title "How Broadway Gaming Achieved PCI DSS 4.0.1 Compliance" -> "Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"
+Title "Magecart Attack Prevention for eCommerce" -> "Magecart attacks are skimming payment data on checkout pages right now -- is yours monitored?"
+Title "GDPR and Third-Party Script Compliance" -> "Third-party scripts are the top source of GDPR violations -- is that on your radar?"
 
-Example output: "Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"`;
+Now write one complete sentence for: "${titleSnippet}"
+Output only the sentence:`;
 
 
     let opener = "What brought you to Reflectiz today?";
