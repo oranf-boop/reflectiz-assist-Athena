@@ -373,91 +373,71 @@ Deno.serve(async (req) => {
   }
 
   // Dynamic page-aware opener for all INIT variants
-  if (message && message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
+  if (message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
 
-    // Skip form/contact pages — no opener needed
     if (isFormPage(currentPageUrl)) {
       return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
 
-    function isValidOpener(text) {
-      if (!text || text.length < 20) return false;
-      if (!text.trim().endsWith("?")) return false;
-      const badPatterns = /\b(client|monitoring for|page|website)\b/i;
-      if (badPatterns.test(text)) return false;
-      return true;
+    const contextTitle = clientPageTitle || currentPageUrl;
+    const contextContent = pageDescription || "";
+
+    // Check cache - must match exact URL
+    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
+    const cached = cachedResults?.[0];
+
+    if (cached && cached.opener && cached.opener.includes("?") && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
+      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
-    // Check cache and fetch page content in parallel
-    const [cachedOpeners, pageContentResults] = await Promise.all([
-      currentPageUrl
-        ? base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl })
-        : Promise.resolve([]),
-      currentPageUrl
-        ? base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl })
-        : Promise.resolve([]),
-    ]);
+    const openerPrompt = `Write one opening chat message for a visitor on this specific webpage. Return only the sentence.
 
-    // Return cached result if valid (has both opener and bubbleText, within 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const cached = cachedOpeners?.[0];
-    if (cached?.opener && cached?.bubbleText && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
-      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText, sessionId }), { headers: CORS_HEADERS });
-    }
+Page: ${contextTitle}
+Description: ${contextContent}
 
-    // Delete stale/invalid cache entry
-    if (cached) {
-      base44.asServiceRole.entities.PageOpeners.delete(cached.id).catch(() => {});
-    }
+Requirements:
+- Must end with a question mark
+- Must reference something specific from the page title (a company name, a number, a specific technology or challenge)
+- Between 10 and 20 words only
+- No greetings
+- No em dashes
+- No double hyphens
 
-    // Use client-supplied title/description first, fall back to DB content
-    const matchingPage = pageContentResults[0];
-    const contextTitle = clientPageTitle || matchingPage?.pageTitle || currentPageUrl;
-    const contextContent = pageDescription || (matchingPage?.pageContent || "").slice(0, 300);
+Examples:
+For "How Broadway Gaming Achieved PCI DSS 4.0.1 Compliance": "Broadway Gaming hit zero audit findings across dozens of brands -- is your team facing a similar PCI challenge?"
+For "Shopify PCI Compliance: What the Platform Covers": "Shopify covers the basics but leaves gaps in third-party script monitoring -- is that where you are stuck?"
+For "Why Remote Monitoring Is the Only Complete Approach": "Monitoring from outside the stack catches what embedded tools miss -- is that the gap you are trying to close?"
 
-    const openerPrompt = `You are writing the first chat message a visitor sees on a specific webpage. You must reference something concrete and specific from this page.
+Return only the single sentence. Nothing else.`;
 
-Page title: ${contextTitle}
-Page description: ${contextContent}
+    let opener = "What brought you to Reflectiz today?";
+    let bubbleText = "";
 
-Write ONE sentence that:
-- Mentions something SPECIFIC from the page title or description (a company name, a specific number, a specific challenge, a specific technology)
-- Ends with a genuine question the visitor would want to answer
-- Sounds like a knowledgeable peer who read the same page
-- Is between 10 and 20 words
-- Has no greeting words like Hi or Hello
-- Has no em dashes
-- Has no double hyphens
+    try {
+      const openerResponse = await callGemini({
+        max_tokens: 200,
+        messages: [{ role: "user", content: openerPrompt }],
+      });
+      const generated = (openerResponse.content[0]?.text ?? "").trim();
+      if (generated && generated.includes("?") && generated.length > 20) {
+        opener = generated;
+        bubbleText = opener.replace(/\?$/, "").slice(0, 60);
 
-GOOD examples based on this specific page:
-If page is about Broadway Gaming PCI compliance: "Zero audit findings across dozens of brands is a strong result -- how close is your team to that benchmark?"
-If page is about remote monitoring: "Monitoring from outside the stack catches what embedded tools miss -- is that the gap you are trying to close?"
-If page is about Castore supply chain: "Managing 30 storefronts worth of third-party scripts without visibility is a real risk -- dealing with something similar?"
-
-BAD examples (too generic, do not write these):
-"Interested in achieving PCI"
-"What brought you to Reflectiz today?"
-"Evaluating something specific?"
-
-Return ONLY the sentence. Nothing else.`;
-
-    const openerResponse = await callGemini({
-      max_tokens: 150,
-      messages: [{ role: "user", content: openerPrompt }],
-    });
-    const opener = ((openerResponse.content[0]?.text ?? "").trim().replace(/—/g, ",").replace(/--/g, ",")) || "What brought you to Reflectiz today?";
-    const bubbleText = opener.replace(/\?$/, "").slice(0, 60);
-
-    if (opener !== "What brought you to Reflectiz today?") {
-      base44.asServiceRole.entities.PageOpeners.create({
-        pageUrl: currentPageUrl,
-        opener,
-        bubbleText,
-        generatedAt: new Date().toISOString(),
-      }).catch(() => {});
+        // Only cache if URL is specific enough
+        if (currentPageUrl && currentPageUrl.length > 30) {
+          await base44.asServiceRole.entities.PageOpeners.create({
+            pageUrl: currentPageUrl,
+            opener,
+            bubbleText,
+            generatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Opener generation failed:", e.message);
     }
 
     return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
