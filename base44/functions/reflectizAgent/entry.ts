@@ -428,31 +428,27 @@ Deno.serve(async (req) => {
         : Promise.resolve([]),
     ]);
 
-    // Check cache: exact URL match, generated within last 7 days, passes validation
+    // Check cache: exact URL match, generated within last 7 days, passes validation, has bubbleText
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const cached = cachedOpeners?.[0];
-    if (cached?.opener && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
-      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText ?? "", sessionId }), { headers: CORS_HEADERS });
+    if (cached?.opener && cached?.bubbleText && cached.generatedAt >= sevenDaysAgo && isValidOpener(cached.opener)) {
+      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
 
-    // If cached opener is invalid, delete it
-    if (cached && !isValidOpener(cached.opener)) {
+    // If cached opener is invalid or missing bubbleText, delete it
+    if (cached) {
       base44.asServiceRole.entities.PageOpeners.delete(cached.id).catch(() => {});
     }
 
-    // Get page metadata for prompt
+    // Get page metadata for prompt — fall back to URL-based context if no title found
     const matchingPage = relevantPagesForOpener[0];
     const pageTitle = matchingPage?.pageTitle || "";
+    const pageTitleForPrompt = pageTitle || `unknown — use the URL to infer the topic`;
 
-    // If no page content available, fall back to static opener
-    if (!pageTitle) {
-      return new Response(JSON.stringify({ reply: staticResult, sessionId }), { headers: CORS_HEADERS });
-    }
-
-    // Generate dynamic opener + bubbleText with Gemini
+    // Always call Gemini for a page-specific opener and bubbleText
     const openerPrompt = `You are writing two short messages for a chat widget on this specific webpage.
 
-Page title: ${pageTitle}
+Page title: ${pageTitleForPrompt}
 Page URL: ${currentPageUrl}
 
 Return ONLY a valid JSON object with two fields:
