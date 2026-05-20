@@ -467,15 +467,14 @@ Examples of good bubbleText:
 
 Return only the JSON object. Nothing else.`;
 
-    const openerResponse = await callGemini({
-      max_tokens: 200,
-      messages: [{ role: "user", content: openerPrompt }],
-    });
-
     let opener = staticResult;
     let bubbleText = "";
 
     try {
+      const openerResponse = await callGemini({
+        max_tokens: 200,
+        messages: [{ role: "user", content: openerPrompt }],
+      });
       const rawText = (openerResponse.content[0]?.text ?? "").trim();
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -484,12 +483,12 @@ Return only the JSON object. Nothing else.`;
         if (isValidOpener(rawOpener)) opener = rawOpener;
         bubbleText = (parsed.bubbleText ?? "").trim().replace(/^["']|["']$/g, "").replace(/—/g, ",").replace(/--/g, ",");
       }
-    } catch (_) {
-      // fall back to staticResult opener, empty bubbleText
+    } catch (geminiErr) {
+      console.error("Gemini opener error:", geminiErr.message);
     }
 
-    // Cache valid openers + bubbleText (fire-and-forget)
-    if (isValidOpener(opener)) {
+    // Cache valid openers + bubbleText only when Gemini succeeded (bubbleText non-empty is the signal)
+    if (isValidOpener(opener) && bubbleText) {
       const today = new Date().toISOString().split("T")[0];
       base44.asServiceRole.entities.PageOpeners.create({ pageUrl: currentPageUrl, opener, bubbleText, generatedAt: today }).catch(() => {});
     }
