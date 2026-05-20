@@ -388,30 +388,30 @@ Deno.serve(async (req) => {
     // Check cache - must match exact URL
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
+    console.log("Cache check:", JSON.stringify({ found: !!cached, opener: cached?.opener?.slice(0, 80), contextTitle }));
 
     if (cached && cached.opener && cached.opener.includes("?") && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
       return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
-    const openerPrompt = `Write one opening chat message for a visitor on this specific webpage. Return only the sentence.
+    const openerPrompt = `You are writing a one-sentence chat opener for a B2B website visitor. Look at the page they are on and write a question that shows you understand what they are reading.
 
-Page: ${contextTitle}
-Description: ${contextContent}
+Page title: ${contextTitle}
+Page description: ${contextContent}
 
-Requirements:
-- Must end with a question mark
-- Must reference something specific from the page title (a company name, a number, a specific technology or challenge)
-- Between 10 and 20 words only
-- No greetings
-- No em dashes
-- No double hyphens
+Instructions:
+1. Pick one specific detail from the page title (a company name, a specific number, a specific technology, a specific challenge)
+2. Write a question that references that specific detail
+3. The question must be 10-20 words
+4. Do not start with Hi, Hello, or any greeting
+5. The question must end with ?
 
-Examples:
-For "How Broadway Gaming Achieved PCI DSS 4.0.1 Compliance": "Broadway Gaming hit zero audit findings across dozens of brands -- is your team facing a similar PCI challenge?"
-For "Shopify PCI Compliance: What the Platform Covers": "Shopify covers the basics but leaves gaps in third-party script monitoring -- is that where you are stuck?"
-For "Why Remote Monitoring Is the Only Complete Approach": "Monitoring from outside the stack catches what embedded tools miss -- is that the gap you are trying to close?"
+Here are 3 examples of good outputs:
+"Broadway Gaming hit zero audit findings -- is your team facing a similar PCI challenge?"
+"Shopify leaves gaps in third-party script monitoring -- is that the problem you are trying to solve?"
+"Remote monitoring catches what embedded tools miss -- is that the visibility gap you are dealing with?"
 
-Return only the single sentence. Nothing else.`;
+Now write ONE question for the page above. Output only the question text, nothing else.`;
 
     let opener = "What brought you to Reflectiz today?";
     let bubbleText = "";
@@ -421,7 +421,12 @@ Return only the single sentence. Nothing else.`;
         max_tokens: 200,
         messages: [{ role: "user", content: openerPrompt }],
       });
-      const generated = (openerResponse.content[0]?.text ?? "").trim();
+      let generated = (openerResponse.content[0]?.text ?? "").trim();
+      console.log("Gemini raw opener:", JSON.stringify(generated));
+      // Force a question mark if Gemini forgot to add one
+      if (generated && generated.length > 20 && !generated.endsWith("?")) {
+        generated = generated.replace(/[.,!]$/, "") + "?";
+      }
       if (generated && generated.includes("?") && generated.length > 20) {
         opener = generated;
         bubbleText = opener.replace(/\?$/, "").slice(0, 60);
@@ -437,7 +442,8 @@ Return only the single sentence. Nothing else.`;
         }
       }
     } catch (e) {
-      console.error("Opener generation failed:", e.message);
+      console.error("CATCH HIT:", e.message, e.stack);
+      return new Response(JSON.stringify({ reply: "ERROR: " + e.message, bubbleText: "", sessionId }), { headers: CORS_HEADERS });
     }
 
     return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
