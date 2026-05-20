@@ -416,28 +416,20 @@ Deno.serve(async (req) => {
     // Build page context for Gemini
     const matchingPage = pageContentResults[0];
     const pageTitle = matchingPage?.pageTitle || "";
-    const pageContentSnippet = (matchingPage?.pageContent || "").slice(0, 600);
-    const pageContext = pageTitle
-      ? `Page title: ${pageTitle}\nPage URL: ${currentPageUrl}\nPage content excerpt: ${pageContentSnippet}`
-      : `Page URL: ${currentPageUrl}`;
 
-    const openerPrompt = `You are writing two short messages for a chat widget on a specific webpage.
+    const openerPrompt = `You are writing the first message a chat agent sends to a visitor on this specific webpage. Return ONLY the message text, nothing else, no JSON, no explanation.
 
-${pageContext}
+Page title: ${pageTitle || currentPageUrl}
+Page content summary: ${(matchingPage?.pageContent || "").slice(0, 300)}
 
-Return ONLY a valid JSON object with exactly these two fields:
+Write ONE sentence that:
+- References something specific from this page topic
+- Ends with a question
+- Sounds like a knowledgeable peer
+- Is under 20 words
+- Has no greeting words, no em dashes, no double hyphens
 
-{
-  "opener": "one sentence opening message, under 20 words, ends with a question, relevant to this specific page content, no greeting words, no em dashes",
-  "bubbleText": "one short punchy statement for a notification bubble, under 10 words, creates curiosity about this specific page topic, no question mark, no em dashes, no greeting words"
-}
-
-Examples of good outputs:
-- Remote monitoring page: { "opener": "Evaluating coverage gaps, or just mapping out what you actually need?", "bubbleText": "Your blind spots are bigger than you think" }
-- Castore case study: { "opener": "Looking for proof it works in your industry, or just getting a feel for the customer base?", "bubbleText": "How Castore secured 30 stores at once" }
-- PCI blog: { "opener": "Requirements 6.4.3 and 11.6.1 are catching teams off guard. Is that on your radar?", "bubbleText": "6.4.3 and 11.6.1 are tripping teams up" }
-
-Return only the JSON object. Nothing else.`;
+Return only the sentence.`;
 
     const FALLBACK_OPENER = "What brought you to Reflectiz today?";
     let opener = FALLBACK_OPENER;
@@ -445,17 +437,12 @@ Return only the JSON object. Nothing else.`;
 
     try {
       const openerResponse = await callGemini({
-        max_tokens: 512,
+        max_tokens: 100,
         messages: [{ role: "user", content: openerPrompt }],
       });
-      const rawText = (openerResponse.content[0]?.text ?? "").trim();
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        const rawOpener = (parsed.opener ?? "").trim().replace(/^["']|["']$/g, "").replace(/—/g, ",").replace(/--/g, ",");
-        if (isValidOpener(rawOpener)) opener = rawOpener;
-        bubbleText = (parsed.bubbleText ?? "").trim().replace(/^["']|["']$/g, "").replace(/—/g, ",").replace(/--/g, ",");
-      }
+      const rawText = (openerResponse.content[0]?.text ?? "").trim().replace(/—/g, ",").replace(/--/g, ",");
+      if (isValidOpener(rawText)) opener = rawText;
+      bubbleText = opener.replace(/\?$/, "").slice(0, 60);
     } catch (geminiErr) {
       console.error("Gemini opener error:", geminiErr.message);
     }
