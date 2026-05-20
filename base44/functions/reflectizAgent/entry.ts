@@ -420,17 +420,20 @@ Output only the sentence:`;
     let bubbleText = "";
 
     try {
+      console.log("CALLING GEMINI for opener, titleSnippet:", titleSnippet);
       const openerResponse = await callGemini({
         max_tokens: 200,
         messages: [{ role: "user", content: openerPrompt }],
       });
       let generated = (openerResponse.content[0]?.text ?? "").trim();
-      console.log("Gemini raw opener:", JSON.stringify(generated));
+      // Strip any leading label like "Sentence:" or quotes
+      generated = generated.replace(/^(sentence|output|opener)[:\s]*/i, "").replace(/^["']|["']$/g, "").trim();
+      console.log("Gemini raw opener:", JSON.stringify(generated), "len:", generated.length, "hasQ:", generated.includes("?"));
       // Force a question mark if Gemini forgot to add one
-      if (generated && generated.length > 20 && !generated.endsWith("?")) {
+      if (generated && generated.length > 15 && !generated.endsWith("?")) {
         generated = generated.replace(/[.,!]$/, "") + "?";
       }
-      if (generated && generated.includes("?") && generated.length > 20) {
+      if (generated && generated.includes("?") && generated.length > 15) {
         opener = generated;
         bubbleText = opener.replace(/\?$/, "").slice(0, 60);
 
