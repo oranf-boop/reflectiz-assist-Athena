@@ -434,8 +434,18 @@ Respond with only the question, nothing else.`;
         opener = generated;
         bubbleText = opener.replace(/\?$/, "").slice(0, 60);
 
-        // Only cache if URL is specific enough
-        if (currentPageUrl && currentPageUrl.length > 30) {
+        // Only cache if URL is a valid public Reflectiz page
+        const isValidPageUrl = (
+          currentPageUrl &&
+          currentPageUrl.length > 30 &&
+          !currentPageUrl.includes("wp-admin") &&
+          !currentPageUrl.includes("lovable.app") &&
+          !currentPageUrl.includes("lovable.dev") &&
+          !currentPageUrl.includes("localhost") &&
+          !currentPageUrl.includes("base44.app") &&
+          currentPageUrl.includes("reflectiz.com")
+        );
+        if (isValidPageUrl) {
           await base44.asServiceRole.entities.PageOpeners.create({
             pageUrl: currentPageUrl,
             opener,
