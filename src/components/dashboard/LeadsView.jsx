@@ -110,6 +110,41 @@ function TranscriptBubbles({ transcript }) {
   );
 }
 
+function PageJourney({ pagesViewed }) {
+  const raw = typeof pagesViewed === "string" ? pagesViewed : "";
+  const pages = raw.split(",").map(p => p.trim()).filter(Boolean);
+
+  function toPath(url) {
+    try {
+      const u = url.startsWith("http") ? new URL(url) : null;
+      return u ? u.pathname : url;
+    } catch {
+      return url;
+    }
+  }
+
+  const MAX = 5;
+  const shown = pages.slice(0, MAX).map(toPath);
+  const extra = pages.length > MAX ? pages.length - MAX : 0;
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-0.5 gap-y-1" style={{ fontSize: 11 }}>
+      <span className="font-bold mr-1" style={{ color: NAVY, fontSize: 11 }}>Page journey:</span>
+      {shown.length === 0 ? (
+        <span className="text-slate-400">Direct entry</span>
+      ) : (
+        shown.map((path, i) => (
+          <span key={i} className="flex items-center gap-0.5">
+            {i > 0 && <span className="text-slate-300 mx-0.5">→</span>}
+            <span className="text-slate-400">{path}</span>
+          </span>
+        ))
+      )}
+      {extra > 0 && <span className="text-slate-300 ml-1">... +{extra} more</span>}
+    </div>
+  );
+}
+
 function LeadCard({ conv }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -172,6 +207,7 @@ function LeadCard({ conv }) {
               return text.length > 150 ? text.slice(0, 150) + "…" : text;
             })()}
           </p>
+          <PageJourney pagesViewed={conv.pagesViewed} />
         </div>
 
         {/* Right column */}
