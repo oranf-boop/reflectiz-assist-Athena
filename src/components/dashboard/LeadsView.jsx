@@ -124,7 +124,12 @@ function PageJourney({ pagesViewed }) {
   }
 
   const MAX = 5;
-  const shown = pages.slice(0, MAX).map(toPath);
+  const cleanPath = (path) => {
+    if (path === "/" || path === "") return "Home";
+    return path;
+  };
+
+  const shown = pages.slice(0, MAX).map(p => cleanPath(toPath(p)));
   const extra = pages.length > MAX ? pages.length - MAX : 0;
 
   return (
