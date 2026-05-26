@@ -286,14 +286,40 @@ Content: ${(p.pageContent || "").slice(0, 300)}
 ${lines.join("\n")}`;
 }
 
-async function classifyIntent(messages) {
+async function classifyIntent(messages, currentPageUrl) {
+  const cleanMessages = messages
+    .map(m => ({
+      role: m.role,
+      content: m.content
+        .replace(/\[RELEVANT WEBSITE CONTENT\][\s\S]*?\[\/RELEVANT WEBSITE CONTENT\]/g, "")
+        .replace(/\[Visitor[^\]]*\]/g, "")
+        .replace(/\[Current page[^\]]*\]/g, "")
+        .trim()
+    }))
+    .filter(m => m.content.length > 0);
+
+  const pageContext = currentPageUrl ? `Current page: ${currentPageUrl}\n\n` : "";
+
   const result = await callGemini({
     max_tokens: 50,
-    system: "Classify the user's intent from the conversation into exactly one of these categories: PCI_COMPLIANCE, MAGECART_PREVENTION, PRIVACY_GDPR, SUPPLY_CHAIN, TOOL_EVALUATION, GENERAL_AWARENESS. Respond with only the category name, nothing else.",
+    system: `Classify the visitor's intent from this B2B cybersecurity chat conversation into exactly one category. Return only the category name, nothing else.
+
+Categories and signals:
+PCI_COMPLIANCE: mentions PCI, DSS, 4.0, 6.4.3, 11.6.1, audit, QSA, assessment, payment page, compliance deadline, cardholder data
+MAGECART_PREVENTION: mentions Magecart, web skimming, card skimming, checkout attack, e-skimming, payment page scripts
+PRIVACY_GDPR: mentions GDPR, privacy, pixel tracking, consent, data collection, cookie, CCPA, data leakage
+SUPPLY_CHAIN: mentions supply chain, third-party scripts, fourth-party, vendor risk, script monitoring, CDN, tag manager
+TOOL_EVALUATION: mentions comparing tools, evaluating vendors, looking for a solution, pricing, competitors, demo request, trial
+GENERAL_AWARENESS: visitor is exploring generally with no specific pain point mentioned
+
+Choose PCI_COMPLIANCE if the visitor mentions anything related to compliance or audits.
+Choose SUPPLY_CHAIN if the visitor mentions third-party scripts or vendor risk.
+Choose TOOL_EVALUATION if the visitor is comparing or evaluating.
+Default to GENERAL_AWARENESS only if none of the above apply.`,
     messages: [
       {
         role: "user",
-        content: `Conversation:\n${messages.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nClassify the intent:`,
+        content: `${pageContext}Conversation:\n${cleanMessages.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nClassify the intent:`,
       },
     ],
   });
@@ -573,10 +599,7 @@ Generate a natural one-sentence opening message that:
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
   const userMessageCount = messages.filter(m => m.role === "user").length;
 
-  const shouldClassify = userMessageCount % 3 === 1;
-  const intentClassification = shouldClassify
-    ? await classifyIntent(messages)
-    : (existingConversation?.[0]?.intentClassification ?? "GENERAL_AWARENESS");
+  const intentClassification = await classifyIntent(messages, currentPageUrl);
 
   const ctaReached = /meeting|trial|contact/i.test(reply);
 
