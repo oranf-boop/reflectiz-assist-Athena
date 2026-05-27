@@ -440,7 +440,7 @@ Respond with only the question, nothing else.`;
 
 
     let opener = "What brought you to Reflectiz today?";
-    let bubbleText = "";
+    let bubbleText = "Curious what brought you here";
 
     try {
       console.log("CALLING GEMINI for opener, titleSnippet:", titleSnippet);
@@ -458,7 +458,18 @@ Respond with only the question, nothing else.`;
       }
       if (generated && generated.includes("?") && generated.length > 15) {
         opener = generated;
-        bubbleText = opener.replace(/\?$/, "").slice(0, 60);
+        const bubblePrompt = `Write a 5-7 word teaser for this chat opener. Return only the words, no punctuation at the end, no question mark.
+
+Opener: ${opener}
+
+Examples:
+Opener: "Are you currently struggling with PCI DSS compliance requirements?" → "PCI compliance getting harder to manage?"
+Opener: "How does your team handle third-party script monitoring?" → "Third-party scripts are a hidden risk"
+Opener: "Is your checkout page protected from Magecart attacks?" → "Your checkout may be exposed"
+
+Return only the 5-7 word teaser.`;
+        const bubbleResponse = await callGemini({ max_tokens: 50, messages: [{ role: "user", content: bubblePrompt }] });
+        bubbleText = (bubbleResponse.content[0]?.text ?? "").trim().replace(/[.!?]$/, "");
 
         // Only cache if URL is a valid public Reflectiz page
         const isValidPageUrl = (
