@@ -219,13 +219,23 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
   const recencySignals = ["upcoming", "register", "live", "join us", "may 2026", "june 2026", "july 2026"];
 
   const scored = allPages.map(page => {
-    const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
-    const pageUrl = (page.pageUrl || "").toLowerCase();
-    const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
-    const score = keywords.reduce((acc, kw) => {
-      const matches = (text.match(new RegExp(kw, "g")) || []).length;
-      return acc + matches;
-    }, 0);
+  const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
+  const pageUrl = (page.pageUrl || "").toLowerCase();
+  const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
+  const score = keywords.reduce((acc, kw) => {
+    const matches = (text.match(new RegExp(kw, "g")) || []).length;
+    return acc + matches;
+  }, 0);
+
+  const urlYear = (page.pageUrl || "").match(/202[0-3]/)?.[0];
+  const yearPenalty = urlYear ? 15 : 0;
+
+  const aiIntent = ["ai", "artificial intelligence", "machine learning", "future", "llm", "chatgpt"].some(kw => queryLower.includes(kw));
+  const aiBoost = aiIntent && (
+    pageUrl.includes("ai") ||
+    (page.pageTitle || "").toLowerCase().includes("ai") ||
+    (page.pageTitle || "").toLowerCase().includes("artificial")
+  ) ? 15 : 0;
 
     const recencyBoost = hasEventIntent && recencySignals.some(sig => text.includes(sig)) ? 20 : 0;
 
@@ -253,7 +263,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       (pageUrl.includes("supply-chain") || pageUrl.includes("ai-supply-chain"))
       ? 15 : 0;
 
-    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost + supplyChainBoost };
+    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost + supplyChainBoost + aiBoost - yearPenalty };
   });
 
   const sorted = scored
