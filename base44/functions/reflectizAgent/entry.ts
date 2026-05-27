@@ -588,6 +588,19 @@ Generate a natural one-sentence opening message that:
   reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
   reply = reply.replace(/www\.https:\/\//g, "https://");
 
+  // SAME PAGE SAFETY NET: Remove any URL in the reply that matches the visitor's current page
+  if (currentPageUrl) {
+    const urlRegex = /https?:\/\/[^\s)\]"']+/g;
+    const normalize = (u) => u.replace(/\/$/, "").toLowerCase();
+    const normalizedCurrentPage = normalize(currentPageUrl);
+    reply = reply.replace(urlRegex, (foundUrl) => {
+      if (normalize(foundUrl) === normalizedCurrentPage) {
+        return "https://www.reflectiz.com/learning-hub/";
+      }
+      return foundUrl;
+    });
+  }
+
   // FIX 3: If visitor asked for reading material and reply has no URL, append first retrieved page URL
   const asksForContent = /article|read|blog|resource|learn|case study|research/i.test(message);
   const replyHasUrl = /https?:\/\//.test(reply);
