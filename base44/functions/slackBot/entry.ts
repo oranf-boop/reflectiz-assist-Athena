@@ -63,12 +63,34 @@ async function postToSlack(channel, text) {
   });
 }
 
+async function addReaction(channel, timestamp, name) {
+  await fetch("https://slack.com/api/reactions.add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+    body: JSON.stringify({ channel, name, timestamp }),
+  });
+}
+
+async function removeReaction(channel, timestamp, name) {
+  await fetch("https://slack.com/api/reactions.remove", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+    body: JSON.stringify({ channel, name, timestamp }),
+  });
+}
+
 async function processEvent(base44, event) {
   const question = (event.text || "").replace(/<@[^>]+>/g, "").trim();
   const channel = event.channel;
+  const ts = event.ts;
+
+  // Immediately signal we received and are working on it
+  addReaction(channel, ts, "eyes").catch(() => {});
 
   if (!question) {
     await postToSlack(channel, "Hey! Ask me anything about your Reflectiz conversation data.");
+    removeReaction(channel, ts, "eyes").catch(() => {});
+    addReaction(channel, ts, "white_check_mark").catch(() => {});
     return;
   }
 
@@ -169,6 +191,10 @@ Answer only the specific question asked. Do not append a full conversation summa
   }
 
   await postToSlack(channel, answer);
+
+  // Swap 👀 for ✅ after posting the answer
+  removeReaction(channel, ts, "eyes").catch(() => {});
+  addReaction(channel, ts, "white_check_mark").catch(() => {});
 }
 
 const CORS_HEADERS = {
