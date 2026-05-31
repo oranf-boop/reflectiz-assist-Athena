@@ -145,7 +145,9 @@ async function processEvent(base44, event) {
 
 Filtered data (based on ${records.length} real visitor conversations, last ${days} days): ${JSON.stringify(records).slice(0, 12000)}
 
-Format your response for Slack. Use *bold* with single asterisks only. Use the bullet character (•) for all list items, not dashes. Example: • PCI Compliance: 2 conversations. No markdown headers. Keep it under 300 words. Include specific numbers. End with "Insight: [one sentence]"
+Format your response for Slack. Use *bold* with single asterisks only. Use the bullet character (•) for all list items, not dashes. Example: • PCI Compliance: 2 conversations. No markdown headers. Keep it under 300 words. Include specific numbers.
+
+Always start the response by stating the exact date range analyzed. Format: "Analyzing conversations from [start date] to [end date]:"
 
 You must always include all three sections: By Intent, By Outcome, and Notable Conversations. Never cut the response short. If data is limited, show what is available for each section.
 
@@ -158,25 +160,27 @@ TOOL_EVALUATION = Tool Evaluation
 GENERAL_AWARENESS = General Awareness
 Never show raw database enum values like PCI_COMPLIANCE in responses.
 
+In the Notable Conversations section, only show conversations that are genuinely different or interesting -- different geo, different intent, different outcome, or unusually high turn count. Never list multiple identical entries. If all conversations are similar, summarize them in one sentence instead of listing each one. Maximum 3 notable conversations shown.
+
 When the question asks for a log or list of conversations, format the response like this:
-"Here is a summary of [X] conversations from [time period]:
+"Analyzing conversations from [start date] to [end date]:
 
 *By Intent:*
-- PCI Compliance: X conversations
-- Magecart Prevention: X conversations
+• PCI Compliance: X conversations
+• Magecart Prevention: X conversations
 
 *By Outcome:*
-- Engaged: X | Dropped: X | Bounced: X
+• Engaged: X | Dropped: X | Bounced: X
 
 *Notable conversations:*
-- [Geo] visitor, [Intent], [turns] turns, [outcome]
-- [Geo] visitor, [Intent], [turns] turns, [outcome]
+• [Geo] visitor, [Intent], [turns] turns, [outcome] — [one sentence on why it's notable]
 
-Insight: [one genuinely useful observation]"
+Insight: [one actionable, specific, non-obvious insight]"
 
 Never dump raw transcript text into Slack. Summarize and structure instead.
 Display outcomes in title case: Converted, Engaged, Dropped, Bounced. Never show outcomes in all caps.
-Answer only the specific question asked. Do not append a full conversation summary unless the question specifically asks for one. Keep the response focused and concise -- one clear answer, one insight, done.`;
+Answer only the specific question asked. Do not append a full conversation summary unless the question specifically asks for one. Keep the response focused and concise -- one clear answer, one insight, done.
+Always end with one actionable insight that is specific and not obvious. For example, instead of "all users clicked links" say something like "Link clicks happened most at turn 2-3, suggesting visitors engage with content before deciding to convert."`;
 
   let answer;
   try {
