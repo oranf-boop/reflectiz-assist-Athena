@@ -687,7 +687,7 @@ Generate a natural one-sentence opening message that:
     });
   }
 
-  if (userMessageCount >= 4 && ctaReached) {
+  if (userMessageCount >= 1) {
     fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
@@ -696,11 +696,10 @@ Generate a natural one-sentence opening message that:
         geo: geo ?? "",
         intentClassification,
         conversationTurns: userMessageCount,
-        ctaReached,
-        linksClicked: existingConversation?.[0]?.linksClicked ?? 0,
+        conversationOutcome,
         referralSource: referralSource ?? "",
         conversationTranscript: cleanTranscript,
-        clickedUrl: "",
+        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
       }),
     }).catch(() => {});
   }

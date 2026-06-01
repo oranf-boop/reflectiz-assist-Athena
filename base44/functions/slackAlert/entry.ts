@@ -13,12 +13,16 @@ const INTENT_LABELS = {
 
 function cleanTranscriptPreview(transcript) {
   if (!transcript) return "";
-  const SKIP = ["RELEVANT WEBSITE CONTENT", "Visitor geo", "Current page", "Visitor language"];
+  const SKIP = ["RELEVANT WEBSITE CONTENT", "Visitor geo", "Current page", "Visitor language", "Page:", "URL:", "Type:", "Content:"];
   const lines = transcript.split("\n").filter(l => {
     const t = l.trim();
-    return t.length > 0 && !SKIP.some(s => t.includes(s));
+    if (t.length === 0) return false;
+    if (SKIP.some(s => t.includes(s))) return false;
+    return t.startsWith("Agent:") || t.startsWith("Visitor:");
   });
-  return lines.join("\n").slice(0, 400);
+  const joined = lines.join("\n");
+  if (joined.length <= 800) return joined;
+  return joined.slice(0, 800) + "... [read full in dashboard]";
 }
 
 function cleanDomain(src) {
@@ -32,13 +36,21 @@ function cleanDomain(src) {
   }
 }
 
-function cleanPath(url) {
+function cleanPagePath(url) {
   if (!url) return "";
   try {
-    return new URL(url).pathname;
+    const path = new URL(url).pathname;
+    return (path === "/" || path === "") ? "Home" : path;
   } catch {
     return url;
   }
+}
+
+function formatPageJourney(pagesViewed) {
+  if (!pagesViewed) return "—";
+  const pages = pagesViewed.split(",").map(p => cleanPagePath(p.trim())).filter(Boolean);
+  if (pages.length === 0) return "—";
+  return pages.join(" → ");
 }
 
 Deno.serve(async (req) => {
@@ -48,35 +60,39 @@ Deno.serve(async (req) => {
 
   const body = await req.json();
   const {
-    sessionId,
     geo,
     intentClassification,
     conversationTurns,
-    ctaReached,
-    linksClicked,
+    conversationOutcome,
     referralSource,
     conversationTranscript,
-    clickedUrl,
+    pagesViewed,
   } = body;
 
   const intentLabel = INTENT_LABELS[intentClassification] || intentClassification || "Unknown";
   const geoLabel = geo || "Unknown";
   const preview = cleanTranscriptPreview(conversationTranscript);
-  const pathLabel = cleanPath(clickedUrl) || "—";
   const domainLabel = cleanDomain(referralSource);
+  const pageJourney = formatPageJourney(pagesViewed);
+  const outcomeLabel = conversationOutcome
+    ? conversationOutcome.charAt(0) + conversationOutcome.slice(1).toLowerCase()
+    : "Unknown";
 
-  const text = `:rotating_light: *High-Intent Lead Alert*
+  const text = `:speech_balloon: *New Conversation*
 
-*Intent:* ${intentLabel}
 *Geo:* ${geoLabel}
+*Intent:* ${intentLabel}
 *Turns:* ${conversationTurns ?? 0}
-*Clicked:* ${pathLabel}
+*Outcome:* ${outcomeLabel}
 *Referral:* ${domainLabel}
 
-*Conversation Preview:*
+*Page Journey:*
+${pageJourney}
+
+*Conversation:*
 ${preview}
 
-<https://reflect-web-wise.base44.app/agent-dashboard|View Dashboard>`;
+<https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>`;
 
   const slackRes = await fetch(SLACK_WEBHOOK_URL, {
     method: "POST",
