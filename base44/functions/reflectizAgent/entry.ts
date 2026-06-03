@@ -702,9 +702,7 @@ Generate a natural one-sentence opening message that:
     });
   }
 
-  console.log("DEBUG: userMessageCount =", userMessageCount);
   if (userMessageCount === 1) {
-    console.log("DEBUG: about to fire slackAlert");
     fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },

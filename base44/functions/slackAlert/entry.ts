@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
 
   let summary = "";
   if (conversationTranscript) {
-    const summaryPrompt = `Summarize this B2B sales conversation in one sentence for a sales team. Focus on: what the visitor was looking for, what was discussed, and whether they showed buying intent.
+    const summaryPrompt = `Write a complete one sentence summary (minimum 15 words) of this B2B sales conversation for a sales team. The sentence must be complete and not cut off. Focus on: what the visitor was looking for, what was discussed, and whether they showed buying intent.
 
 Conversation:
 ${cleanTranscriptPreview(conversationTranscript)}
@@ -120,7 +120,7 @@ Intent: ${intentClassification}
 Outcome: ${conversationOutcome}
 
 Return only the one sentence summary.`;
-    summary = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 150 });
+    summary = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 300 });
   }
 
   const text = `:speech_balloon: *New Conversation*
