@@ -493,7 +493,22 @@ RULES:
 12. If time on page is over 45 seconds -- they are reading seriously, offer the next logical piece of content
 13. If multiple pages viewed -- they are narrowing intent, reference their journey
 
-FORMAT: Return only the message text. No JSON. No explanation. Just the opener.`;
+FORMAT RULES - CRITICAL:
+Sentence 1: One sharp insight or fact specific to their context and page. Statement only, no question.
+Sentence 2: Recommend the most relevant content asset with a direct link. Frame it as "here is what [company/teams] did about it" or "this is worth reading". Statement only, no question.
+Sentence 3: ONE short sharp question maximum 8 words. This is the only question allowed.
+
+NEVER end sentence 1 or sentence 2 with a question mark.
+NEVER turn the content recommendation into a question like "Get a free assessment?"
+The recommendation is a statement. The question comes last and is short.
+
+Good example:
+"Requirements 6.4.3 and 11.6.1 are catching UK teams off guard right now. Apexx Global solved this with zero audit findings: https://www.reflectiz.com/customers/apexx-global/ Is that the gap you are facing?"
+
+Bad example:
+"PCI deadlines are approaching. Get a free assessment to identify vulnerabilities?"
+
+Return only the message. No JSON. No explanation.`;
 
 
     let opener = "What brought you to Reflectiz today?";
