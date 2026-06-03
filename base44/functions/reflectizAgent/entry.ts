@@ -530,8 +530,16 @@ Return only the message. No JSON. No explanation.`;
       opener = "Want to go deeper? Start with a free assessment of your own site: https://www.reflectiz.com/registration/ No installation, results in 48 hours.";
       bubbleText = "Free assessment, results in 48 hours";
     } else if (pageLower.includes("pci") || pageLower.includes("compliance") || pageLower.includes("dss")) {
-      opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming achieved zero audit findings across dozens of brands: https://www.reflectiz.com/customers/broadway-gaming-pci/ Is that the benchmark you are working toward?";
-      bubbleText = "PCI 4.0.1 is catching teams off guard";
+      const geoLower = (geo || "").toLowerCase();
+      const isUK = geoLower.includes("united kingdom") || geoLower.includes("uk") || geoLower.includes("england");
+      const isEMEA = isUK || geoLower.includes("france") || geoLower.includes("germany") || geoLower.includes("netherlands") || geoLower.includes("spain") || geoLower.includes("italy") || geoLower.includes("europe");
+      if (isUK || isEMEA) {
+        opener = "Requirements 6.4.3 and 11.6.1 are where UK and European teams are getting caught out. Apexx Global achieved zero audit findings across their payment infrastructure: https://www.reflectiz.com/customers/apexx-global/ Is that the benchmark you are working toward?";
+        bubbleText = "How a UK payment team achieved zero audit findings";
+      } else {
+        opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming achieved zero audit findings across dozens of brands: https://www.reflectiz.com/customers/broadway-gaming-pci/ Is that the benchmark you are working toward?";
+        bubbleText = "PCI 4.0.1 is catching teams off guard";
+      }
     } else if (pageLower.includes("magecart") || pageLower.includes("skimming")) {
       opener = "Most Magecart attacks come through third-party scripts your team did not write and cannot see. Here is how teams are stopping them: https://www.reflectiz.com/use-cases/magecart-web-skimming/ Is that the blind spot you are trying to close?";
       bubbleText = "Your checkout may already be exposed";
