@@ -530,17 +530,37 @@ Return only the message. No JSON. No explanation.`;
       // Clean up orphaned ":" or ":?" artifacts left by stripped placeholders (e.g. "standards:?")
       generated = generated.replace(/:\s*\?/g, "?").replace(/:\s{2,}/g, " ").replace(/\s{2,}/g, " ").trim();
       console.log("Gemini raw opener:", JSON.stringify(generated), "len:", generated.length, "hasQ:", generated.includes("?"));
-      // FIX 2: Detect truncated/malformed URLs
+      // Detect truncated/malformed URLs
       if (generated.includes("https://www.reflect") && !generated.includes("https://www.reflectiz.com")) {
         generated = null; // force fallback
       }
-      // FIX 3: Require a valid reflectiz.com URL in the opener
+      // FIX 1: Accept any complete opener with a question, then append URL if missing
       const isValidOpener = generated &&
         generated.includes("?") &&
-        generated.length > 30 &&
-        generated.includes("https://www.reflectiz.com");
+        generated.split(" ").length > 15;
+      if (isValidOpener && !generated.includes("https://")) {
+        const pageUrl = currentPageUrl || "";
+        let appendUrl = "https://www.reflectiz.com/registration/";
+        if (pageUrl.includes("pci") || pageUrl.includes("compliance")) appendUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
+        else if (pageUrl.includes("magecart") || pageUrl.includes("skimming")) appendUrl = "https://www.reflectiz.com/use-cases/magecart-web-skimming/";
+        else if (pageUrl.includes("supply-chain")) appendUrl = "https://www.reflectiz.com/use-cases/web-supply-chain-risks/";
+        else if (pageUrl.includes("privacy")) appendUrl = "https://www.reflectiz.com/use-cases/website-privacy-compliance/";
+        else if (pageUrl.includes("platform") || pageUrl.includes("product")) appendUrl = "https://www.reflectiz.com/registration/";
+        generated = generated.trimEnd() + " " + appendUrl;
+      }
       if (isValidOpener) {
         opener = generated;
+        // FIX 2: Page-aware fallback bubble text
+        const pageLower = (currentPageUrl || "").toLowerCase();
+        const fallbackBubble =
+          pageLower.includes("pci") || pageLower.includes("compliance") ? "PCI 4.0.1 is catching teams off guard" :
+          pageLower.includes("magecart") || pageLower.includes("skimming") ? "Your checkout may already be exposed" :
+          pageLower.includes("supply-chain") || pageLower.includes("supply_chain") ? "Your vendors code runs on your site" :
+          pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your pixels may be oversharing data" :
+          pageLower.includes("platform") || pageLower.includes("product") ? "No code needed, full visibility in 48 hours" :
+          pageLower.includes("customers") || pageLower.includes("case-study") ? "See how similar teams solved this" :
+          pageLower.includes("blog") ? "New research on this topic is available" :
+          "Your site has more exposure than you think";
         const bubblePrompt = `Based on these visitor signals, write a 6-8 word value statement for a notification bubble. It should tease the specific value the visitor will get if they open the chat. Make it specific to their context -- not generic.
 
 Visitor page: ${contextTitle}
@@ -564,7 +584,8 @@ Examples:
 
 Return only the bubble text. Nothing else.`;
         const bubbleResponse = await callGemini({ max_tokens: 50, messages: [{ role: "user", content: bubblePrompt }] });
-        bubbleText = (bubbleResponse.content[0]?.text ?? "").trim().replace(/[.!?]$/, "");
+        const generatedBubble = (bubbleResponse.content[0]?.text ?? "").trim().replace(/[.!?]$/, "");
+        bubbleText = generatedBubble.length > 5 ? generatedBubble : fallbackBubble;
 
         // Only cache if URL is a valid public Reflectiz page
         const isValidPageUrl = (
