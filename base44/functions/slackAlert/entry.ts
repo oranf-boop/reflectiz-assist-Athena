@@ -1,6 +1,36 @@
-import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
+import { JWT } from "npm:google-auth-library@9.15.1";
 
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+
+const PROJECT_ID = "dashboarderv0";
+const REGION = "us-central1";
+const GEMINI_MODEL = "gemini-2.5-flash";
+
+async function callGemini({ messages, max_tokens }) {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const { token } = await jwt.getAccessToken();
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+
+  const contents = messages.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: max_tokens || 150 } }),
+  });
+  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? "").join("") || "";
+  return text.trim();
+}
 
 const INTENT_LABELS = {
   PCI_COMPLIANCE: "PCI Compliance",
@@ -78,6 +108,21 @@ Deno.serve(async (req) => {
     ? conversationOutcome.charAt(0) + conversationOutcome.slice(1).toLowerCase()
     : "Unknown";
 
+  let summary = "";
+  if (conversationTranscript) {
+    const summaryPrompt = `Summarize this B2B sales conversation in one sentence for a sales team. Focus on: what the visitor was looking for, what was discussed, and whether they showed buying intent.
+
+Conversation:
+${cleanTranscriptPreview(conversationTranscript)}
+
+Page journey: ${pagesViewed}
+Intent: ${intentClassification}
+Outcome: ${conversationOutcome}
+
+Return only the one sentence summary.`;
+    summary = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 150 });
+  }
+
   const text = `:speech_balloon: *New Conversation*
 
 *Geo:* ${geoLabel}
@@ -88,7 +133,7 @@ Deno.serve(async (req) => {
 
 *Page Journey:*
 ${pageJourney}
-
+${summary ? `\n*Summary:* ${summary}\n` : ""}
 *Conversation:*
 ${preview}
 
