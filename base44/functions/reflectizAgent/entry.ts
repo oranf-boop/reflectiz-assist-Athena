@@ -540,38 +540,37 @@ Never end with a question. End with a statement or soft invitation.
 
 Return only the opener text. Nothing else.`;
 
-    const bubblePrompt = `Based on these visitor signals, write a 6-word value teaser for a notification bubble.
-
-${visitorContextBlock}
-
-Rules:
-- Exactly 6 words
-- Start with an action verb or surprising fact
-- Creates urgency or curiosity specific to their context
-- No question mark, no greeting, no em dashes
-- No passive phrases like "secures web supply chain attacks"
-
-Examples:
-- "How Castore secured 30 stores overnight"
-- "AI is reshaping your retail attack surface"
-- "Your checkout scripts need a second look"
-
-Return only the bubble text.`;
-
-    const [rawOpenerRes, rawBubbleRes] = await Promise.all([
-      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 }),
-      callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 500 }),
-    ]);
+    const rawOpenerRes = await callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 });
 
     let rawOpener = (rawOpenerRes?.content?.[0]?.text ?? "").trim();
     let opener = rawOpener || null;
-    let bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim() || null;
 
     console.log("Opener finishReason:", rawOpenerRes?.candidates?.[0]?.finishReason, "length:", rawOpener?.length);
+
+    // Extract bubbleText from the opener (not a separate generation)
+    let bubbleText = null;
+    if (opener) {
+      const bubblePrompt = `Extract the single most attention-grabbing phrase from this opener to use as a 6-word notification bubble. It must be specific, not generic, and create curiosity.
+
+Opener: ${opener}
+
+Rules:
+- Maximum 6 words
+- Must reference something specific from the opener (a company name, a number, a specific threat)
+- Never use: "your site", "exposure", "think", "manage", "currently"
+- Start with an action verb or surprising fact
+- No punctuation
+
+Return only the 6 words.`;
+
+      const rawBubble = await callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 500 });
+      bubbleText = (rawBubble?.content?.[0]?.text ?? "").trim() || opener.split(" ").slice(0, 6).join(" ");
+    }
 
     // Validate opener
     if (!opener || opener.split(" ").length < 8) {
       opener = null;
+      bubbleText = null;
     }
 
     // Ensure opener always has a URL
@@ -607,11 +606,6 @@ Return only the bubble text.`;
       }
     }
 
-    // Validate bubble
-    if (!bubbleText || bubbleText.split(" ").length > 10) {
-      bubbleText = null;
-    }
-
     // Page-aware fallbacks if Gemini fails
     if (!opener) {
       opener =
@@ -642,10 +636,6 @@ Return only 5 words. No punctuation. No generic phrases like "your site has expo
         max_tokens: 500,
       });
       bubbleText = (fallbackBubbleRes?.content?.[0]?.text ?? "").trim() || null;
-    }
-
-    if (!bubbleText && opener) {
-      bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
     if (isValidPageUrl) {
