@@ -515,60 +515,6 @@ Return only the message. No JSON. No explanation.`;
 
     const pageLower = (currentPageUrl || "").toLowerCase();
 
-    // Hardcoded value-driven openers with URLs
-    let opener = null;
-    let bubbleText = null;
-
-    // hasActiveConversation overrides — push toward trial/assessment
-    if (hasActiveConversation && (pageLower.includes("customers") || pageLower.includes("case-study"))) {
-      opener = "If what you just read resonates, the fastest way to see it for your own site is a free 30-day trial, no installation needed: https://www.reflectiz.com/registration/ Want to give it a try?";
-      bubbleText = "Ready to see your own site's exposure?";
-    } else if (hasActiveConversation && (pageLower.includes("blog") || pageLower.includes("learning-hub"))) {
-      opener = "Now that you have the context, worth seeing what is actually running on your payment pages: https://www.reflectiz.com/registration/ Takes 48 hours, no installation needed.";
-      bubbleText = "See what is running on your site now";
-    } else if (hasActiveConversation && (pageLower.includes("use-cases") || pageLower.includes("platform"))) {
-      opener = "Want to go deeper? Start with a free assessment of your own site: https://www.reflectiz.com/registration/ No installation, results in 48 hours.";
-      bubbleText = "Free assessment, results in 48 hours";
-    } else if (pageLower.includes("pci") || pageLower.includes("compliance") || pageLower.includes("dss")) {
-      const geoLower = (geo || "").toLowerCase();
-      const isUK = geoLower.includes("united kingdom") || geoLower.includes("uk") || geoLower.includes("england");
-      const isEMEA = isUK || geoLower.includes("france") || geoLower.includes("germany") || geoLower.includes("netherlands") || geoLower.includes("spain") || geoLower.includes("italy") || geoLower.includes("europe");
-      if (isUK || isEMEA) {
-        opener = "Requirements 6.4.3 and 11.6.1 are where UK and European teams are getting caught out. Apexx Global achieved zero audit findings across their payment infrastructure: https://www.reflectiz.com/customers/apexx-global/ Is that the benchmark you are working toward?";
-        bubbleText = "How a UK payment team achieved zero audit findings";
-      } else {
-        opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming achieved zero audit findings across dozens of brands: https://www.reflectiz.com/customers/broadway-gaming-pci/ Is that the benchmark you are working toward?";
-        bubbleText = "PCI 4.0.1 is catching teams off guard";
-      }
-    } else if (pageLower.includes("magecart") || pageLower.includes("skimming")) {
-      opener = "Most Magecart attacks come through third-party scripts your team did not write and cannot see. Here is how teams are stopping them: https://www.reflectiz.com/use-cases/magecart-web-skimming/ Is that the blind spot you are trying to close?";
-      bubbleText = "Your checkout may already be exposed";
-    } else if (pageLower.includes("supply-chain") || pageLower.includes("supply_chain")) {
-      opener = "Fourth-party scripts are the attack surface most tools miss entirely. This ANZ research shows how widespread the problem is: https://www.reflectiz.com/blog/supply-chain-anz/ Is supply chain risk on your radar right now?";
-      bubbleText = "Your vendors code runs on your site";
-    } else if (pageLower.includes("privacy") || pageLower.includes("gdpr")) {
-      opener = "Your consent banner says one thing but your pixels may be doing another. Here is how organizations are closing that gap: https://www.reflectiz.com/use-cases/website-privacy-compliance/ Is unauthorized data collection a concern for your team?";
-      bubbleText = "Your pixels may be oversharing data";
-    } else if (pageLower.includes("ecommerce") || pageLower.includes("retail") || pageLower.includes("shopify")) {
-      opener = "E-commerce checkout pages are the highest-value target for web skimming attacks. Castore secured 30 online stores without touching their code: https://www.reflectiz.com/customers/castore-security-success/ Dealing with a similar scale of risk?";
-      bubbleText = "Your checkout is the highest value target";
-    } else if (pageLower.includes("financial") || pageLower.includes("finance") || pageLower.includes("banking")) {
-      opener = "Financial services teams face the tightest compliance requirements and the most sophisticated client-side attacks. Here is how peers are handling it: https://www.reflectiz.com/industries/financial-services/ Is PCI or privacy compliance your primary driver?";
-      bubbleText = "Payment pages carry more risk than you think";
-    } else if (pageLower.includes("platform") || pageLower.includes("product") || pageLower.includes("how-it-works") || pageLower.includes("remote-monitoring")) {
-      opener = "Monitoring from outside your stack catches what embedded tools miss entirely. No code installation, full visibility in 48 hours: https://www.reflectiz.com/registration/ What are you trying to get visibility into?";
-      bubbleText = "No code needed, full visibility in 48 hours";
-    } else if (pageLower.includes("customers") || pageLower.includes("case-study") || pageLower.includes("success")) {
-      opener = "These results come from continuous monitoring, not one-time scans. Is your organization dealing with a similar challenge to the one described here?";
-      bubbleText = "See how similar teams solved this";
-    } else if (pageLower.includes("reflectiz-vs") || pageLower.includes("vs-reflectiz") || pageLower.includes("cside-vs")) {
-      opener = "You are already on the right page for this comparison. The detailed breakdown is below. Want to see how this looks for your specific setup? https://www.reflectiz.com/registration/";
-      bubbleText = "See how Reflectiz compares";
-    } else if (pageLower.includes("blog") || pageLower.includes("learning-hub")) {
-      opener = "Something on this page caught your attention. What was it?";
-      bubbleText = "New research worth reading";
-    }
-
     const isValidPageUrl = (
       currentPageUrl &&
       currentPageUrl.length > 30 &&
@@ -580,58 +526,147 @@ Return only the message. No JSON. No explanation.`;
       currentPageUrl.includes("reflectiz.com")
     );
 
-    // If a hardcoded opener matched, return immediately without calling Gemini
-    if (opener && bubbleText) {
-      if (isValidPageUrl) {
-        await base44.asServiceRole.entities.PageOpeners.create({
-          pageUrl: currentPageUrl,
-          opener,
-          bubbleText,
-          generatedAt: new Date().toISOString(),
-        }).catch(() => {});
-      }
-      return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
+    const visitorContextBlock = `
+Current page: ${currentPageUrl}
+Page title: ${contextTitle}
+Visitor geo: ${geo || "Unknown"}
+Referral source: ${referralSource || "direct"}
+Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" → ") : (pagesViewed || "/")}
+Time on page: ${timeOnPage || 0} seconds
+Browser language: ${effectiveLanguage || "en"}
+Returning visitor: ${hasActiveConversation ? "yes" : "no"}
+`;
+
+    const contentLibrary = `
+AVAILABLE CASE STUDIES AND CONTENT (pick the most contextually relevant one):
+
+RETAIL/ECOMMERCE + SUPPLY CHAIN:
+- Castore (premium sportswear, 30+ online stores): https://www.reflectiz.com/customers/castore-security-success/
+
+GAMING/ENTERTAINMENT + PCI COMPLIANCE:
+- Broadway Gaming (online gaming, zero audit findings): https://www.reflectiz.com/customers/broadway-gaming-pci/
+
+UK PAYMENT SECURITY + PCI:
+- Apexx Global (UK payment infrastructure, PCI 4.0.1): https://www.reflectiz.com/customers/apexx-global/
+
+TRAVEL/HOSPITALITY + PCI:
+- lastminute.com (travel, PCI DSS success): https://www.reflectiz.com/customers/pci-lastminute/
+
+ANZ/AUSTRALIA/NEW ZEALAND + SUPPLY CHAIN:
+- ANZ Web Supply Chain Research: https://www.reflectiz.com/blog/supply-chain-anz/
+
+AI THREATS + RETAIL SECURITY:
+- AI Retail Security Webinar (on-demand): https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/
+
+CISO + AI SUPPLY CHAIN:
+- CISO Guide to AI Supply Chain Attacks: https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/
+
+PCI COMPLIANCE GENERAL:
+- PCI Use Case Page: https://www.reflectiz.com/use-cases/pci-compliance/
+
+MAGECART/SKIMMING:
+- Magecart Use Case: https://www.reflectiz.com/use-cases/magecart-web-skimming/
+
+PRIVACY/GDPR:
+- Privacy Compliance Use Case: https://www.reflectiz.com/use-cases/website-privacy-compliance/
+
+SUPPLY CHAIN GENERAL:
+- Web Supply Chain Risks: https://www.reflectiz.com/use-cases/web-supply-chain-risks/
+
+FINANCIAL SERVICES:
+- Financial Services Industry Page: https://www.reflectiz.com/industries/financial-services/
+
+FREE ASSESSMENT (use as CTA when no specific content matches or visitor shows high intent):
+- Free Trial: https://www.reflectiz.com/registration/
+`;
+
+    const openerPrompt = `You are Athena, a web security expert for Reflectiz. A visitor just landed on a page. Your job is to deliver immediate relevant value in ONE opening message.
+
+VISITOR SIGNALS:
+${visitorContextBlock}
+
+${contentLibrary}
+
+INSTRUCTIONS:
+1. Read ALL visitor signals carefully -- geo, referral source, pages viewed, and current page together tell you who this person is and what they care about
+2. Pick the SINGLE most relevant content asset from the library based on the combination of signals
+3. Write a 2-3 sentence opener that:
+   - Sentence 1: One sharp insight relevant to their specific context (mention their industry or topic if you can infer it)
+   - Sentence 2: Recommend the chosen content asset with its full URL inline (not a placeholder)
+   - Sentence 3: One short question to open dialogue (max 8 words)
+4. No greeting words, no em dashes, no double hyphens
+5. Sound like a knowledgeable peer who knows their context
+6. If visitor is returning (Returning visitor: yes): skip the insight, go straight to next step CTA
+
+IMPORTANT: Include the FULL URL directly in your response. Do not use [link] or [URL] placeholders.
+
+Return only the opener text. Nothing else.`;
+
+    const bubblePrompt = `Based on these visitor signals, write a 5-7 word value teaser for a notification bubble.
+
+${visitorContextBlock}
+
+Rules:
+- 5-7 words only
+- Specific to their context and industry if you can infer it
+- Creates curiosity
+- No question mark, no greeting, no em dashes
+
+Return only the bubble text.`;
+
+    const [rawOpenerRes, rawBubbleRes] = await Promise.all([
+      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024 }),
+      callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 100 }),
+    ]);
+
+    let opener = (rawOpenerRes?.content?.[0]?.text ?? "").trim() || null;
+    let bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim() || null;
+
+    // Validate opener
+    if (!opener || opener.split(" ").length < 15 || !opener.includes("?")) {
+      opener = null;
     }
 
-    // No hardcoded match — fall back to Gemini for unrecognized pages
-    opener = "You are not here by accident -- what are you trying to solve?";
-    bubbleText = "Your site has more exposure than you think";
+    // Validate bubble
+    if (!bubbleText || bubbleText.split(" ").length > 10) {
+      bubbleText = null;
+    }
 
-    try {
-      console.log("CALLING GEMINI for opener, titleSnippet:", titleSnippet);
-      const openerResponse = await callGemini({
-        max_tokens: 1024,
-        messages: [{ role: "user", content: openerPrompt }],
-      });
-      let generated = (openerResponse.content[0]?.text ?? "").trim();
-      generated = generated.replace(/^(sentence|output|opener)[:\s]*/i, "").replace(/^["']|["']$/g, "").trim();
-      generated = generated.replace(/\[URL\]/gi, "").replace(/\[link\]/gi, "").trim();
-      generated = generated.replace(/:\s*\?/g, "?").replace(/:\s{2,}/g, " ").replace(/\s{2,}/g, " ").trim();
-      console.log("Gemini raw opener:", JSON.stringify(generated), "len:", generated.length, "hasQ:", generated.includes("?"));
-      if (generated.includes("https://www.reflect") && !generated.includes("https://www.reflectiz.com")) {
-        generated = null;
-      }
-      const isValidOpener = generated && generated.includes("?") && generated.split(" ").length > 15;
-      if (isValidOpener && !generated.includes("https://")) {
-        generated = generated.trimEnd() + " https://www.reflectiz.com/registration/";
-      }
-      if (isValidOpener) {
-        opener = generated;
-        const bubbleResponse = await callGemini({ max_tokens: 50, messages: [{ role: "user", content: `Write a 6-8 word value statement for a notification bubble teasing what the visitor gets if they open the chat. Visitor page: ${contextTitle}. Visitor geo: ${geo || "Unknown"}. No question mark, no greeting, no em dashes. Return only the bubble text.` }] });
-        const generatedBubble = (bubbleResponse.content[0]?.text ?? "").trim().replace(/[.!?]$/, "");
-        if (generatedBubble.length > 5) bubbleText = generatedBubble;
-        if (isValidPageUrl) {
-          await base44.asServiceRole.entities.PageOpeners.create({
-            pageUrl: currentPageUrl,
-            opener,
-            bubbleText,
-            generatedAt: new Date().toISOString(),
-          }).catch(() => {});
-        }
-      }
-    } catch (e) {
-      console.error("CATCH HIT:", e.message, e.stack);
-      return new Response(JSON.stringify({ reply: "ERROR: " + e.message, bubbleText: "", sessionId }), { headers: CORS_HEADERS });
+    // Page-aware fallbacks if Gemini fails
+    if (!opener) {
+      opener =
+        pageLower.includes("pci") || pageLower.includes("compliance") ? "Requirements 6.4.3 and 11.6.1 are where most teams get caught out, is your payment page covered?" :
+        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write, is that a blind spot for you?" :
+        pageLower.includes("supply-chain") ? "Fourth-party scripts are the blind spot most tools miss completely, worth checking yours?" :
+        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your consent banner says one thing but your pixels may be doing another, is that gap on your radar?" :
+        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "E-commerce checkout pages are the highest value target for web skimming, dealing with that risk?" :
+        pageLower.includes("financial") || pageLower.includes("finance") ? "Financial services teams face the tightest compliance requirements, is PCI or privacy your primary driver?" :
+        pageLower.includes("platform") || pageLower.includes("product") ? "Monitoring from outside your stack catches what embedded tools miss, what are you trying to get visibility into?" :
+        pageLower.includes("customers") || pageLower.includes("case-study") ? "This kind of result comes from continuous monitoring, dealing with a similar challenge?" :
+        pageLower.includes("vs") || pageLower.includes("compare") ? "Already comparing options, what is driving the evaluation?" :
+        "You are not here by accident, what are you trying to solve?";
+    }
+
+    if (!bubbleText) {
+      bubbleText =
+        pageLower.includes("pci") || pageLower.includes("compliance") ? "PCI 4.0.1 is catching teams off guard" :
+        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Your checkout may already be exposed" :
+        pageLower.includes("supply-chain") ? "Your vendors code runs on your site" :
+        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your pixels may be oversharing data" :
+        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "Your checkout is the highest value target" :
+        pageLower.includes("financial") || pageLower.includes("finance") ? "Payment pages carry more risk than you think" :
+        pageLower.includes("platform") || pageLower.includes("product") ? "No code needed, full visibility in 48 hours" :
+        pageLower.includes("customers") || pageLower.includes("case-study") ? "See how similar teams solved this" :
+        "Your site has more exposure than you think";
+    }
+
+    if (isValidPageUrl) {
+      await base44.asServiceRole.entities.PageOpeners.create({
+        pageUrl: currentPageUrl,
+        opener,
+        bubbleText,
+        generatedAt: new Date().toISOString(),
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
