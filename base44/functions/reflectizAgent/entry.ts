@@ -229,8 +229,9 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     return acc + matches;
   }, 0);
 
-  const urlYear = (page.pageUrl || "").match(/202[0-3]/)?.[0];
-  const yearPenalty = urlYear ? 15 : 0;
+  const urlYearMatch = (page.pageUrl || "").match(/20(2[0-3])/);
+  const yearPenalty = urlYearMatch ? 25 : 0;
+  const longUrlPenalty = (page.pageUrl || "").length > 80 ? 10 : 0;
 
   const aiIntent = ["ai", "artificial intelligence", "machine learning", "future", "llm", "chatgpt"].some(kw => queryLower.includes(kw));
   const aiBoost = aiIntent && (
@@ -265,7 +266,13 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
       (pageUrl.includes("supply-chain") || pageUrl.includes("ai-supply-chain"))
       ? 15 : 0;
 
-    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost + supplyChainBoost + aiBoost - yearPenalty };
+    // Magecart intent boost for recent pages
+    const magecartIntent = ["magecart", "skimming", "web skimming", "card skimming"].some(kw => queryLower.includes(kw));
+    const magecartBoost = magecartIntent &&
+      pageUrl.includes("magecart") &&
+      !/(202[0-3])/.test(page.pageUrl || "") ? 20 : 0;
+
+    return { page, score: score + urlBoost + companyCaseStudyBoost + eventBoost + contentTopicBoost + recencyBoost + supplyChainBoost + aiBoost + magecartBoost - yearPenalty - longUrlPenalty };
   });
 
   const sorted = scored
