@@ -540,9 +540,9 @@ Never end with a question. End with a statement or soft invitation.
 
 Return only the opener text. Nothing else.`;
 
-    // FIX 1 & 2: Run opener and bubbleText in parallel with 5-second timeout
+    // FIX: Run opener and bubbleText in parallel with 3-second timeout
     const geminiTimeout = new Promise((resolve) => 
-      setTimeout(() => resolve(null), 5000)
+      setTimeout(() => resolve(null), 3000)
     );
 
     // Generate bubble prompt with page context for fallback
