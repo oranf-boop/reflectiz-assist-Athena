@@ -523,6 +523,7 @@ Return only the message. No JSON. No explanation.`;
         messages: [{ role: "user", content: openerPrompt }],
       });
       let generated = (openerResponse.content[0]?.text ?? "").trim();
+      console.log("RAW OPENER FROM GEMINI:", generated);
       // Strip any leading label like "Sentence:" or quotes
       generated = generated.replace(/^(sentence|output|opener)[:\s]*/i, "").replace(/^["']|["']$/g, "").trim();
       // Clean up [URL] or [link] placeholders Gemini sometimes generates instead of real URLs
