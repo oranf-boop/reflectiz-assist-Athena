@@ -523,6 +523,10 @@ Return only the message. No JSON. No explanation.`;
       let generated = (openerResponse.content[0]?.text ?? "").trim();
       // Strip any leading label like "Sentence:" or quotes
       generated = generated.replace(/^(sentence|output|opener)[:\s]*/i, "").replace(/^["']|["']$/g, "").trim();
+      // Clean up [URL] or [link] placeholders Gemini sometimes generates instead of real URLs
+      generated = generated.replace(/\[URL\]/gi, "").replace(/\[link\]/gi, "").trim();
+      // Clean up orphaned ":" or ":?" artifacts left by stripped placeholders (e.g. "standards:?")
+      generated = generated.replace(/:\s*\?/g, "?").replace(/:\s{2,}/g, " ").replace(/\s{2,}/g, " ").trim();
       console.log("Gemini raw opener:", JSON.stringify(generated), "len:", generated.length, "hasQ:", generated.includes("?"));
       // Force a question mark if Gemini forgot to add one
       if (generated && generated.length > 15 && !generated.endsWith("?")) {
