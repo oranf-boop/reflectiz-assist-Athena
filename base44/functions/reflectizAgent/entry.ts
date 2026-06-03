@@ -357,7 +357,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage, hasActiveConversation } = body;
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
@@ -519,7 +519,17 @@ Return only the message. No JSON. No explanation.`;
     let opener = null;
     let bubbleText = null;
 
-    if (pageLower.includes("pci") || pageLower.includes("compliance") || pageLower.includes("dss")) {
+    // hasActiveConversation overrides — push toward trial/assessment
+    if (hasActiveConversation && (pageLower.includes("customers") || pageLower.includes("case-study"))) {
+      opener = "If what you just read resonates, the fastest way to see it for your own site is a free 30-day trial, no installation needed: https://www.reflectiz.com/registration/ Want to give it a try?";
+      bubbleText = "Ready to see your own site's exposure?";
+    } else if (hasActiveConversation && (pageLower.includes("blog") || pageLower.includes("learning-hub"))) {
+      opener = "Now that you have the context, worth seeing what is actually running on your payment pages: https://www.reflectiz.com/registration/ Takes 48 hours, no installation needed.";
+      bubbleText = "See what is running on your site now";
+    } else if (hasActiveConversation && (pageLower.includes("use-cases") || pageLower.includes("platform"))) {
+      opener = "Want to go deeper? Start with a free assessment of your own site: https://www.reflectiz.com/registration/ No installation, results in 48 hours.";
+      bubbleText = "Free assessment, results in 48 hours";
+    } else if (pageLower.includes("pci") || pageLower.includes("compliance") || pageLower.includes("dss")) {
       opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming achieved zero audit findings across dozens of brands: https://www.reflectiz.com/customers/broadway-gaming-pci/ Is that the benchmark you are working toward?";
       bubbleText = "PCI 4.0.1 is catching teams off guard";
     } else if (pageLower.includes("magecart") || pageLower.includes("skimming")) {
