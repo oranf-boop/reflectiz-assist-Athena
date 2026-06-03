@@ -540,31 +540,47 @@ Never end with a question. End with a statement or soft invitation.
 
 Return only the opener text. Nothing else.`;
 
-    const rawOpenerRes = await callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 });
+    // FIX 1 & 2: Run opener and bubbleText in parallel with 5-second timeout
+    const geminiTimeout = new Promise((resolve) => 
+      setTimeout(() => resolve(null), 5000)
+    );
 
-    let rawOpener = (rawOpenerRes?.content?.[0]?.text ?? "").trim();
-    let opener = rawOpener || null;
+    // Generate bubble prompt with page context for fallback
+    const bubbleWithContextPrompt = `Extract the single most attention-grabbing phrase to use as a 6-word notification bubble. Be specific, not generic.
 
-    console.log("Opener finishReason:", rawOpenerRes?.candidates?.[0]?.finishReason, "length:", rawOpener?.length);
-
-    // Extract bubbleText from the opener (not a separate generation)
-    let bubbleText = null;
-    if (opener) {
-      const bubblePrompt = `Extract the single most attention-grabbing phrase from this opener to use as a 6-word notification bubble. It must be specific, not generic, and create curiosity.
-
-Opener: ${opener}
+Page: ${contextTitle}
+URL: ${currentPageUrl}
+Geo: ${geo || "Unknown"}
 
 Rules:
 - Maximum 6 words
-- Must reference something specific from the opener (a company name, a number, a specific threat)
+- Must reference something specific (company name, number, threat)
 - Never use: "your site", "exposure", "think", "manage", "currently"
 - Start with an action verb or surprising fact
 - No punctuation
 
 Return only the 6 words.`;
 
-      const rawBubble = await callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 500 });
-      bubbleText = (rawBubble?.content?.[0]?.text ?? "").trim() || opener.split(" ").slice(0, 6).join(" ");
+    // Run both Gemini calls in parallel with timeout
+    const [rawOpenerRes, rawBubbleRes] = await Promise.all([
+      Promise.race([callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 }), geminiTimeout]),
+      Promise.race([callGemini({ messages: [{ role: "user", content: bubbleWithContextPrompt }], max_tokens: 500 }), geminiTimeout])
+    ]);
+
+    let rawOpener = (rawOpenerRes?.content?.[0]?.text ?? "").trim();
+    let opener = rawOpener || null;
+
+    console.log("Opener finishReason:", rawOpenerRes?.candidates?.[0]?.finishReason, "length:", rawOpener?.length);
+
+    // Extract bubbleText from parallel call or fallback
+    let bubbleText = null;
+    if (rawBubbleRes) {
+      bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim();
+      if (opener && bubbleText) {
+        // If we have both, use the bubble as-is (it was generated with page context)
+      } else if (opener && !bubbleText) {
+        bubbleText = opener.split(" ").slice(0, 6).join(" ");
+      }
     }
 
     // Validate opener
@@ -606,8 +622,8 @@ Return only the 6 words.`;
       }
     }
 
-    // Page-aware fallbacks if Gemini fails
-    if (!opener) {
+    // FIX 3: Page-aware fallbacks if Gemini fails or times out
+    if (!opener || !rawOpenerRes) {
       opener =
         pageLower.includes("pci") || pageLower.includes("compliance") ? "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming solved this with zero audit findings: https://www.reflectiz.com/customers/broadway-gaming-pci/" :
         pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: https://www.reflectiz.com/use-cases/magecart-web-skimming/" :
@@ -619,6 +635,18 @@ Return only the 6 words.`;
         pageLower.includes("customers") || pageLower.includes("case-study") ? "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: https://www.reflectiz.com/registration/" :
         pageLower.includes("vs") || pageLower.includes("compare") ? "The detailed comparison is on this page. Want to see how it looks for your specific setup? https://www.reflectiz.com/registration/" :
         "Your site has blind spots worth finding: https://www.reflectiz.com/registration/";
+      
+      // Generate bubbleText for fallback
+      if (!bubbleText) {
+        bubbleText = pageLower.includes("pci") ? "PCI compliance zero findings" :
+          pageLower.includes("magecart") ? "Stop Magecart in third-party scripts" :
+          pageLower.includes("supply-chain") ? "Fourth-party blind spots exposed" :
+          pageLower.includes("privacy") ? "Your pixels leak data silently" :
+          pageLower.includes("retail") || pageLower.includes("ecommerce") ? "Castore secured 30 stores" :
+          pageLower.includes("financial") ? "Tightest compliance requirements" :
+          pageLower.includes("customers") || pageLower.includes("case-study") ? "Continuous monitoring wins" :
+          "Blind spots worth finding";
+      }
     }
 
     // URL VALIDATION: Ensure every URL in opener exists in WebsiteContent
