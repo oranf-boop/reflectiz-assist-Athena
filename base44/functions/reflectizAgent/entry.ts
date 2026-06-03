@@ -208,6 +208,8 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
   const allPages = (await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500))
     .filter(p => !META_URL_PATTERNS.some(pat => (p.pageUrl || "").includes(pat)));
 
+  const reflectizPages = allPages.filter(page => (page.pageUrl || "").includes("reflectiz.com"));
+
   // FIX 1: event/webinar boost keywords
   const eventKeywords = ["event", "webinar", "conference", "upcoming"];
   const hasEventIntent = eventKeywords.some(kw => queryLower.includes(kw));
@@ -218,7 +220,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   const recencySignals = ["upcoming", "register", "live", "join us", "may 2026", "june 2026", "july 2026"];
 
-  const scored = allPages.map(page => {
+  const scored = reflectizPages.map(page => {
   const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
   const pageUrl = (page.pageUrl || "").toLowerCase();
   const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
@@ -608,6 +610,10 @@ Generate a natural one-sentence opening message that:
 
   reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
   reply = reply.replace(/www\.https:\/\//g, "https://");
+
+  // Strip any non-reflectiz.com URLs Gemini may have generated
+  reply = reply.replace(/https?:\/\/(?!(?:www\.)?reflectiz\.com)[^\s\)\]"']+/g, "");
+  reply = reply.trim();
 
   // SAME PAGE SAFETY NET: Remove any URL in the reply that matches the visitor's current page
   if (currentPageUrl) {
