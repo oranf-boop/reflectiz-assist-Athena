@@ -552,21 +552,7 @@ Generate a natural one-sentence opening message that:
 
     const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/—/g, ",");
 
-    await createClientFromRequest(req).asServiceRole.entities.Conversations.create({
-      sessionId,
-      timestamp: new Date().toISOString(),
-      geo: geo ?? "",
-      referralSource: referralSource ?? "",
-      pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
-      intentClassification: lastIntent ?? "GENERAL_AWARENESS",
-      conversationTranscript: `Agent: ${reply}`,
-      ctaReached: false,
-      language: language ?? "",
-      conversationTurns: 0,
-      lastMessageRole: "assistant",
-      conversationOutcome: "BOUNCED",
-    });
-
+    // No DB write for INIT — the first real visitor message will create the record and fire slackAlert
     return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
   }
 
