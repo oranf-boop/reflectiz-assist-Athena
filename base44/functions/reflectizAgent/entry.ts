@@ -570,7 +570,19 @@ Return only the bubble text.`;
       } else if (opener.toLowerCase().includes("lastminute") || opener.toLowerCase().includes("travel")) {
         opener += " https://www.reflectiz.com/customers/pci-lastminute/";
       } else if (opener.toLowerCase().includes("webinar") || opener.toLowerCase().includes("panel")) {
-        opener += " https://www.reflectiz.com/learning-hub/";
+        opener += " https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
+      } else if (opener.toLowerCase().includes("supply chain") || opener.toLowerCase().includes("fourth-party")) {
+        opener += " https://www.reflectiz.com/use-cases/web-supply-chain-risks/";
+      } else if (opener.toLowerCase().includes("magecart") || opener.toLowerCase().includes("skimming")) {
+        opener += " https://www.reflectiz.com/use-cases/magecart-web-skimming/";
+      } else if (opener.toLowerCase().includes("privacy") || opener.toLowerCase().includes("gdpr") || opener.toLowerCase().includes("pixel")) {
+        opener += " https://www.reflectiz.com/use-cases/website-privacy-compliance/";
+      } else if (opener.toLowerCase().includes("financial") || opener.toLowerCase().includes("banking") || opener.toLowerCase().includes("payment")) {
+        opener += " https://www.reflectiz.com/industries/financial-services/";
+      } else if (opener.toLowerCase().includes("pci") || opener.toLowerCase().includes("compliance") || opener.toLowerCase().includes("audit")) {
+        opener += " https://www.reflectiz.com/use-cases/pci-compliance/";
+      } else if (opener.toLowerCase().includes("ciso") || opener.toLowerCase().includes("ai supply")) {
+        opener += " https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/";
       } else if (opener.toLowerCase().includes("assessment") || opener.toLowerCase().includes("trial")) {
         opener += " https://www.reflectiz.com/registration/";
       } else {
