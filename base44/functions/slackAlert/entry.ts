@@ -104,13 +104,15 @@ Deno.serve(async (req) => {
   const preview = cleanTranscriptPreview(conversationTranscript);
   const domainLabel = cleanDomain(referralSource);
   const pageJourney = formatPageJourney(pagesViewed);
-  const outcomeLabel = conversationOutcome
-    ? conversationOutcome.charAt(0) + conversationOutcome.slice(1).toLowerCase()
-    : "Unknown";
+  const outcomeLabel = (conversationOutcome === "BOUNCED" && conversationTurns === 1)
+    ? "New"
+    : conversationOutcome
+      ? conversationOutcome.charAt(0) + conversationOutcome.slice(1).toLowerCase()
+      : "Unknown";
 
   let summary = "";
   if (conversationTranscript) {
-    const summaryPrompt = `Write a complete one sentence summary (minimum 15 words) of this B2B sales conversation for a sales team. The sentence must be complete and not cut off. Focus on: what the visitor was looking for, what was discussed, and whether they showed buying intent.
+    const summaryPrompt = `Write one complete sentence summarizing this sales conversation for a sales team. Be specific -- mention the exact topic or question the visitor asked about, not just general categories. Minimum 15 words. Example: 'A visitor from Israel asked about protecting e-commerce checkout pages from Magecart attacks and clicked the industries page link.'
 
 Conversation:
 ${cleanTranscriptPreview(conversationTranscript)}
