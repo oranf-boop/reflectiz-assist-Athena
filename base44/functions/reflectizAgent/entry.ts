@@ -523,7 +523,6 @@ Return only the message. No JSON. No explanation.`;
         messages: [{ role: "user", content: openerPrompt }],
       });
       let generated = (openerResponse.content[0]?.text ?? "").trim();
-      console.log("RAW OPENER FROM GEMINI:", generated);
       // Strip any leading label like "Sentence:" or quotes
       generated = generated.replace(/^(sentence|output|opener)[:\s]*/i, "").replace(/^["']|["']$/g, "").trim();
       // Clean up [URL] or [link] placeholders Gemini sometimes generates instead of real URLs
@@ -531,11 +530,16 @@ Return only the message. No JSON. No explanation.`;
       // Clean up orphaned ":" or ":?" artifacts left by stripped placeholders (e.g. "standards:?")
       generated = generated.replace(/:\s*\?/g, "?").replace(/:\s{2,}/g, " ").replace(/\s{2,}/g, " ").trim();
       console.log("Gemini raw opener:", JSON.stringify(generated), "len:", generated.length, "hasQ:", generated.includes("?"));
-      // Force a question mark if Gemini forgot to add one
-      if (generated && generated.length > 15 && !generated.endsWith("?")) {
-        generated = generated.replace(/[.,!]$/, "") + "?";
+      // FIX 2: Detect truncated/malformed URLs
+      if (generated.includes("https://www.reflect") && !generated.includes("https://www.reflectiz.com")) {
+        generated = null; // force fallback
       }
-      if (generated && generated.includes("?") && generated.length > 15) {
+      // FIX 3: Require a valid reflectiz.com URL in the opener
+      const isValidOpener = generated &&
+        generated.includes("?") &&
+        generated.length > 30 &&
+        generated.includes("https://www.reflectiz.com");
+      if (isValidOpener) {
         opener = generated;
         const bubblePrompt = `Based on these visitor signals, write a 6-8 word value statement for a notification bubble. It should tease the specific value the visitor will get if they open the chat. Make it specific to their context -- not generic.
 
