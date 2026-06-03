@@ -616,7 +616,9 @@ Generate a natural one-sentence opening message that:
   reply = reply.trim();
 
   // SAME PAGE SAFETY NET: Remove any URL in the reply that matches the visitor's current page
-  if (currentPageUrl) {
+  // Exception: skip replacement on competitor comparison pages (they should self-reference)
+  const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs-") || (currentPageUrl || "").includes("-vs-reflectiz");
+  if (currentPageUrl && !isComparisonPage) {
     const urlRegex = /https?:\/\/[^\s)\]"']+/g;
     const normalize = (u) => u.replace(/\/$/, "").toLowerCase();
     const normalizedCurrentPage = normalize(currentPageUrl);
