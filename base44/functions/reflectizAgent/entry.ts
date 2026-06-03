@@ -621,6 +621,16 @@ Return only the 6 words.`;
         "Your site has blind spots worth finding: https://www.reflectiz.com/registration/";
     }
 
+    // URL VALIDATION: Ensure every URL in opener exists in WebsiteContent
+    const urlsInOpener = opener.match(/https:\/\/www\.reflectiz\.com\/[^\s\)\]"]+/g) || [];
+    for (const url of urlsInOpener) {
+      const exists = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: url });
+      if (!exists || exists.length === 0) {
+        // URL not in database - replace with registration page
+        opener = opener.replace(url, "https://www.reflectiz.com/registration/");
+      }
+    }
+
     if (!bubbleText || bubbleText.split(" ").length > 10) {
       const fallbackBubblePrompt = `Write 5 words that tease the most relevant web security insight for a visitor on this page. Be specific to their context.
 
