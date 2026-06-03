@@ -702,7 +702,9 @@ Generate a natural one-sentence opening message that:
     });
   }
 
+  console.log("DEBUG: userMessageCount =", userMessageCount);
   if (userMessageCount === 1) {
+    console.log("DEBUG: about to fire slackAlert");
     fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
@@ -711,12 +713,16 @@ Generate a natural one-sentence opening message that:
         geo: geo ?? "",
         intentClassification,
         conversationTurns: userMessageCount,
-        conversationOutcome,
+        ctaReached,
+        linksClicked: 0,
         referralSource: referralSource ?? "",
         conversationTranscript: cleanTranscript,
         pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+        conversationOutcome,
       }),
-    }).catch(err => console.error("slackAlert fetch failed:", err.message));
+    })
+    .then(r => console.log("DEBUG: slackAlert response status:", r.status))
+    .catch(err => console.error("DEBUG: slackAlert failed:", err.message));
   }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
