@@ -545,12 +545,15 @@ Rules:
 Return only the bubble text.`;
 
     const [rawOpenerRes, rawBubbleRes] = await Promise.all([
-      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024 }),
+      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 }),
       callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 500 }),
     ]);
 
-    let opener = (rawOpenerRes?.content?.[0]?.text ?? "").trim() || null;
+    let rawOpener = (rawOpenerRes?.content?.[0]?.text ?? "").trim();
+    let opener = rawOpener || null;
     let bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim() || null;
+
+    console.log("Opener finishReason:", rawOpenerRes?.candidates?.[0]?.finishReason, "length:", rawOpener?.length);
 
     // Validate opener
     if (!opener || opener.split(" ").length < 8) {
