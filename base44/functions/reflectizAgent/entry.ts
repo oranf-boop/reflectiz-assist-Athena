@@ -508,6 +508,8 @@ Good example:
 Bad example:
 "PCI deadlines are approaching. Get a free assessment to identify vulnerabilities?"
 
+IMPORTANT: Include the full URL directly in your response inline with the text. Do not use placeholders like [link] or [URL]. Write the actual https://www.reflectiz.com/... URL directly in the sentence.
+
 Return only the message. No JSON. No explanation.`;
 
 
