@@ -557,6 +557,27 @@ Return only the bubble text.`;
       opener = null;
     }
 
+    // Ensure opener always has a URL
+    if (opener && !opener.includes("https://")) {
+      if (opener.toLowerCase().includes("ai retail") || opener.toLowerCase().includes("retail security")) {
+        opener += " https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
+      } else if (opener.toLowerCase().includes("castore") || opener.toLowerCase().includes("storefront")) {
+        opener += " https://www.reflectiz.com/customers/castore-security-success/";
+      } else if (opener.toLowerCase().includes("broadway") || opener.toLowerCase().includes("gaming")) {
+        opener += " https://www.reflectiz.com/customers/broadway-gaming-pci/";
+      } else if (opener.toLowerCase().includes("apexx")) {
+        opener += " https://www.reflectiz.com/customers/apexx-global/";
+      } else if (opener.toLowerCase().includes("lastminute") || opener.toLowerCase().includes("travel")) {
+        opener += " https://www.reflectiz.com/customers/pci-lastminute/";
+      } else if (opener.toLowerCase().includes("webinar") || opener.toLowerCase().includes("panel")) {
+        opener += " https://www.reflectiz.com/learning-hub/";
+      } else if (opener.toLowerCase().includes("assessment") || opener.toLowerCase().includes("trial")) {
+        opener += " https://www.reflectiz.com/registration/";
+      } else {
+        opener += " https://www.reflectiz.com/registration/";
+      }
+    }
+
     // Validate bubble
     if (!bubbleText || bubbleText.split(" ").length > 10) {
       bubbleText = null;
@@ -574,7 +595,7 @@ Return only the bubble text.`;
         pageLower.includes("platform") || pageLower.includes("product") ? "Monitoring from outside your stack catches what embedded tools miss. No code installation, full visibility in 48 hours: https://www.reflectiz.com/registration/" :
         pageLower.includes("customers") || pageLower.includes("case-study") ? "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: https://www.reflectiz.com/registration/" :
         pageLower.includes("vs") || pageLower.includes("compare") ? "The detailed comparison is on this page. Want to see how it looks for your specific setup? https://www.reflectiz.com/registration/" :
-        "Your site has more exposure than you think. A free assessment shows exactly what is running: https://www.reflectiz.com/registration/";
+        "Your site has blind spots worth finding: https://www.reflectiz.com/registration/";
     }
 
     if (!bubbleText) {
