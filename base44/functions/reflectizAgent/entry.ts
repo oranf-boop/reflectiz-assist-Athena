@@ -553,7 +553,7 @@ Return only the bubble text.`;
     let bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim() || null;
 
     // Validate opener
-    if (!opener || opener.split(" ").length < 15 || !opener.includes("?")) {
+    if (!opener || opener.split(" ").length < 8) {
       opener = null;
     }
 
@@ -565,16 +565,16 @@ Return only the bubble text.`;
     // Page-aware fallbacks if Gemini fails
     if (!opener) {
       opener =
-        pageLower.includes("pci") || pageLower.includes("compliance") ? "Requirements 6.4.3 and 11.6.1 are where most teams get caught out, is your payment page covered?" :
-        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write, is that a blind spot for you?" :
-        pageLower.includes("supply-chain") ? "Fourth-party scripts are the blind spot most tools miss completely, worth checking yours?" :
-        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your consent banner says one thing but your pixels may be doing another, is that gap on your radar?" :
-        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "E-commerce checkout pages are the highest value target for web skimming, dealing with that risk?" :
-        pageLower.includes("financial") || pageLower.includes("finance") ? "Financial services teams face the tightest compliance requirements, is PCI or privacy your primary driver?" :
-        pageLower.includes("platform") || pageLower.includes("product") ? "Monitoring from outside your stack catches what embedded tools miss, what are you trying to get visibility into?" :
-        pageLower.includes("customers") || pageLower.includes("case-study") ? "This kind of result comes from continuous monitoring, dealing with a similar challenge?" :
-        pageLower.includes("vs") || pageLower.includes("compare") ? "Already comparing options, what is driving the evaluation?" :
-        "You are not here by accident, what are you trying to solve?";
+        pageLower.includes("pci") || pageLower.includes("compliance") ? "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming solved this with zero audit findings: https://www.reflectiz.com/customers/broadway-gaming-pci/" :
+        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: https://www.reflectiz.com/use-cases/magecart-web-skimming/" :
+        pageLower.includes("supply-chain") ? "Fourth-party scripts are the blind spot most tools miss. This research shows how widespread the problem is: https://www.reflectiz.com/blog/supply-chain-anz/" :
+        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your consent banner says one thing but your pixels may be doing another. Here is how to close that gap: https://www.reflectiz.com/use-cases/website-privacy-compliance/" :
+        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "E-commerce checkout pages are the highest value target for web skimming. Castore secured 30 stores without touching their code: https://www.reflectiz.com/customers/castore-security-success/" :
+        pageLower.includes("financial") || pageLower.includes("finance") ? "Financial services teams face the tightest compliance requirements. Here is how peers are handling it: https://www.reflectiz.com/industries/financial-services/" :
+        pageLower.includes("platform") || pageLower.includes("product") ? "Monitoring from outside your stack catches what embedded tools miss. No code installation, full visibility in 48 hours: https://www.reflectiz.com/registration/" :
+        pageLower.includes("customers") || pageLower.includes("case-study") ? "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: https://www.reflectiz.com/registration/" :
+        pageLower.includes("vs") || pageLower.includes("compare") ? "The detailed comparison is on this page. Want to see how it looks for your specific setup? https://www.reflectiz.com/registration/" :
+        "Your site has more exposure than you think. A free assessment shows exactly what is running: https://www.reflectiz.com/registration/";
     }
 
     if (!bubbleText) {
