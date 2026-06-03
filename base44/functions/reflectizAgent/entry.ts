@@ -522,25 +522,39 @@ INSTRUCTIONS:
 2. Pick the SINGLE most relevant content asset from the library based on the combination of signals
 3. Write a 2-3 sentence opener that:
    - Sentence 1: One sharp insight relevant to their specific context (mention their industry or topic if you can infer it)
-   - Sentence 2: Recommend the chosen content asset with its full URL inline (not a placeholder)
-   - Sentence 3: One short question to open dialogue (max 8 words)
+   - Sentence 2: Recommend the chosen content asset using markdown link format with descriptive label (see LINK FORMAT RULE below)
+   - Sentence 3: One short soft invitation or statement (max 8 words, NO question mark)
 4. No greeting words, no em dashes, no double hyphens
 5. Sound like a knowledgeable peer who knows their context
 6. If visitor is returning (Returning visitor: yes): skip the insight, go straight to next step CTA
 
-IMPORTANT: Include the FULL URL directly in your response. Do not use [link] or [URL] placeholders.
+LINK FORMAT RULE:
+When including a URL, always format it as markdown with a descriptive label:
+[Watch the AI Retail Security Webinar](https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/)
+[Read the Broadway Gaming case study](https://www.reflectiz.com/customers/broadway-gaming-pci/)
+[See the Castore success story](https://www.reflectiz.com/customers/castore-security-success/)
+[Start your free assessment](https://www.reflectiz.com/registration/)
+
+Never show the raw URL. Always use a descriptive action label.
+Never end with a question. End with a statement or soft invitation.
 
 Return only the opener text. Nothing else.`;
 
-    const bubblePrompt = `Based on these visitor signals, write a 5-7 word value teaser for a notification bubble.
+    const bubblePrompt = `Based on these visitor signals, write a 6-word value teaser for a notification bubble.
 
 ${visitorContextBlock}
 
 Rules:
-- 5-7 words only
-- Specific to their context and industry if you can infer it
-- Creates curiosity
+- Exactly 6 words
+- Start with an action verb or surprising fact
+- Creates urgency or curiosity specific to their context
 - No question mark, no greeting, no em dashes
+- No passive phrases like "secures web supply chain attacks"
+
+Examples:
+- "How Castore secured 30 stores overnight"
+- "AI is reshaping your retail attack surface"
+- "Your checkout scripts need a second look"
 
 Return only the bubble text.`;
 
