@@ -513,8 +513,27 @@ IMPORTANT: Include the full URL directly in your response inline with the text. 
 Return only the message. No JSON. No explanation.`;
 
 
-    let opener = "What brought you to Reflectiz today?";
-    let bubbleText = "Curious what brought you here";
+    const pageLower = (currentPageUrl || "").toLowerCase();
+    let opener =
+      pageLower.includes("pci") || pageLower.includes("compliance") ? "PCI DSS 4.0.1 requirements 6.4.3 and 11.6.1 are catching teams off guard -- is your payment page covered?" :
+      pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write -- is that a blind spot for you?" :
+      pageLower.includes("supply-chain") || pageLower.includes("supply_chain") ? "Fourth-party scripts are the blind spot most tools miss completely -- worth checking yours?" :
+      pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your consent banner says one thing, your pixels may be doing another -- is that gap on your radar?" :
+      pageLower.includes("platform") || pageLower.includes("product") ? "No code installation, full visibility in 48 hours -- what are you trying to get visibility into?" :
+      pageLower.includes("customers") || pageLower.includes("case-study") ? "This kind of result does not happen by accident -- dealing with a similar challenge?" :
+      pageLower.includes("blog") ? "Something on this page caught your attention -- what was it?" :
+      pageLower.includes("vs") || pageLower.includes("compare") ? "Already comparing options -- what is driving the evaluation?" :
+      "You are not here by accident -- what are you trying to solve?";
+    let bubbleText =
+      pageLower.includes("pci") || pageLower.includes("compliance") ? "PCI 4.0.1 is catching teams off guard" :
+      pageLower.includes("magecart") || pageLower.includes("skimming") ? "Your checkout may already be exposed" :
+      pageLower.includes("supply-chain") || pageLower.includes("supply_chain") ? "Your vendors code runs on your site" :
+      pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your pixels may be oversharing data" :
+      pageLower.includes("platform") || pageLower.includes("product") ? "No code needed, full visibility in 48h" :
+      pageLower.includes("customers") || pageLower.includes("case-study") ? "See how similar teams solved this" :
+      pageLower.includes("vs") || pageLower.includes("compare") ? "See how Reflectiz compares" :
+      pageLower.includes("blog") ? "New research worth reading" :
+      "Your site has more exposure than you think";
 
     try {
       console.log("CALLING GEMINI for opener, titleSnippet:", titleSnippet);
