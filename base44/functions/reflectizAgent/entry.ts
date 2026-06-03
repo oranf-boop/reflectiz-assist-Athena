@@ -546,7 +546,7 @@ Return only the bubble text.`;
 
     const [rawOpenerRes, rawBubbleRes] = await Promise.all([
       callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024 }),
-      callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 100 }),
+      callGemini({ messages: [{ role: "user", content: bubblePrompt }], max_tokens: 500 }),
     ]);
 
     let opener = (rawOpenerRes?.content?.[0]?.text ?? "").trim() || null;
@@ -598,17 +598,25 @@ Return only the bubble text.`;
         "Your site has blind spots worth finding: https://www.reflectiz.com/registration/";
     }
 
-    if (!bubbleText) {
-      bubbleText =
-        pageLower.includes("pci") || pageLower.includes("compliance") ? "PCI 4.0.1 is catching teams off guard" :
-        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Your checkout may already be exposed" :
-        pageLower.includes("supply-chain") ? "Your vendors code runs on your site" :
-        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your pixels may be oversharing data" :
-        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "Your checkout is the highest value target" :
-        pageLower.includes("financial") || pageLower.includes("finance") ? "Payment pages carry more risk than you think" :
-        pageLower.includes("platform") || pageLower.includes("product") ? "No code needed, full visibility in 48 hours" :
-        pageLower.includes("customers") || pageLower.includes("case-study") ? "See how similar teams solved this" :
-        "Your site has more exposure than you think";
+    if (!bubbleText || bubbleText.split(" ").length > 10) {
+      const fallbackBubblePrompt = `Write 5 words that tease the most relevant web security insight for a visitor on this page. Be specific to their context.
+
+Page: ${contextTitle}
+URL: ${currentPageUrl}
+Geo: ${geo || "Unknown"}
+Referral: ${referralSource || "direct"}
+
+Return only 5 words. No punctuation. No generic phrases like "your site has exposure".`;
+
+      const fallbackBubbleRes = await callGemini({
+        messages: [{ role: "user", content: fallbackBubblePrompt }],
+        max_tokens: 500,
+      });
+      bubbleText = (fallbackBubbleRes?.content?.[0]?.text ?? "").trim() || null;
+    }
+
+    if (!bubbleText && opener) {
+      bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
     if (isValidPageUrl) {
