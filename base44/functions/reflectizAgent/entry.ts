@@ -676,6 +676,7 @@ Generate a natural one-sentence opening message that:
   const conversationOutcome = calcOutcome(ctaReached, userMessageCount);
 
   if (existingConversation && existingConversation.length > 0) {
+    // UPDATE existing conversation - no slack alert
     await base44.asServiceRole.entities.Conversations.update(existingConversation[0].id, {
       conversationTranscript: cleanTranscript,
       intentClassification,
@@ -686,6 +687,7 @@ Generate a natural one-sentence opening message that:
       pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
     });
   } else {
+    // CREATE new conversation - fire slack alert
     await base44.asServiceRole.entities.Conversations.create({
       sessionId,
       timestamp: new Date().toISOString(),
@@ -700,9 +702,7 @@ Generate a natural one-sentence opening message that:
       lastMessageRole,
       conversationOutcome,
     });
-  }
 
-  if (userMessageCount === 1) {
     fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
@@ -710,17 +710,15 @@ Generate a natural one-sentence opening message that:
         sessionId,
         geo: geo ?? "",
         intentClassification,
-        conversationTurns: userMessageCount,
+        conversationTurns: 1,
         ctaReached,
         linksClicked: 0,
         referralSource: referralSource ?? "",
         conversationTranscript: cleanTranscript,
         pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
-        conversationOutcome,
+        conversationOutcome: "BOUNCED",
       }),
-    })
-    .then(r => console.log("DEBUG: slackAlert response status:", r.status))
-    .catch(err => console.error("DEBUG: slackAlert failed:", err.message));
+    }).catch(err => console.error("slackAlert failed:", err.message));
   }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
