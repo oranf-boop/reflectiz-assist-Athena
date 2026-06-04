@@ -546,6 +546,53 @@ OPENER RULES:
       bubbleText = null;
     }
 
+    // Same-page URL replacement: if Gemini recommended the current page, swap to next best asset
+    if (opener && currentPageUrl) {
+      const encodedCurrentUrl = currentPageUrl.replace(/\/$/, "");
+      if (opener.includes(encodedCurrentUrl)) {
+        const pageLower3 = currentPageUrl.toLowerCase();
+        let replacementUrl = "https://www.reflectiz.com/registration/";
+        let replacementLabel = "Start free assessment";
+
+        if (pageLower3.includes("castore")) {
+          replacementUrl = "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
+          replacementLabel = "Watch the AI Retail Security Webinar";
+        } else if (pageLower3.includes("broadway")) {
+          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
+          replacementLabel = "See the Apexx Global case study";
+        } else if (pageLower3.includes("apexx")) {
+          replacementUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
+          replacementLabel = "See the Broadway Gaming case study";
+        } else if (pageLower3.includes("pci-lastminute")) {
+          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
+          replacementLabel = "See the Apexx Global case study";
+        } else if (pageLower3.includes("pci-compliance")) {
+          replacementUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
+          replacementLabel = "Read the Broadway Gaming case study";
+        } else if (pageLower3.includes("magecart")) {
+          replacementUrl = "https://www.reflectiz.com/customers/castore-security-success/";
+          replacementLabel = "See the Castore success story";
+        } else if (pageLower3.includes("supply-chain")) {
+          replacementUrl = "https://www.reflectiz.com/blog/supply-chain-anz/";
+          replacementLabel = "Read the ANZ supply chain research";
+        } else if (pageLower3.includes("financial")) {
+          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
+          replacementLabel = "See the Apexx Global case study";
+        } else if (pageLower3.includes("blog") || pageLower3.includes("learning-hub")) {
+          replacementUrl = "https://www.reflectiz.com/registration/";
+          replacementLabel = "Start free assessment";
+        }
+
+        // Replace markdown link containing current page URL
+        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]*castore[^\)]*\)/gi, (match) => {
+          return pageLower3.includes("castore") ? `[${replacementLabel}](${replacementUrl})` : match;
+        });
+
+        // Generic replacement for any remaining current page URL in opener
+        opener = opener.replace(new RegExp(encodedCurrentUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/?', 'g'), replacementUrl);
+      }
+    }
+
     // Page-aware fallbacks if Gemini fails or times out
     const pageLower2 = (currentPageUrl || "").toLowerCase();
     if (!opener) {
