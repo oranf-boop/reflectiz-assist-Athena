@@ -462,7 +462,7 @@ Deno.serve(async (req) => {
     const singlePrompt = `You are Athena, a web security expert for Reflectiz. A visitor just landed on a specific page. Generate a thought bubble teaser and an opening chat message that work together as a sequence.
 
 VISITOR SIGNALS (read all carefully before deciding):
-Current page: ${currentPageUrl}
+Current page URL (do NOT recommend this URL): ${currentPageUrl}
 Page title: ${contextTitle}
 Visitor geo: ${geo || "Unknown"}
 Referral source: ${referralSource || "direct"}
@@ -517,6 +517,7 @@ OPENER RULES:
 - Never start with "In today's world" or similar filler
 - Never a generic observation -- be specific to their context
 - Always include a real URL as markdown link
+- Never recommend the page the visitor is currently on. If the most relevant content is the current page, recommend the second most relevant asset instead.
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
     const singleCallRes = await Promise.race([
