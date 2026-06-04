@@ -550,7 +550,8 @@ OPENER RULES:
     // Same-page URL replacement: if Gemini recommended the current page, swap to next best asset
     if (opener && currentPageUrl) {
       const encodedCurrentUrl = currentPageUrl.replace(/\/$/, "");
-      if (opener.includes(encodedCurrentUrl)) {
+      const currentPath = currentPageUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
+      if (opener.includes(encodedCurrentUrl) || (currentPath && opener.includes(currentPath))) {
         const pageLower3 = currentPageUrl.toLowerCase();
         let replacementUrl = "https://www.reflectiz.com/registration/";
         let replacementLabel = "Start free assessment";
@@ -585,7 +586,6 @@ OPENER RULES:
         }
 
         // Replace markdown link containing the current page path
-        const currentPath = currentPageUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
         opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, (match, label, offset, str) => {
           const urlMatch = match.match(/\(https?:\/\/([^\)]+)\)/);
           if (!urlMatch) return match;
