@@ -456,130 +456,85 @@ Deno.serve(async (req) => {
       currentPageUrl.includes("reflectiz.com")
     );
 
-    const visitorContextBlock = `
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+
+    const singlePrompt = `You are Athena, a web security expert for Reflectiz. A visitor just landed on a specific page. Generate a thought bubble teaser and an opening chat message that work together as a sequence.
+
+VISITOR SIGNALS (read all carefully before deciding):
 Current page: ${currentPageUrl}
 Page title: ${contextTitle}
 Visitor geo: ${geo || "Unknown"}
 Referral source: ${referralSource || "direct"}
 Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" → ") : (pagesViewed || "/")}
 Time on page: ${timeOnPage || 0} seconds
-Browser language: ${effectiveLanguage || "en"}
 Returning visitor: ${hasActiveConversation ? "yes" : "no"}
-`;
 
-    const contentLibrary = `
-AVAILABLE CASE STUDIES AND CONTENT (pick the most contextually relevant one):
+SIGNAL PRIORITY (most important first):
+1. Referral source -- what brought them here reveals their intent
+2. Current page -- what they are reading right now
+3. Pages viewed -- the journey they took
+4. Geo -- which regional content fits best
+5. Time on page -- how engaged they are
 
-RETAIL/ECOMMERCE + SUPPLY CHAIN:
-- Castore (premium sportswear, 30+ online stores): https://www.reflectiz.com/customers/castore-security-success/
+CONTENT LIBRARY (pick the single most relevant asset based on ALL signals):
+- Retail/ecommerce + supply chain → Castore case study: https://www.reflectiz.com/customers/castore-security-success/
+- Gaming/entertainment + PCI → Broadway Gaming case study: https://www.reflectiz.com/customers/broadway-gaming-pci/
+- UK/EMEA + payment security + PCI → Apexx Global case study: https://www.reflectiz.com/customers/apexx-global/
+- Travel/hospitality + PCI → lastminute.com case study: https://www.reflectiz.com/customers/pci-lastminute/
+- ANZ/Australia/New Zealand → ANZ supply chain research: https://www.reflectiz.com/blog/supply-chain-anz/
+- AI threats + retail → AI Retail Security Webinar: https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/
+- CISO + AI supply chain → CISO Guide: https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/
+- PCI compliance general → PCI use case: https://www.reflectiz.com/use-cases/pci-compliance/
+- Magecart/skimming → Magecart use case: https://www.reflectiz.com/use-cases/magecart-web-skimming/
+- Privacy/GDPR → Privacy use case: https://www.reflectiz.com/use-cases/website-privacy-compliance/
+- Supply chain general → Supply chain use case: https://www.reflectiz.com/use-cases/web-supply-chain-risks/
+- Financial services → Financial services page: https://www.reflectiz.com/industries/financial-services/
+- Low context / unknown visitor → Blog or learning hub: https://www.reflectiz.com/blog/ or https://www.reflectiz.com/learning-hub/
+- High intent visitor (paid search, competitor page) → Free assessment: https://www.reflectiz.com/registration/
 
-GAMING/ENTERTAINMENT + PCI COMPLIANCE:
-- Broadway Gaming (online gaming, zero audit findings): https://www.reflectiz.com/customers/broadway-gaming-pci/
+DECISION EXAMPLES:
+- Visitor from organic Google "PCI 6.4.3" + UK geo + PCI page → recommend Apexx Global case study
+- Visitor from paid Google "Reflectiz vs competitor" + comparison page → recommend a client success story
+- Visitor from LinkedIn post + retail industry page → recommend Castore or AI retail webinar
+- Visitor from email campaign + any page → they know Reflectiz, skip education, go straight to content asset
+- Visitor with no referral + homepage → recommend blog or learning hub
 
-UK PAYMENT SECURITY + PCI:
-- Apexx Global (UK payment infrastructure, PCI 4.0.1): https://www.reflectiz.com/customers/apexx-global/
+OUTPUT FORMAT - return only valid JSON, nothing else:
+{
+  "bubbleText": "5-7 words max. Specific to the page topic. Action-driven. References the exact page content or industry. Creates curiosity. No question mark. No generic phrases.",
+  "opener": "2-3 sentences. Sentence 1: One sharp specific insight tied to their referral intent and page topic -- a real fact or specific challenge, not a generic observation. Sentence 2: Recommend the chosen content asset as markdown link [descriptive label](url). Sentence 3: One short soft statement or invitation, max 8 words, no question mark. No greeting words. No em dashes. No double hyphens."
+}
 
-TRAVEL/HOSPITALITY + PCI:
-- lastminute.com (travel, PCI DSS success): https://www.reflectiz.com/customers/pci-lastminute/
+BUBBLE RULES:
+- Must be logically connected to the opener -- teases what the opener delivers
+- Must reference the specific page topic (ecommerce page → ecommerce bubble, PCI blog → PCI bubble)
+- Never generic: never say "your site", "exposure", "think", "manage"
+- Good examples: "How Castore secured 30 online stores", "PCI 6.4.3 is catching teams off guard", "AI is reshaping retail attack surfaces"
 
-ANZ/AUSTRALIA/NEW ZEALAND + SUPPLY CHAIN:
-- ANZ Web Supply Chain Research: https://www.reflectiz.com/blog/supply-chain-anz/
+OPENER RULES:
+- Referral intent wins -- if they came from a paid PCI search, lead with PCI content
+- Never start with "In today's world" or similar filler
+- Never a generic observation -- be specific to their context
+- Always include a real URL as markdown link
+- For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
-AI THREATS + RETAIL SECURITY:
-- AI Retail Security Webinar (on-demand): https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/
-
-CISO + AI SUPPLY CHAIN:
-- CISO Guide to AI Supply Chain Attacks: https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/
-
-PCI COMPLIANCE GENERAL:
-- PCI Use Case Page: https://www.reflectiz.com/use-cases/pci-compliance/
-
-MAGECART/SKIMMING:
-- Magecart Use Case: https://www.reflectiz.com/use-cases/magecart-web-skimming/
-
-PRIVACY/GDPR:
-- Privacy Compliance Use Case: https://www.reflectiz.com/use-cases/website-privacy-compliance/
-
-SUPPLY CHAIN GENERAL:
-- Web Supply Chain Risks: https://www.reflectiz.com/use-cases/web-supply-chain-risks/
-
-FINANCIAL SERVICES:
-- Financial Services Industry Page: https://www.reflectiz.com/industries/financial-services/
-
-FREE ASSESSMENT (use as CTA when no specific content matches or visitor shows high intent):
-- Free Trial: https://www.reflectiz.com/registration/
-`;
-
-    const openerPrompt = `You are Athena, a web security expert for Reflectiz. A visitor just landed on a page. Your job is to deliver immediate relevant value in ONE opening message.
-
-VISITOR SIGNALS:
-${visitorContextBlock}
-
-${contentLibrary}
-
-INSTRUCTIONS:
-1. Read ALL visitor signals carefully -- geo, referral source, pages viewed, and current page together tell you who this person is and what they care about
-2. Pick the SINGLE most relevant content asset from the library based on the combination of signals
-3. Write a 2-3 sentence opener that:
-   - Sentence 1: One sharp insight relevant to their specific context (mention their industry or topic if you can infer it)
-   - Sentence 2: Recommend the chosen content asset using markdown link format with descriptive label (see LINK FORMAT RULE below)
-   - Sentence 3: One short soft invitation or statement (max 8 words, NO question mark)
-4. No greeting words, no em dashes, no double hyphens
-5. Sound like a knowledgeable peer who knows their context
-6. If visitor is returning (Returning visitor: yes): skip the insight, go straight to next step CTA
-
-LINK FORMAT RULE:
-When including a URL, always format it as markdown with a descriptive label:
-[Watch the AI Retail Security Webinar](https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/)
-[Read the Broadway Gaming case study](https://www.reflectiz.com/customers/broadway-gaming-pci/)
-[See the Castore success story](https://www.reflectiz.com/customers/castore-security-success/)
-[Start your free assessment](https://www.reflectiz.com/registration/)
-
-Never show the raw URL. Always use a descriptive action label.
-Never end with a question. End with a statement or soft invitation.
-
-Return only the opener text. Nothing else.`;
-
-    // FIX: Run opener and bubbleText in parallel with 3-second timeout
-    const geminiTimeout = new Promise((resolve) => 
-      setTimeout(() => resolve(null), 3000)
-    );
-
-    // Generate bubble prompt with page context for fallback
-    const bubbleWithContextPrompt = `Extract the single most attention-grabbing phrase to use as a 6-word notification bubble. Be specific, not generic.
-
-Page: ${contextTitle}
-URL: ${currentPageUrl}
-Geo: ${geo || "Unknown"}
-
-Rules:
-- Maximum 6 words
-- Must reference something specific (company name, number, threat)
-- Never use: "your site", "exposure", "think", "manage", "currently"
-- Start with an action verb or surprising fact
-- No punctuation
-
-Return only the 6 words.`;
-
-    // Run both Gemini calls in parallel with timeout
-    const [rawOpenerRes, rawBubbleRes] = await Promise.all([
-      Promise.race([callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 2048 }), geminiTimeout]),
-      Promise.race([callGemini({ messages: [{ role: "user", content: bubbleWithContextPrompt }], max_tokens: 500 }), geminiTimeout])
+    const singleCallRes = await Promise.race([
+      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024 }),
+      geminiTimeout
     ]);
 
-    let rawOpener = (rawOpenerRes?.content?.[0]?.text ?? "").trim();
-    let opener = rawOpener || null;
-
-    console.log("Opener finishReason:", rawOpenerRes?.candidates?.[0]?.finishReason, "length:", rawOpener?.length);
-
-    // Extract bubbleText from parallel call or fallback
+    let opener = null;
     let bubbleText = null;
-    if (rawBubbleRes) {
-      bubbleText = (rawBubbleRes?.content?.[0]?.text ?? "").trim();
-      if (opener && bubbleText) {
-        // If we have both, use the bubble as-is (it was generated with page context)
-      } else if (opener && !bubbleText) {
-        bubbleText = opener.split(" ").slice(0, 6).join(" ");
+
+    if (singleCallRes) {
+      const rawText = (singleCallRes?.content?.[0]?.text ?? "").trim();
+      try {
+        const cleaned = rawText.replace(/```json|```/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+        opener = parsed.opener || null;
+        bubbleText = parsed.bubbleText || null;
+      } catch (e) {
+        console.error("JSON parse failed:", e.message, "raw:", rawText.slice(0, 200));
       }
     }
 
@@ -589,99 +544,57 @@ Return only the 6 words.`;
       bubbleText = null;
     }
 
-    // Ensure opener always has a URL
-    if (opener && !opener.includes("https://")) {
-      if (opener.toLowerCase().includes("ai retail") || opener.toLowerCase().includes("retail security")) {
-        opener += " https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
-      } else if (opener.toLowerCase().includes("castore") || opener.toLowerCase().includes("storefront")) {
-        opener += " https://www.reflectiz.com/customers/castore-security-success/";
-      } else if (opener.toLowerCase().includes("broadway") || opener.toLowerCase().includes("gaming")) {
-        opener += " https://www.reflectiz.com/customers/broadway-gaming-pci/";
-      } else if (opener.toLowerCase().includes("apexx")) {
-        opener += " https://www.reflectiz.com/customers/apexx-global/";
-      } else if (opener.toLowerCase().includes("lastminute") || opener.toLowerCase().includes("travel")) {
-        opener += " https://www.reflectiz.com/customers/pci-lastminute/";
-      } else if (opener.toLowerCase().includes("webinar") || opener.toLowerCase().includes("panel")) {
-        opener += " https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
-      } else if (opener.toLowerCase().includes("supply chain") || opener.toLowerCase().includes("fourth-party")) {
-        opener += " https://www.reflectiz.com/use-cases/web-supply-chain-risks/";
-      } else if (opener.toLowerCase().includes("magecart") || opener.toLowerCase().includes("skimming")) {
-        opener += " https://www.reflectiz.com/use-cases/magecart-web-skimming/";
-      } else if (opener.toLowerCase().includes("privacy") || opener.toLowerCase().includes("gdpr") || opener.toLowerCase().includes("pixel")) {
-        opener += " https://www.reflectiz.com/use-cases/website-privacy-compliance/";
-      } else if (opener.toLowerCase().includes("financial") || opener.toLowerCase().includes("banking") || opener.toLowerCase().includes("payment")) {
-        opener += " https://www.reflectiz.com/industries/financial-services/";
-      } else if (opener.toLowerCase().includes("pci") || opener.toLowerCase().includes("compliance") || opener.toLowerCase().includes("audit")) {
-        opener += " https://www.reflectiz.com/use-cases/pci-compliance/";
-      } else if (opener.toLowerCase().includes("ciso") || opener.toLowerCase().includes("ai supply")) {
-        opener += " https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/";
-      } else if (opener.toLowerCase().includes("assessment") || opener.toLowerCase().includes("trial")) {
-        opener += " https://www.reflectiz.com/registration/";
+    // Page-aware fallbacks if Gemini fails or times out
+    const pageLower2 = (currentPageUrl || "").toLowerCase();
+    if (!opener) {
+      if (pageLower2.includes("pci") || pageLower2.includes("compliance") || pageLower2.includes("dss")) {
+        opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming solved this with zero audit findings: [Read the case study](https://www.reflectiz.com/customers/broadway-gaming-pci/)";
+        bubbleText = "PCI 4.0.1 is catching teams off guard";
+      } else if (pageLower2.includes("magecart") || pageLower2.includes("skimming")) {
+        opener = "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: [See how it works](https://www.reflectiz.com/use-cases/magecart-web-skimming/)";
+        bubbleText = "Your checkout may already be exposed";
+      } else if (pageLower2.includes("supply-chain") || pageLower2.includes("supply_chain")) {
+        opener = "Fourth-party scripts are the blind spot most tools miss entirely. This research shows how widespread the problem is: [Read the ANZ research](https://www.reflectiz.com/blog/supply-chain-anz/)";
+        bubbleText = "Your vendors code runs on your site";
+      } else if (pageLower2.includes("privacy") || pageLower2.includes("gdpr")) {
+        opener = "Your consent banner says one thing but your pixels may be doing another. Here is how to close that gap: [See the privacy use case](https://www.reflectiz.com/use-cases/website-privacy-compliance/)";
+        bubbleText = "Your pixels may be oversharing data";
+      } else if (pageLower2.includes("ecommerce") || pageLower2.includes("retail")) {
+        opener = "E-commerce checkout pages are the highest value target for web skimming. Castore secured 30 online stores without touching their code: [Read the Castore story](https://www.reflectiz.com/customers/castore-security-success/)";
+        bubbleText = "How Castore secured 30 online stores";
+      } else if (pageLower2.includes("financial") || pageLower2.includes("finance")) {
+        opener = "Financial services teams face the tightest compliance requirements and the most sophisticated client-side attacks. Here is how peers are handling it: [See financial services](https://www.reflectiz.com/industries/financial-services/)";
+        bubbleText = "Payment pages carry more risk than you think";
+      } else if (pageLower2.includes("platform") || pageLower2.includes("product") || pageLower2.includes("remote-monitoring")) {
+        opener = "Monitoring from outside your stack catches what embedded tools miss entirely. No code installation, full visibility in 48 hours: [Start free assessment](https://www.reflectiz.com/registration/)";
+        bubbleText = "No code needed, full visibility in 48h";
+      } else if (pageLower2.includes("customers") || pageLower2.includes("case-study")) {
+        opener = "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: [Start free assessment](https://www.reflectiz.com/registration/)";
+        bubbleText = "Continuous monitoring finds what scans miss";
+      } else if (pageLower2.includes("reflectiz-vs") || pageLower2.includes("cside-vs")) {
+        opener = "You are already on the right page for this comparison. The detailed breakdown is below. Ready to see how it looks for your specific setup: [Start free assessment](https://www.reflectiz.com/registration/)";
+        bubbleText = "See how Reflectiz compares";
+      } else if (pageLower2.includes("blog") || pageLower2.includes("learning-hub")) {
+        opener = "Reflectiz publishes research on web security threats, supply chain risks and compliance requirements. Worth exploring more: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)";
+        bubbleText = "New research on this topic available";
       } else {
-        opener += " https://www.reflectiz.com/registration/";
+        opener = "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)";
+        bubbleText = "Web security research worth reading";
       }
     }
 
-    // FIX 3: Page-aware fallbacks if Gemini fails or times out
-    if (!opener || !rawOpenerRes) {
-      opener =
-        pageLower.includes("pci") || pageLower.includes("compliance") ? "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming solved this with zero audit findings: https://www.reflectiz.com/customers/broadway-gaming-pci/" :
-        pageLower.includes("magecart") || pageLower.includes("skimming") ? "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: https://www.reflectiz.com/use-cases/magecart-web-skimming/" :
-        pageLower.includes("supply-chain") ? "Fourth-party scripts are the blind spot most tools miss. This research shows how widespread the problem is: https://www.reflectiz.com/blog/supply-chain-anz/" :
-        pageLower.includes("privacy") || pageLower.includes("gdpr") ? "Your consent banner says one thing but your pixels may be doing another. Here is how to close that gap: https://www.reflectiz.com/use-cases/website-privacy-compliance/" :
-        pageLower.includes("ecommerce") || pageLower.includes("retail") ? "E-commerce checkout pages are the highest value target for web skimming. Castore secured 30 stores without touching their code: https://www.reflectiz.com/customers/castore-security-success/" :
-        pageLower.includes("financial") || pageLower.includes("finance") ? "Financial services teams face the tightest compliance requirements. Here is how peers are handling it: https://www.reflectiz.com/industries/financial-services/" :
-        pageLower.includes("platform") || pageLower.includes("product") ? "Monitoring from outside your stack catches what embedded tools miss. No code installation, full visibility in 48 hours: https://www.reflectiz.com/registration/" :
-        pageLower.includes("customers") || pageLower.includes("case-study") ? "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: https://www.reflectiz.com/registration/" :
-        pageLower.includes("vs") || pageLower.includes("compare") ? "The detailed comparison is on this page. Want to see how it looks for your specific setup? https://www.reflectiz.com/registration/" :
-        "Your site has blind spots worth finding: https://www.reflectiz.com/registration/";
-      
-      // Generate bubbleText for fallback
-      if (!bubbleText) {
-        bubbleText = pageLower.includes("pci") ? "PCI compliance zero findings" :
-          pageLower.includes("magecart") ? "Stop Magecart in third-party scripts" :
-          pageLower.includes("supply-chain") ? "Fourth-party blind spots exposed" :
-          pageLower.includes("privacy") ? "Your pixels leak data silently" :
-          pageLower.includes("retail") || pageLower.includes("ecommerce") ? "Castore secured 30 stores" :
-          pageLower.includes("financial") ? "Tightest compliance requirements" :
-          pageLower.includes("customers") || pageLower.includes("case-study") ? "Continuous monitoring wins" :
-          "Blind spots worth finding";
-      }
+    // Derive bubble from opener if still empty
+    if (!bubbleText && opener) {
+      bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
-    // URL VALIDATION: Ensure every URL in opener exists in WebsiteContent
-    const urlsInOpener = opener.match(/https:\/\/www\.reflectiz\.com\/[^\s\)\]"]+/g) || [];
-    for (const url of urlsInOpener) {
-      const exists = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: url });
-      if (!exists || exists.length === 0) {
-        // URL not in database - replace with registration page
-        opener = opener.replace(url, "https://www.reflectiz.com/registration/");
-      }
-    }
-
-    if (!bubbleText || bubbleText.split(" ").length > 10) {
-      const fallbackBubblePrompt = `Write 5 words that tease the most relevant web security insight for a visitor on this page. Be specific to their context.
-
-Page: ${contextTitle}
-URL: ${currentPageUrl}
-Geo: ${geo || "Unknown"}
-Referral: ${referralSource || "direct"}
-
-Return only 5 words. No punctuation. No generic phrases like "your site has exposure".`;
-
-      const fallbackBubbleRes = await callGemini({
-        messages: [{ role: "user", content: fallbackBubblePrompt }],
-        max_tokens: 500,
-      });
-      bubbleText = (fallbackBubbleRes?.content?.[0]?.text ?? "").trim() || null;
-    }
-
-    if (isValidPageUrl) {
+    // Cache only valid pages
+    if (isValidPageUrl && opener && bubbleText) {
       await base44.asServiceRole.entities.PageOpeners.create({
         pageUrl: currentPageUrl,
         opener,
         bubbleText,
-        generatedAt: new Date().toISOString(),
+        generatedAt: new Date().toISOString()
       }).catch(() => {});
     }
 
