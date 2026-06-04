@@ -566,6 +566,12 @@ OPENER RULES:
       bubbleText = null;
     }
 
+    // Hard block: remove any Apexx Global reference (URL no longer valid)
+    if (opener && opener.includes("apexx-global")) {
+      opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]*apexx-global[^\)]*\)/gi, "[See the PCI compliance use case](https://www.reflectiz.com/use-cases/pci-compliance/)");
+      opener = opener.replace(/https?:\/\/[^\s\)\]"']*apexx-global[^\s\)\]"']*/gi, "https://www.reflectiz.com/use-cases/pci-compliance/");
+    }
+
     // Same-page URL replacement: if Gemini recommended the current page, swap to next best asset
     if (opener && currentPageUrl) {
       const encodedCurrentUrl = currentPageUrl.replace(/\/$/, "");
