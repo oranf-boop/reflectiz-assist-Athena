@@ -517,7 +517,8 @@ OPENER RULES:
 - Never start with "In today's world" or similar filler
 - Never a generic observation -- be specific to their context
 - Always include a real URL as markdown link
-- Never recommend the page the visitor is currently on. If the most relevant content is the current page, recommend the second most relevant asset instead.
+- SAME PAGE RULE: Never recommend the page the visitor is currently on. Check the Current page URL carefully before selecting a content asset. If the most relevant asset matches the current URL exactly or is the same blog post or page, automatically select the second most relevant asset. For blog posts, recommend a related case study or use case page instead of another blog post.
+- PRIVACY RULE: Never mention or reference the referral source, search query, or how the visitor arrived. Never say "you came from", "you searched for", "you landed on", "after searching", "via Google", or any phrase that reveals we are tracking their journey. Use the referral data silently to inform your recommendation but never surface it in the text. The visitor should feel understood, not surveilled.
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
     const singleCallRes = await Promise.race([
