@@ -480,7 +480,6 @@ SIGNAL PRIORITY (most important first):
 CONTENT LIBRARY (pick the single most relevant asset based on ALL signals):
 - Retail/ecommerce + supply chain → Castore case study: https://www.reflectiz.com/customers/castore-security-success/
 - Gaming/entertainment + PCI → Broadway Gaming case study: https://www.reflectiz.com/customers/broadway-gaming-pci/
-- UK/EMEA + payment security + PCI → Apexx Global case study: https://www.reflectiz.com/customers/apexx-global/
 - Travel/hospitality + PCI → lastminute.com case study: https://www.reflectiz.com/customers/pci-lastminute/
 - ANZ/Australia/New Zealand → ANZ supply chain research: https://www.reflectiz.com/blog/supply-chain-anz/
 - AI threats + retail → AI Retail Security Webinar: https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/
@@ -494,7 +493,7 @@ CONTENT LIBRARY (pick the single most relevant asset based on ALL signals):
 - High intent visitor (paid search, competitor page) → Free assessment: https://www.reflectiz.com/registration/
 
 DECISION EXAMPLES:
-- Visitor from organic Google "PCI 6.4.3" + UK geo + PCI page → recommend Apexx Global case study
+- Visitor from organic Google "PCI 6.4.3" + UK geo + PCI page → recommend lastminute.com or Broadway Gaming case study
 - Visitor from paid Google "Reflectiz vs competitor" + comparison page → recommend a client success story
 - Visitor from LinkedIn post + retail industry page → recommend Castore or AI retail webinar
 - Visitor from email campaign + any page → they know Reflectiz, skip education, go straight to content asset
@@ -519,7 +518,27 @@ OPENER RULES:
 - Always include a real URL as markdown link
 - SAME PAGE RULE: Never recommend the page the visitor is currently on. Check the Current page URL carefully before selecting a content asset. If the most relevant asset matches the current URL exactly or is the same blog post or page, automatically select the second most relevant asset. For blog posts, recommend a related case study or use case page instead of another blog post.
 - PRIVACY RULE: Never mention or reference the referral source, search query, or how the visitor arrived. Never say "you came from", "you searched for", "you landed on", "after searching", "via Google", or any phrase that reveals we are tracking their journey. Use the referral data silently to inform your recommendation but never surface it in the text. The visitor should feel understood, not surveilled.
+- CONTENT JOURNEY RULE:
+  * If the visitor is on a CASE STUDY page (/customers/): recommend a use case page, webinar, or free assessment -- never another case study
+  * If the visitor is on a USE CASE page (/use-cases/): recommend the most relevant case study or webinar
+  * If the visitor is on an INDUSTRY page (/industries/): recommend a case study from that industry or the payment security webinar
+  * If the visitor is on a PLATFORM page (/platform/): recommend a case study that demonstrates remote monitoring value -- Castore or Broadway Gaming are good choices
+  * If the visitor is on a BLOG page: recommend a use case page or case study, not another blog post
+- LINK LABEL RULE: The markdown link label must accurately describe the destination. Never call a use case page a 'guide' or 'research'. Use these exact labels:
+  * /customers/castore-security-success/ → 'Read the Castore case study'
+  * /customers/broadway-gaming-pci/ → 'Read the Broadway Gaming case study'
+  * /customers/pci-lastminute/ → 'Read the lastminute.com case study'
+  * /use-cases/pci-compliance/ → 'See the PCI compliance use case'
+  * /use-cases/magecart-web-skimming/ → 'See the Magecart prevention use case'
+  * /use-cases/web-supply-chain-risks/ → 'See the supply chain risks use case'
+  * /use-cases/website-privacy-compliance/ → 'See the privacy compliance use case'
+  * /industries/financial-services/ → 'See financial services security'
+  * /learning-hub/webinar-ai-retail-feb-2026/ → 'Watch the AI Retail Security Webinar'
+  * /learning-hub/ai-supply-chain-attacks/ → 'Read the CISO AI supply chain guide'
+  * /blog/supply-chain-anz/ → 'Read the ANZ supply chain research'
+  * /registration/ → 'Start your free assessment'
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
+
 
     const singleCallRes = await Promise.race([
       callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite" }),
@@ -560,14 +579,11 @@ OPENER RULES:
           replacementUrl = "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
           replacementLabel = "Watch the AI Retail Security Webinar";
         } else if (pageLower3.includes("broadway")) {
-          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
-          replacementLabel = "See the Apexx Global case study";
-        } else if (pageLower3.includes("apexx")) {
-          replacementUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
-          replacementLabel = "See the Broadway Gaming case study";
+          replacementUrl = "https://www.reflectiz.com/use-cases/pci-compliance/";
+          replacementLabel = "See the PCI compliance use case";
         } else if (pageLower3.includes("pci-lastminute")) {
-          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
-          replacementLabel = "See the Apexx Global case study";
+          replacementUrl = "https://www.reflectiz.com/use-cases/pci-compliance/";
+          replacementLabel = "See the PCI compliance use case";
         } else if (pageLower3.includes("pci-compliance")) {
           replacementUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
           replacementLabel = "Read the Broadway Gaming case study";
@@ -581,8 +597,8 @@ OPENER RULES:
           replacementUrl = "https://www.reflectiz.com/blog/supply-chain-anz/";
           replacementLabel = "Read the ANZ supply chain research";
         } else if (pageLower3.includes("financial")) {
-          replacementUrl = "https://www.reflectiz.com/customers/apexx-global/";
-          replacementLabel = "See the Apexx Global case study";
+          replacementUrl = "https://www.reflectiz.com/customers/pci-lastminute/";
+          replacementLabel = "Read the lastminute.com case study";
         } else if (pageLower3.includes("blog") || pageLower3.includes("learning-hub")) {
           replacementUrl = "https://www.reflectiz.com/registration/";
           replacementLabel = "Start free assessment";
