@@ -520,7 +520,7 @@ OPENER RULES:
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
     const singleCallRes = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024, model: "gemini-2.0-flash-001" }),
+      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024 }),
       geminiTimeout
     ]);
 
