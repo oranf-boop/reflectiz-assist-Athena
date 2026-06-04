@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
     const cached = cachedResults?.[0];
     console.log("Cache check:", JSON.stringify({ found: !!cached, opener: cached?.opener?.slice(0, 80), contextTitle }));
 
-    if (cached && cached.opener && cached.opener.includes("?") && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
+    if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
       return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
