@@ -574,6 +574,9 @@ OPENER RULES:
         } else if (pageLower3.includes("magecart")) {
           replacementUrl = "https://www.reflectiz.com/customers/castore-security-success/";
           replacementLabel = "See the Castore success story";
+        } else if (pageLower3.includes("supply-chain-anz")) {
+          replacementUrl = "https://www.reflectiz.com/use-cases/web-supply-chain-risks/";
+          replacementLabel = "See the supply chain use case";
         } else if (pageLower3.includes("supply-chain")) {
           replacementUrl = "https://www.reflectiz.com/blog/supply-chain-anz/";
           replacementLabel = "Read the ANZ supply chain research";
@@ -608,6 +611,9 @@ OPENER RULES:
       } else if (pageLower2.includes("magecart") || pageLower2.includes("skimming")) {
         opener = "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: [See how it works](https://www.reflectiz.com/use-cases/magecart-web-skimming/)";
         bubbleText = "Your checkout may already be exposed";
+      } else if (pageLower2.includes("supply-chain-anz")) {
+        opener = "Fourth-party scripts are the blind spot most tools miss entirely. Here is how teams are monitoring them in real time: [See the supply chain use case](https://www.reflectiz.com/use-cases/web-supply-chain-risks/)";
+        bubbleText = "Your vendors code runs on your site";
       } else if (pageLower2.includes("supply-chain") || pageLower2.includes("supply_chain")) {
         opener = "Fourth-party scripts are the blind spot most tools miss entirely. This research shows how widespread the problem is: [Read the ANZ research](https://www.reflectiz.com/blog/supply-chain-anz/)";
         bubbleText = "Your vendors code runs on your site";
