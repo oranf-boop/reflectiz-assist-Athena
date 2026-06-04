@@ -16,9 +16,10 @@ async function getAccessToken() {
   return token;
 }
 
-async function callGemini({ system, messages, max_tokens }) {
+async function callGemini({ system, messages, max_tokens, model }) {
   const token = await getAccessToken();
-  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
+  const resolvedModel = model || GEMINI_MODEL;
+  const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${resolvedModel}:generateContent`;
 
   const contents = messages.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -456,7 +457,7 @@ Deno.serve(async (req) => {
       currentPageUrl.includes("reflectiz.com")
     );
 
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
 
     const singlePrompt = `You are Athena, a web security expert for Reflectiz. A visitor just landed on a specific page. Generate a thought bubble teaser and an opening chat message that work together as a sequence.
 
@@ -519,7 +520,7 @@ OPENER RULES:
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
     const singleCallRes = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024 }),
+      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024, model: "gemini-2.0-flash-001" }),
       geminiTimeout
     ]);
 
