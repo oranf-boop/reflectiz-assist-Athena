@@ -584,12 +584,17 @@ OPENER RULES:
           replacementLabel = "Start free assessment";
         }
 
-        // Replace markdown link containing current page URL
-        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]*castore[^\)]*\)/gi, (match) => {
-          return pageLower3.includes("castore") ? `[${replacementLabel}](${replacementUrl})` : match;
+        // Replace markdown link containing the current page path
+        const currentPath = currentPageUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
+        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, (match, label, offset, str) => {
+          const urlMatch = match.match(/\(https?:\/\/([^\)]+)\)/);
+          if (!urlMatch) return match;
+          const linkUrl = urlMatch[0].slice(1, -1);
+          const linkPath = linkUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
+          return (currentPath && linkPath === currentPath) ? `[${replacementLabel}](${replacementUrl})` : match;
         });
 
-        // Generic replacement for any remaining current page URL in opener
+        // Generic replacement for any remaining bare current page URL in opener
         opener = opener.replace(new RegExp(encodedCurrentUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/?', 'g'), replacementUrl);
       }
     }
