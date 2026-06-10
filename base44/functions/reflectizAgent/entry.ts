@@ -588,7 +588,7 @@ OUTPUT:
     if (opener && currentPageUrl) {
       const encodedCurrentUrl = currentPageUrl.replace(/\/$/, "");
       const currentPath = currentPageUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
-      if (opener.includes(encodedCurrentUrl) || (currentPath && opener.includes(currentPath))) {
+      if (opener.includes(encodedCurrentUrl) || (currentPath && currentPath.length > 1 && opener.includes(currentPath))) {
         const pageLower3 = currentPageUrl.toLowerCase();
         let replacementUrl = "https://www.reflectiz.com/registration/";
         let replacementLabel = "Start free assessment";
