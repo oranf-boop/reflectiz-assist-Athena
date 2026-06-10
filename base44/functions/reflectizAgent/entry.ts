@@ -546,6 +546,32 @@ OUTPUT:
       }
     }
 
+    // Privacy violation check: never mention referral source or how visitor arrived
+    const privacyViolationPhrases = [
+      "direct traffic",
+      "you came from",
+      "you searched",
+      "you landed",
+      "after searching",
+      "via google",
+      "organic search",
+      "paid search",
+      "indicates a strong",
+      "indicates interest",
+      "your search",
+      "coming from",
+      "traffic to",
+      "found us through",
+      "arrived via"
+    ];
+    const hasPrivacyViolation = privacyViolationPhrases.some(phrase =>
+      (opener || "").toLowerCase().includes(phrase)
+    );
+    if (hasPrivacyViolation) {
+      opener = null;
+      bubbleText = null;
+    }
+
     // Validate opener
     if (!opener || opener.split(" ").length < 8) {
       opener = null;
@@ -640,8 +666,8 @@ OUTPUT:
       } else if (pageLower2.includes("customers") || pageLower2.includes("case-study")) {
         opener = "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: [Start free assessment](https://www.reflectiz.com/registration/)";
         bubbleText = "Continuous monitoring finds what scans miss";
-      } else if (pageLower2.includes("reflectiz-vs") || pageLower2.includes("cside-vs")) {
-        opener = "You are already on the right page for this comparison. The detailed breakdown is below. Ready to see how it looks for your specific setup: [Start free assessment](https://www.reflectiz.com/registration/)";
+      } else if (pageLower2.includes("reflectiz-vs") || pageLower2.includes("cside-vs") || pageLower2.includes("vs-reflectiz")) {
+        opener = "The detailed comparison is on this page. When you are ready to see how it looks for your own setup: [Start your free assessment](https://www.reflectiz.com/registration/)";
         bubbleText = "See how Reflectiz compares";
       } else if (pageLower2.includes("blog") || pageLower2.includes("learning-hub")) {
         opener = "Reflectiz publishes research on web security threats, supply chain risks and compliance requirements. Worth exploring more: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)";
