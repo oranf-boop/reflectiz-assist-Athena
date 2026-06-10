@@ -502,6 +502,7 @@ DECISION EXAMPLES:
 - Visitor from LinkedIn post + retail industry page → recommend Castore or AI retail webinar
 - Visitor from email campaign + any page → they know Reflectiz, skip education, go straight to content asset
 - Visitor with no referral + homepage → recommend blog or learning hub
+- Visitor on /industries/healthcare/ or /hipaa/ → MUST recommend [See how Reflectiz supports HIPAA compliance](https://www.reflectiz.com/hipaa/) or [See the privacy compliance use case](https://www.reflectiz.com/use-cases/website-privacy-compliance/) -- NEVER Castore, NEVER Broadway Gaming, NEVER lastminute.com
 
 OUTPUT FORMAT - return only valid JSON, nothing else:
 {
@@ -542,6 +543,8 @@ OPENER RULES:
   * /learning-hub/ai-supply-chain-attacks/ → 'Read the CISO AI supply chain guide'
   * /blog/supply-chain-anz/ → 'Read the ANZ supply chain research'
   * /registration/ → 'Start your free assessment'
+  * /industries/healthcare/ → 'See healthcare web security'
+  * /hipaa/ → 'See how Reflectiz supports HIPAA compliance'
 - For low context visitors: "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)"`;
 
 
