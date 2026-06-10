@@ -633,7 +633,9 @@ OUTPUT:
         });
 
         // Generic replacement for any remaining bare current page URL in opener
-        opener = opener.replace(new RegExp(encodedCurrentUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/?', 'g'), replacementUrl);
+        if (currentPath && currentPath.length > 1) {
+          opener = opener.replace(new RegExp(encodedCurrentUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/?', 'g'), replacementUrl);
+        }
       }
     }
 
