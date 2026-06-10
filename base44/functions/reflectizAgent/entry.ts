@@ -679,6 +679,11 @@ OUTPUT:
       }
     }
 
+    // Strip em-dashes from opener (mirrors regular message handler)
+    if (opener) {
+      opener = opener.replace(/—/g, ",").replace(/--/g, ",").replace(/–/g, ",");
+    }
+
     // Derive bubble from opener if still empty
     if (!bubbleText && opener) {
       bubbleText = opener.split(" ").slice(0, 6).join(" ");
