@@ -801,14 +801,6 @@ Generate a natural one-sentence opening message that:
     });
   }
 
-  // FIX 3: If visitor asked for reading material and reply has no URL, append first retrieved page URL
-  const asksForContent = /article|read|blog|resource|learn|case study|research/i.test(message);
-  const replyHasUrl = /https?:\/\//.test(reply);
-  if (asksForContent && !replyHasUrl && relevantPages.length > 0 && relevantPages[0].pageUrl) {
-    const pageUrl = relevantPages[0].pageUrl || "";
-    const fullUrl = pageUrl.startsWith("http") ? pageUrl : `https://www.reflectiz.com${pageUrl.startsWith("/") ? "" : "/"}${pageUrl}`;
-    reply += ` Read more here: ${fullUrl}`;
-  }
   messages.push({ role: "assistant", content: reply });
 
   const existingConversation = await base44.asServiceRole.entities.Conversations.filter({ sessionId });
