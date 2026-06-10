@@ -454,6 +454,7 @@ Deno.serve(async (req) => {
       !currentPageUrl.includes("lovable.dev") &&
       !currentPageUrl.includes("localhost") &&
       !currentPageUrl.includes("base44.app") &&
+      !currentPageUrl.includes("/careers/") &&
       currentPageUrl.includes("reflectiz.com")
     );
 
@@ -489,6 +490,9 @@ CONTENT LIBRARY (pick the single most relevant asset based on ALL signals):
 - Privacy/GDPR → Privacy use case: https://www.reflectiz.com/use-cases/website-privacy-compliance/
 - Supply chain general → Supply chain use case: https://www.reflectiz.com/use-cases/web-supply-chain-risks/
 - Financial services → Financial services page: https://www.reflectiz.com/industries/financial-services/
+- Healthcare/HIPAA → Healthcare industry page: https://www.reflectiz.com/industries/healthcare/
+- Healthcare/HIPAA → HIPAA compliance page: https://www.reflectiz.com/hipaa/
+- Healthcare/HIPAA → Privacy compliance use case: https://www.reflectiz.com/use-cases/website-privacy-compliance/
 - Low context / unknown visitor → Blog or learning hub: https://www.reflectiz.com/blog/ or https://www.reflectiz.com/learning-hub/
 - High intent visitor (paid search, competitor page) → Free assessment: https://www.reflectiz.com/registration/
 
@@ -524,6 +528,7 @@ OPENER RULES:
   * If the visitor is on an INDUSTRY page (/industries/): recommend a case study from that industry or the payment security webinar
   * If the visitor is on a PLATFORM page (/platform/): recommend a case study that demonstrates remote monitoring value -- Castore or Broadway Gaming are good choices
   * If the visitor is on a BLOG page: recommend a use case page or case study, not another blog post
+  * If the visitor is on a HEALTHCARE or HIPAA page (/industries/healthcare/ or /hipaa/): recommend the HIPAA page or privacy compliance use case -- never a retail or gaming case study
 - LINK LABEL RULE: The markdown link label must accurately describe the destination. Never call a use case page a 'guide' or 'research'. Use these exact labels:
   * /customers/castore-security-success/ → 'Read the Castore case study'
   * /customers/broadway-gaming-pci/ → 'Read the Broadway Gaming case study'
