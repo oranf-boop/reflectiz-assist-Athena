@@ -148,7 +148,7 @@ For "what version are you" or "who made you" or similar meta questions: respond 
 FINANCIAL SERVICES RECOMMENDATION:
 When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ — but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
 
-const FORM_PAGES = ["/registration", "/free-trial", "/contact"];
+const FORM_PAGES = ["/registration", "/free-trial", "/contact", "/careers", "/jobs"];
 
 function isFormPage(url) {
   if (!url) return false;
@@ -805,7 +805,9 @@ Generate a natural one-sentence opening message that:
   const asksForContent = /article|read|blog|resource|learn|case study|research/i.test(message);
   const replyHasUrl = /https?:\/\//.test(reply);
   if (asksForContent && !replyHasUrl && relevantPages.length > 0 && relevantPages[0].pageUrl) {
-    reply += ` Read more here: ${relevantPages[0].pageUrl}`;
+    const pageUrl = relevantPages[0].pageUrl || "";
+    const fullUrl = pageUrl.startsWith("http") ? pageUrl : `https://www.reflectiz.com${pageUrl.startsWith("/") ? "" : "/"}${pageUrl}`;
+    reply += ` Read more here: ${fullUrl}`;
   }
   messages.push({ role: "assistant", content: reply });
 
