@@ -694,6 +694,21 @@ OUTPUT:
       bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
+    // Hard guard: never send first-time homepage visitors to /registration/
+    const isHomepage = !currentPageUrl ||
+      currentPageUrl === "https://www.reflectiz.com/" ||
+      currentPageUrl === "https://www.reflectiz.com";
+
+    const isFirstTimeVisitor = !hasActiveConversation &&
+      (!pagesViewed || (Array.isArray(pagesViewed) ? pagesViewed.length <= 1 : true));
+
+    if (isHomepage && isFirstTimeVisitor && opener && opener.includes("/registration/")) {
+      opener = opener.replace(
+        /\[([^\]]+)\]\(https?:\/\/www\.reflectiz\.com\/registration\/?\)/g,
+        "[Explore the Reflectiz Learning Hub](https://www.reflectiz.com/learning-hub/)"
+      );
+    }
+
     // Cache only valid pages
     if (isValidPageUrl && opener && bubbleText) {
       await base44.asServiceRole.entities.PageOpeners.create({
