@@ -486,9 +486,12 @@ Choose the single most contextually relevant asset. Rules:
 - Blog page → case study or use case (never another blog)
 - Industry page → case study from that industry or most relevant compliance page
 - Platform page → case study showing monitoring value
-- High intent (paid search, comparison page, returning visitor) → free assessment
+- High intent: paid search referral OR comparison page (/reflectiz-vs- in URL) OR returning visitor who has already viewed 2+ pages → free assessment
+- Never use free assessment as the opener for a first-time homepage visitor
 - Healthcare or HIPAA topic → HIPAA page or privacy use case only
-- Low context (direct, homepage, unknown) → learning hub
+- Homepage visitor (currentPageUrl is exactly https://www.reflectiz.com/ or https://www.reflectiz.com with no path) → ALWAYS learning hub, never free assessment
+- Direct referral with no pages viewed and no specific topic → learning hub
+- Unknown geo AND direct referral AND homepage → learning hub
 
 ASSETS:
 Retail/ecommerce/supply chain: [Read the Castore case study](https://www.reflectiz.com/customers/castore-security-success/)
