@@ -430,21 +430,16 @@ Deno.serve(async (req) => {
     }
 
     const base44 = createClientFromRequest(req);
-
     const contextTitle = clientPageTitle || currentPageUrl;
 
-    // Check cache - must match exact URL
+    // Check cache first
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
-    console.log("Cache check:", JSON.stringify({ found: !!cached, opener: cached?.opener?.slice(0, 80), contextTitle }));
-
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
       return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
     const effectiveLanguage = geo === "Israel" ? "en" : (language || "en");
-
-    const pageLower = (currentPageUrl || "").toLowerCase();
 
     const isValidPageUrl = (
       currentPageUrl &&
@@ -454,262 +449,150 @@ Deno.serve(async (req) => {
       !currentPageUrl.includes("lovable.dev") &&
       !currentPageUrl.includes("localhost") &&
       !currentPageUrl.includes("base44.app") &&
-      !currentPageUrl.includes("/careers/") &&
+      !currentPageUrl.includes("/careers") &&
       currentPageUrl.includes("reflectiz.com")
     );
 
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+    // STEP 1: Select asset in code - deterministic, never wrong
+    function selectAsset(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation) {
+      const url = (currentPageUrl || "").toLowerCase();
+      const ref = (referralSource || "").toLowerCase();
+      const geoLower = (geo || "").toLowerCase();
+      const pageCount = Array.isArray(pagesViewed) ? pagesViewed.length : 1;
 
-    const singlePrompt = `You are Athena, a web security expert for Reflectiz. A visitor just arrived. Generate a bubble teaser and opening message that earn a click.
+      if (hasActiveConversation) {
+        return { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", reason: "returning" };
+      }
 
-VISITOR CONTEXT:
-Page: ${contextTitle}
-URL: ${currentPageUrl}
-Geo: ${geo || "Unknown"}
-Referral: ${referralSource || "direct"}
-Journey: ${Array.isArray(pagesViewed) ? pagesViewed.join(" → ") : (pagesViewed || "/")}
-Time on page: ${timeOnPage || 0}s
-Returning: ${hasActiveConversation ? "yes" : "no"}
+      const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
+      const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs");
+      if (isPaidSearch || isComparisonPage) {
+        return { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", reason: "high-intent" };
+      }
 
-STEP 1 - DETERMINE INTENT:
-Read these signals in order:
-- Referral first: paid search = ready to evaluate, organic = researching, email = knows Reflectiz, direct = intentional visit
-- Then page: what topic are they reading right now
-- Then journey: have they visited multiple pages (narrowing intent) or just landed (early stage)
-- Then geo: use to pick the most regionally relevant asset
+      const isANZ = geoLower.includes("australia") || geoLower.includes("new zealand");
+      if (isANZ) {
+        return { url: "https://www.reflectiz.com/blog/supply-chain-anz/", label: "Read the ANZ supply chain research", reason: "geo-anz" };
+      }
 
-STEP 2 - PICK ONE ASSET:
-Choose the single most contextually relevant asset. Rules:
-- Never recommend the current page URL
-- Case study page → use case or webinar (never another case study)
-- Use case page → most relevant case study or webinar
-- Blog page → case study or use case (never another blog)
-- Industry page → case study from that industry or most relevant compliance page
-- Platform page → case study showing monitoring value
-- High intent: paid search referral OR comparison page (/reflectiz-vs- in URL) OR returning visitor who has already viewed 2+ pages → free assessment
-- Never use free assessment as the opener for a first-time homepage visitor
-- Healthcare or HIPAA topic → HIPAA page or privacy use case only
-- Homepage visitor (currentPageUrl is exactly https://www.reflectiz.com/ or https://www.reflectiz.com with no path) → ALWAYS learning hub, never free assessment
-- Direct referral with no pages viewed and no specific topic → learning hub
-- Unknown geo AND direct referral AND homepage → learning hub
+      const isUK = geoLower.includes("united kingdom") || geoLower.includes("uk") || geoLower.includes("england");
+      const isCaseStudy = url.includes("/customers/");
+      const isHealthcare = url.includes("healthcare") || url.includes("hipaa");
+      const isPCI = url.includes("pci") || url.includes("compliance") || url.includes("dss");
+      const isMagecart = url.includes("magecart") || url.includes("skimming");
+      const isSupplyChain = url.includes("supply-chain") || url.includes("supply_chain");
+      const isPrivacy = url.includes("privacy") || url.includes("gdpr") || url.includes("ccpa");
+      const isAI = url.includes("ai-supply") || url.includes("ai-attack") || url.includes("ai-retail");
+      const isRetail = url.includes("ecommerce") || url.includes("retail") || url.includes("shopify");
+      const isFinancial = url.includes("financial") || url.includes("finance") || url.includes("banking");
+      const isPlatform = url.includes("/platform/") || url.includes("/product/") || url.includes("remote-monitoring") || url.includes("how-it-works");
+      const isBlog = url.includes("/blog/") || url.includes("/learning-hub/");
 
-ASSETS:
-Retail/ecommerce/supply chain: [Read the Castore case study](https://www.reflectiz.com/customers/castore-security-success/)
-Gaming/PCI: [Read the Broadway Gaming case study](https://www.reflectiz.com/customers/broadway-gaming-pci/)
-Travel/PCI: [Read the lastminute.com case study](https://www.reflectiz.com/customers/pci-lastminute/)
-ANZ region: [Read the ANZ supply chain research](https://www.reflectiz.com/blog/supply-chain-anz/)
-AI + retail threats: [Watch the AI Retail Security Webinar](https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/)
-CISO + AI supply chain: [Read the CISO AI supply chain guide](https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/)
-PCI compliance: [See the PCI compliance use case](https://www.reflectiz.com/use-cases/pci-compliance/)
-Magecart/skimming: [See the Magecart prevention use case](https://www.reflectiz.com/use-cases/magecart-web-skimming/)
-Privacy/GDPR: [See the privacy compliance use case](https://www.reflectiz.com/use-cases/website-privacy-compliance/)
-Supply chain: [See the supply chain risks use case](https://www.reflectiz.com/use-cases/web-supply-chain-risks/)
-Financial services: [See financial services security](https://www.reflectiz.com/industries/financial-services/)
-Healthcare/HIPAA: [See how Reflectiz supports HIPAA compliance](https://www.reflectiz.com/hipaa/)
-Free assessment: [Start your free assessment](https://www.reflectiz.com/registration/)
-Learning hub: [Explore the Reflectiz Learning Hub](https://www.reflectiz.com/learning-hub/)
+      if (isCaseStudy) {
+        if (url.includes("castore")) return { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar", reason: "castore" };
+        if (url.includes("broadway")) return { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", reason: "broadway" };
+        if (url.includes("lastminute")) return { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", reason: "lastminute" };
+        return { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", reason: "case-study" };
+      }
 
-STEP 3 - WRITE THE OUTPUT:
-bubbleText: 5-6 words. Specific to page topic. No question mark. No "your site" or "exposure". Creates curiosity about the page subject.
-opener: 2 sentences only.
-- Sentence 1: One sharp concrete insight about this specific page topic. A real fact, risk, or challenge. Not generic. Not "organizations face challenges".
-- Sentence 2: The chosen asset as the markdown link already formatted above. No extra words needed.
+      if (isHealthcare) return { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance", reason: "healthcare" };
+      if (isPCI && isUK) return { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study", reason: "pci-uk" };
+      if (isPCI) return { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", reason: "pci" };
+      if (isMagecart) return { url: "https://www.reflectiz.com/use-cases/magecart-web-skimming/", label: "See the Magecart prevention use case", reason: "magecart" };
+      if (isSupplyChain) return { url: "https://www.reflectiz.com/use-cases/web-supply-chain-risks/", label: "See the supply chain risks use case", reason: "supply-chain" };
+      if (isPrivacy) return { url: "https://www.reflectiz.com/use-cases/website-privacy-compliance/", label: "See the privacy compliance use case", reason: "privacy" };
+      if (isAI) return { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", reason: "ai" };
+      if (isRetail) return { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", reason: "retail" };
+      if (isFinancial) return { url: "https://www.reflectiz.com/industries/financial-services/", label: "See financial services security", reason: "financial" };
+      if (isPlatform) return { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", reason: "platform" };
+      if (isBlog) return { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", reason: "blog" };
+
+      return { url: "https://www.reflectiz.com/learning-hub/", label: "Explore the Reflectiz Learning Hub", reason: "default" };
+    }
+
+    const selectedAsset = selectAsset(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
+
+    // STEP 2: Gemini writes the copy only
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+
+    const openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
+
+PAGE CONTEXT:
+Page title: ${contextTitle}
+Page URL: ${currentPageUrl}
+Visitor geo: ${geo || "Unknown"}
+Time on page: ${timeOnPage || 0} seconds
+
+CHOSEN NEXT STEP (use this exact link in your response):
+Label: ${selectedAsset.label}
+URL: ${selectedAsset.url}
+
+WRITE TWO THINGS:
+
+1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
+
+2. opener: Exactly 2 sentences.
+Sentence 1: One sharp specific insight about this page topic. A real fact, risk, or challenge relevant to what this visitor is reading. Not generic. Not "organizations face challenges today".
+Sentence 2: Lead naturally to the chosen next step using this exact markdown link: [${selectedAsset.label}](${selectedAsset.url})
 
 ABSOLUTE RULES:
-- Never mention referral, search terms, or how they arrived
+- Never mention how the visitor arrived, their search terms, or referral source
 - Never use em dashes or double hyphens
-- Never use greeting words
-- Use the exact markdown link format from the ASSETS list above
-- Return only valid JSON, nothing else
+- Never use greeting words like Hi or Hello
+- Sentence 2 must use the exact label and URL provided above, no variations
+- Sound like a knowledgeable peer, not a salesperson
 
-OUTPUT:
-{
-  "bubbleText": "5-6 word teaser",
-  "opener": "Sharp insight sentence. [Asset label](url)"
-}`;
+Return only valid JSON, nothing else:
+{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}`;
 
-
-    const singleCallRes = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: singlePrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite" }),
+    const geminiResult = await Promise.race([
+      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite" }),
       geminiTimeout
     ]);
 
     let opener = null;
     let bubbleText = null;
 
-    if (singleCallRes) {
-      const rawText = (singleCallRes?.content?.[0]?.text ?? "").trim();
+    if (geminiResult) {
+      const rawText = (geminiResult?.content?.[0]?.text ?? "").trim();
       try {
         const cleaned = rawText.replace(/```json|```/g, "").trim();
         const parsed = JSON.parse(cleaned);
         opener = parsed.opener || null;
         bubbleText = parsed.bubbleText || null;
       } catch (e) {
-        console.error("JSON parse failed:", e.message, "raw:", rawText.slice(0, 200));
+        console.error("JSON parse failed:", e.message);
       }
-    }
-
-    // Privacy violation check: never mention referral source or how visitor arrived
-    const privacyViolationPhrases = [
-      "direct traffic",
-      "you came from",
-      "you searched",
-      "you landed",
-      "after searching",
-      "via google",
-      "organic search",
-      "paid search",
-      "indicates a strong",
-      "indicates interest",
-      "your search",
-      "coming from",
-      "traffic to",
-      "found us through",
-      "arrived via"
-    ];
-    const hasPrivacyViolation = privacyViolationPhrases.some(phrase =>
-      (opener || "").toLowerCase().includes(phrase)
-    );
-    if (hasPrivacyViolation) {
-      opener = null;
-      bubbleText = null;
     }
 
     // Validate opener
-    if (!opener || opener.split(" ").length < 8) {
+    if (!opener || opener.split(" ").length < 8 || !opener.includes(selectedAsset.url)) {
       opener = null;
-      bubbleText = null;
     }
 
-    // Hard block: remove any Apexx Global reference (URL no longer valid)
-    if (opener && opener.includes("apexx-global")) {
-      opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]*apexx-global[^\)]*\)/gi, "[See the PCI compliance use case](https://www.reflectiz.com/use-cases/pci-compliance/)");
-      opener = opener.replace(/https?:\/\/[^\s\)\]"']*apexx-global[^\s\)\]"']*/gi, "https://www.reflectiz.com/use-cases/pci-compliance/");
+    // Privacy violation check
+    const privacyViolations = ["direct traffic", "you came from", "you searched", "you landed", "after searching", "via google", "organic search", "indicates a strong", "your search", "coming from", "traffic to"];
+    if (opener && privacyViolations.some(p => opener.toLowerCase().includes(p))) {
+      opener = null;
     }
 
-    // Same-page URL replacement: if Gemini recommended the current page, swap to next best asset
-    if (opener && currentPageUrl) {
-      const encodedCurrentUrl = currentPageUrl.replace(/\/$/, "");
-      const currentPath = currentPageUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
-      if (opener.includes(encodedCurrentUrl) || (currentPath && currentPath.length > 1 && opener.includes(currentPath))) {
-        const pageLower3 = currentPageUrl.toLowerCase();
-        let replacementUrl = "https://www.reflectiz.com/registration/";
-        let replacementLabel = "Start free assessment";
-
-        if (pageLower3.includes("castore")) {
-          replacementUrl = "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/";
-          replacementLabel = "Watch the AI Retail Security Webinar";
-        } else if (pageLower3.includes("broadway")) {
-          replacementUrl = "https://www.reflectiz.com/use-cases/pci-compliance/";
-          replacementLabel = "See the PCI compliance use case";
-        } else if (pageLower3.includes("pci-lastminute")) {
-          replacementUrl = "https://www.reflectiz.com/use-cases/pci-compliance/";
-          replacementLabel = "See the PCI compliance use case";
-        } else if (pageLower3.includes("pci-compliance")) {
-          replacementUrl = "https://www.reflectiz.com/customers/broadway-gaming-pci/";
-          replacementLabel = "Read the Broadway Gaming case study";
-        } else if (pageLower3.includes("magecart")) {
-          replacementUrl = "https://www.reflectiz.com/customers/castore-security-success/";
-          replacementLabel = "See the Castore success story";
-        } else if (pageLower3.includes("supply-chain-anz")) {
-          replacementUrl = "https://www.reflectiz.com/use-cases/web-supply-chain-risks/";
-          replacementLabel = "See the supply chain use case";
-        } else if (pageLower3.includes("supply-chain")) {
-          replacementUrl = "https://www.reflectiz.com/blog/supply-chain-anz/";
-          replacementLabel = "Read the ANZ supply chain research";
-        } else if (pageLower3.includes("financial")) {
-          replacementUrl = "https://www.reflectiz.com/customers/pci-lastminute/";
-          replacementLabel = "Read the lastminute.com case study";
-        } else if (pageLower3.includes("blog") || pageLower3.includes("learning-hub")) {
-          replacementUrl = "https://www.reflectiz.com/registration/";
-          replacementLabel = "Start free assessment";
-        }
-
-        // Replace markdown link containing the current page path
-        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/g, (match, label) => {
-          const urlInMatch = match.match(/\(([^)]+)\)/)?.[1] || "";
-          if (urlInMatch.includes(encodedCurrentUrl) ||
-              (currentPath && urlInMatch.includes(currentPath))) {
-            return `[${replacementLabel}](${replacementUrl})`;
-          }
-          return match;
-        });
-
-        // Generic replacement for any remaining bare current page URL in opener
-        if (currentPath && currentPath.length > 1) {
-          opener = opener.replace(new RegExp(encodedCurrentUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\/?', 'g'), replacementUrl);
-        }
-      }
-    }
-
-    // Page-aware fallbacks if Gemini fails or times out
-    const pageLower2 = (currentPageUrl || "").toLowerCase();
-    if (!opener) {
-      if (pageLower2.includes("pci") || pageLower2.includes("compliance") || pageLower2.includes("dss")) {
-        opener = "Requirements 6.4.3 and 11.6.1 are where most teams get caught out. Broadway Gaming solved this with zero audit findings: [Read the case study](https://www.reflectiz.com/customers/broadway-gaming-pci/)";
-        bubbleText = "PCI 4.0.1 is catching teams off guard";
-      } else if (pageLower2.includes("magecart") || pageLower2.includes("skimming")) {
-        opener = "Most Magecart attacks hide inside third-party scripts your team did not write. Here is how teams are stopping them: [See how it works](https://www.reflectiz.com/use-cases/magecart-web-skimming/)";
-        bubbleText = "Your checkout may already be exposed";
-      } else if (pageLower2.includes("supply-chain-anz")) {
-        opener = "Fourth-party scripts are the blind spot most tools miss entirely. Here is how teams are monitoring them in real time: [See the supply chain use case](https://www.reflectiz.com/use-cases/web-supply-chain-risks/)";
-        bubbleText = "Your vendors code runs on your site";
-      } else if (pageLower2.includes("supply-chain") || pageLower2.includes("supply_chain")) {
-        opener = "Fourth-party scripts are the blind spot most tools miss entirely. This research shows how widespread the problem is: [Read the ANZ research](https://www.reflectiz.com/blog/supply-chain-anz/)";
-        bubbleText = "Your vendors code runs on your site";
-      } else if (pageLower2.includes("privacy") || pageLower2.includes("gdpr")) {
-        opener = "Your consent banner says one thing but your pixels may be doing another. Here is how to close that gap: [See the privacy use case](https://www.reflectiz.com/use-cases/website-privacy-compliance/)";
-        bubbleText = "Your pixels may be oversharing data";
-      } else if (pageLower2.includes("ecommerce") || pageLower2.includes("retail")) {
-        opener = "E-commerce checkout pages are the highest value target for web skimming. Castore secured 30 online stores without touching their code: [Read the Castore story](https://www.reflectiz.com/customers/castore-security-success/)";
-        bubbleText = "How Castore secured 30 online stores";
-      } else if (pageLower2.includes("financial") || pageLower2.includes("finance")) {
-        opener = "Financial services teams face the tightest compliance requirements and the most sophisticated client-side attacks. Here is how peers are handling it: [See financial services](https://www.reflectiz.com/industries/financial-services/)";
-        bubbleText = "Payment pages carry more risk than you think";
-      } else if (pageLower2.includes("platform") || pageLower2.includes("product") || pageLower2.includes("remote-monitoring")) {
-        opener = "Monitoring from outside your stack catches what embedded tools miss entirely. No code installation, full visibility in 48 hours: [Start free assessment](https://www.reflectiz.com/registration/)";
-        bubbleText = "No code needed, full visibility in 48h";
-      } else if (pageLower2.includes("customers") || pageLower2.includes("case-study")) {
-        opener = "Results like this come from continuous monitoring, not one-time scans. See what is running on your own site in 48 hours: [Start free assessment](https://www.reflectiz.com/registration/)";
-        bubbleText = "Continuous monitoring finds what scans miss";
-      } else if (pageLower2.includes("reflectiz-vs") || pageLower2.includes("cside-vs") || pageLower2.includes("vs-reflectiz")) {
-        opener = "The detailed comparison is on this page. When you are ready to see how it looks for your own setup: [Start your free assessment](https://www.reflectiz.com/registration/)";
-        bubbleText = "See how Reflectiz compares";
-      } else if (pageLower2.includes("blog") || pageLower2.includes("learning-hub")) {
-        opener = "Reflectiz publishes research on web security threats, supply chain risks and compliance requirements. Worth exploring more: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)";
-        bubbleText = "New research on this topic available";
-      } else {
-        opener = "Reflectiz publishes research and insights on web security threats, supply chain risks and compliance. Worth exploring: [Visit the Learning Hub](https://www.reflectiz.com/learning-hub/)";
-        bubbleText = "Web security research worth reading";
-      }
-    }
-
-    // Strip em-dashes from opener (mirrors regular message handler)
+    // Em-dash stripping
     if (opener) {
       opener = opener.replace(/—/g, ",").replace(/--/g, ",").replace(/–/g, ",");
     }
 
+    // Fallback if Gemini failed
+    if (!opener) {
+      opener = `This page covers one of the most critical areas in web security right now. [${selectedAsset.label}](${selectedAsset.url})`;
+      bubbleText = bubbleText || "Web security insight worth reading";
+    }
+
     // Derive bubble from opener if still empty
-    if (!bubbleText && opener) {
+    if (!bubbleText) {
       bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
-    // Hard guard: never send first-time homepage visitors to /registration/
-    const isHomepage = !currentPageUrl ||
-      currentPageUrl === "https://www.reflectiz.com/" ||
-      currentPageUrl === "https://www.reflectiz.com";
-
-    const isFirstTimeVisitor = !hasActiveConversation &&
-      (!pagesViewed || (Array.isArray(pagesViewed) ? pagesViewed.length <= 1 : true));
-
-    if (isHomepage && isFirstTimeVisitor && opener && opener.includes("/registration/")) {
-      opener = opener.replace(
-        /\[([^\]]+)\]\(https?:\/\/www\.reflectiz\.com\/registration\/?\)/g,
-        "[Explore the Reflectiz Learning Hub](https://www.reflectiz.com/learning-hub/)"
-      );
-    }
-
-    // Cache only valid pages
+    // Cache
     if (isValidPageUrl && opener && bubbleText) {
       await base44.asServiceRole.entities.PageOpeners.create({
         pageUrl: currentPageUrl,
