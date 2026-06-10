@@ -623,12 +623,13 @@ OUTPUT:
         }
 
         // Replace markdown link containing the current page path
-        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/gi, (match, label, offset, str) => {
-          const urlMatch = match.match(/\(https?:\/\/([^\)]+)\)/);
-          if (!urlMatch) return match;
-          const linkUrl = urlMatch[0].slice(1, -1);
-          const linkPath = linkUrl.replace("https://www.reflectiz.com", "").replace(/\/$/, "");
-          return (currentPath && linkPath === currentPath) ? `[${replacementLabel}](${replacementUrl})` : match;
+        opener = opener.replace(/\[([^\]]+)\]\(https?:\/\/[^\)]+\)/g, (match, label) => {
+          const urlInMatch = match.match(/\(([^)]+)\)/)?.[1] || "";
+          if (urlInMatch.includes(encodedCurrentUrl) ||
+              (currentPath && urlInMatch.includes(currentPath))) {
+            return `[${replacementLabel}](${replacementUrl})`;
+          }
+          return match;
         });
 
         // Generic replacement for any remaining bare current page URL in opener
