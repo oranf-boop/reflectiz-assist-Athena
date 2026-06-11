@@ -512,6 +512,21 @@ Deno.serve(async (req) => {
 
     const selectedAsset = selectAsset(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
 
+    const assetInsight = await (async () => {
+      try {
+        const results = await base44.asServiceRole.entities.WebsiteContent.filter({ 
+          pageUrl: selectedAsset.url 
+        });
+        const page = results?.[0];
+        if (page?.pageContent && page.pageContent.length > 200) {
+          return page.pageContent.slice(0, 800);
+        }
+      } catch (e) {
+        console.error("Asset insight fetch failed:", e.message);
+      }
+      return "";
+    })();
+
     // STEP 2: Gemini writes the copy only
     const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
 
