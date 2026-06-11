@@ -495,7 +495,7 @@ Deno.serve(async (req) => {
         return { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", reason: "case-study" };
       }
 
-      if (isHealthcare) return { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance", reason: "healthcare" };
+      if (isHealthcare) return { url: "https://www.reflectiz.com/industries/healthcare/", label: "See healthcare web security", reason: "healthcare" };
       if (isPCI && isUK) return { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study", reason: "pci-uk" };
       if (isPCI) return { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", reason: "pci" };
       if (isMagecart) return { url: "https://www.reflectiz.com/use-cases/magecart-web-skimming/", label: "See the Magecart prevention use case", reason: "magecart" };
@@ -519,13 +519,27 @@ Deno.serve(async (req) => {
         });
         const page = results?.[0];
         if (page?.pageContent && page.pageContent.length > 200) {
-          return page.pageContent.slice(0, 800);
+          return page.pageContent.slice(0, 1500);
         }
       } catch (e) {
         console.error("Asset insight fetch failed:", e.message);
       }
       return "";
     })();
+
+    if (!assetInsight || assetInsight.length < 200) {
+      try {
+        const currentPageResults = await base44.asServiceRole.entities.WebsiteContent.filter({
+          pageUrl: currentPageUrl
+        });
+        const currentPage = currentPageResults?.[0];
+        if (currentPage?.pageContent && currentPage.pageContent.length > 200) {
+          assetInsight = currentPage.pageContent.slice(0, 1500);
+        }
+      } catch (e) {
+        console.error("Current page content fetch failed:", e.message);
+      }
+    }
 
     // STEP 2: Gemini writes the copy only
     const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
@@ -547,7 +561,7 @@ WRITE TWO THINGS:
 1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
 
 2. opener: Exactly 2 sentences.
-Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page -- extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 600)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
+Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page -- extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 1000)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
 Sentence 2: Lead naturally to the chosen next step using this exact markdown link: [${selectedAsset.label}](${selectedAsset.url})
 
 ABSOLUTE RULES:
