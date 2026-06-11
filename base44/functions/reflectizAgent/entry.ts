@@ -626,6 +626,11 @@ Return only valid JSON, nothing else:
       opener = opener.replace(/—/g, ",").replace(/--/g, ",").replace(/–/g, ",");
     }
 
+    // Sentence boundary enforcement: always a period before markdown links
+    if (opener) {
+      opener = opener.replace(/([^.!?])\s*\[/g, "$1. [");
+    }
+
     // Fallback if Gemini failed
     if (!opener) {
       opener = `This page covers one of the most critical areas in web security right now. [${selectedAsset.label}](${selectedAsset.url})`;
