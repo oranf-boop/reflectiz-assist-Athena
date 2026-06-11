@@ -628,7 +628,7 @@ Return only valid JSON, nothing else:
 
     // Sentence boundary enforcement: always a period before markdown links
     if (opener) {
-      opener = opener.replace(/([^.!?])\s*\[/g, "$1. [");
+      opener = opener.replace(/([^.!?])\s*\[/g, "$1. [").replace(/([.!?])\s*\.\s*\[/g, "$1 [");
     }
 
     // Fallback if Gemini failed
