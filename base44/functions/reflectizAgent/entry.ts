@@ -547,7 +547,7 @@ WRITE TWO THINGS:
 1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
 
 2. opener: Exactly 2 sentences.
-Sentence 1: One sharp specific insight about this page topic. A real fact, risk, or challenge relevant to what this visitor is reading. Not generic. Not "organizations face challenges today".
+Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page -- extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 600)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
 Sentence 2: Lead naturally to the chosen next step using this exact markdown link: [${selectedAsset.label}](${selectedAsset.url})
 
 ABSOLUTE RULES:
