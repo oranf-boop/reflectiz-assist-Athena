@@ -503,7 +503,7 @@ Deno.serve(async (req) => {
       if (isPrivacy) return { url: "https://www.reflectiz.com/use-cases/website-privacy-compliance/", label: "See the privacy compliance use case", reason: "privacy" };
       if (isAI) return { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", reason: "ai" };
       if (isRetail) return { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", reason: "retail" };
-      if (isFinancial) return { url: "https://www.reflectiz.com/industries/financial-services/", label: "See financial services security", reason: "financial" };
+      if (isFinancial) return { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", reason: "financial" };
       if (isPlatform) return { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", reason: "platform" };
       if (isBlog) return { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", reason: "blog" };
 
@@ -522,7 +522,7 @@ Deno.serve(async (req) => {
         "pci": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
         "compliance": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
         "healthcare": { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance" },
-        "financial": { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study" },
+        "financial": { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case" },
         "castore": { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar" },
         "broadway": { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case" },
         "lastminute": { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case" }
