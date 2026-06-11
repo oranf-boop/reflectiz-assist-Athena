@@ -512,6 +512,12 @@ Deno.serve(async (req) => {
 
     const selectedAsset = selectAsset(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
 
+    if (selectedAsset.url.replace(/\/$/, "") === currentPageUrl.replace(/\/$/, "")) {
+      selectedAsset.url = "https://www.reflectiz.com/registration/";
+      selectedAsset.label = "Start your free assessment";
+      selectedAsset.reason = "same-page-fallback";
+    }
+
     const assetInsight = await (async () => {
       try {
         const results = await base44.asServiceRole.entities.WebsiteContent.filter({ 
@@ -526,20 +532,6 @@ Deno.serve(async (req) => {
       }
       return "";
     })();
-
-    if (!assetInsight || assetInsight.length < 200) {
-      try {
-        const currentPageResults = await base44.asServiceRole.entities.WebsiteContent.filter({
-          pageUrl: currentPageUrl
-        });
-        const currentPage = currentPageResults?.[0];
-        if (currentPage?.pageContent && currentPage.pageContent.length > 200) {
-          assetInsight = currentPage.pageContent.slice(0, 1500);
-        }
-      } catch (e) {
-        console.error("Current page content fetch failed:", e.message);
-      }
-    }
 
     // STEP 2: Gemini writes the copy only
     const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
@@ -562,7 +554,7 @@ WRITE TWO THINGS:
 
 2. opener: Exactly 2 sentences.
 Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page -- extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 1000)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
-Sentence 2: Lead naturally to the chosen next step using this exact markdown link: [${selectedAsset.label}](${selectedAsset.url})
+Sentence 2: Must be exactly this markdown link with no extra words before it: [${selectedAsset.label}](${selectedAsset.url})
 
 ABSOLUTE RULES:
 - Never mention how the visitor arrived, their search terms, or referral source
