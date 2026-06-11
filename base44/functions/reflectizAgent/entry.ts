@@ -507,15 +507,39 @@ Deno.serve(async (req) => {
       if (isPlatform) return { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", reason: "platform" };
       if (isBlog) return { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", reason: "blog" };
 
-      return { url: "https://www.reflectiz.com/learning-hub/", label: "Explore the Reflectiz Learning Hub", reason: "default" };
+      return { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", reason: "default" };
     }
 
     const selectedAsset = selectAsset(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
 
     if (selectedAsset.url.replace(/\/$/, "") === currentPageUrl.replace(/\/$/, "")) {
-      selectedAsset.url = "https://www.reflectiz.com/registration/";
-      selectedAsset.label = "Start your free assessment";
-      selectedAsset.reason = "same-page-fallback";
+      const secondaryAssets = {
+        "magecart": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
+        "skimming": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
+        "supply-chain": { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study" },
+        "privacy": { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide" },
+        "gdpr": { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide" },
+        "pci": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
+        "compliance": { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study" },
+        "healthcare": { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance" },
+        "financial": { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study" },
+        "castore": { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar" },
+        "broadway": { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case" },
+        "lastminute": { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case" }
+      };
+
+      const urlLower = (currentPageUrl || "").toLowerCase();
+      const secondaryMatch = Object.entries(secondaryAssets).find(([key]) => urlLower.includes(key));
+
+      if (secondaryMatch) {
+        selectedAsset.url = secondaryMatch[1].url;
+        selectedAsset.label = secondaryMatch[1].label;
+        selectedAsset.reason = "same-page-secondary";
+      } else {
+        selectedAsset.url = "https://www.reflectiz.com/registration/";
+        selectedAsset.label = "Start your free assessment";
+        selectedAsset.reason = "same-page-fallback";
+      }
     }
 
     const assetInsight = await (async () => {
