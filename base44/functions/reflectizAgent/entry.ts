@@ -393,13 +393,33 @@ Deno.serve(async (req) => {
           ...(newOutcome !== currentOutcome && { conversationOutcome: newOutcome }),
         })
       );
+    } else {
+      // No conversation exists yet - visitor clicked the opener link without chatting first.
+      // Create a minimal Conversations record so this engagement is visible.
+      updateTasks.push(
+        base44.asServiceRole.entities.Conversations.create({
+          sessionId,
+          timestamp: new Date().toISOString(),
+          geo: geo ?? "",
+          referralSource: referralSource ?? "",
+          pagesViewed: currentPageUrl ?? "",
+          intentClassification: "GENERAL_AWARENESS",
+          conversationTranscript: "",
+          ctaReached: false,
+          language: language ?? "en",
+          conversationTurns: 0,
+          lastMessageRole: "none",
+          conversationOutcome: "ENGAGED",
+          linksClicked: 1,
+        })
+      );
     }
 
     await Promise.all(updateTasks);
 
     const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
-    if (isHighIntent && existing) {
+    if (isHighIntent) {
       const updatedConv = { ...existing, linksClicked: (existing.linksClicked || 0) + 1, clickedUrl };
       fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
         method: "POST",
