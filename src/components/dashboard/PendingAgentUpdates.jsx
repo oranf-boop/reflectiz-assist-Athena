@@ -107,8 +107,8 @@ export default function PendingAgentUpdates({ onApproved }) {
   const [pendingChanges, setPendingChanges] = useState([]);
 
   useEffect(() => {
-    base44.entities.PendingConfigChanges.filter({ status: "pending" }, "-createdAt", 10)
-      .then(setPendingChanges)
+    base44.entities.PendingConfigChanges.list("-createdAt", 50)
+      .then(all => setPendingChanges(all.filter(c => c.status === "pending")))
       .catch(() => setPendingChanges([]));
   }, []);
 
