@@ -8,6 +8,7 @@ import TrendCharts from "@/components/dashboard/TrendCharts";
 import SegmentTables from "@/components/dashboard/SegmentTables";
 import LeadsView from "@/components/dashboard/LeadsView";
 import DateFilter from "@/components/dashboard/DateFilter";
+import PendingAgentUpdates from "@/components/dashboard/PendingAgentUpdates";
 
 const NAVY = "#103a77";
 
@@ -30,6 +31,35 @@ export default function AgentDashboard() {
   const [includeTraining, setIncludeTraining] = useState(false);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [learningCycleRunning, setLearningCycleRunning] = useState(false);
+  const [rollbackConfirm, setRollbackConfirm] = useState(false);
+  const [rollbackRunning, setRollbackRunning] = useState(false);
+
+  async function handleRollback() {
+    setRollbackRunning(true);
+    try {
+      const configs = await base44.entities.AgentConfig.list("-version", 1);
+      const current = configs?.[0];
+      if (!current?.previousPrompt) {
+        toast({ title: "No previous prompt found to roll back to.", variant: "destructive" });
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0];
+      await base44.entities.AgentConfig.create({
+        version: (current.version || 1) + 1,
+        systemPrompt: current.previousPrompt,
+        updatedAt: today,
+        updateReason: "Manual rollback to previous version",
+        previousPrompt: current.systemPrompt,
+      });
+      toast({ title: "Agent rolled back to previous prompt version." });
+      await loadData();
+    } catch {
+      toast({ title: "Rollback failed.", variant: "destructive" });
+    } finally {
+      setRollbackRunning(false);
+      setRollbackConfirm(false);
+    }
+  }
 
   async function loadData() {
     setLoading(true);
@@ -93,6 +123,31 @@ export default function AgentDashboard() {
             Include training data
           </label>
           <DateFilter onChange={setDateRange} />
+          {rollbackConfirm ? (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <span className="text-xs text-red-700 font-medium">Rollback to previous version?</span>
+              <button
+                onClick={handleRollback}
+                disabled={rollbackRunning}
+                className="text-xs px-3 py-1 rounded bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {rollbackRunning ? "Rolling back…" : "Confirm"}
+              </button>
+              <button
+                onClick={() => setRollbackConfirm(false)}
+                className="text-xs px-3 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setRollbackConfirm(true)}
+              className="text-xs px-3 py-2 rounded-lg border border-slate-300 text-slate-500 hover:bg-slate-50 font-medium transition-colors"
+            >
+              Rollback to previous version
+            </button>
+          )}
           <button
             onClick={runLearningCycle}
             disabled={learningCycleRunning}
@@ -113,6 +168,7 @@ export default function AgentDashboard() {
           </div>
         ) : (
           <>
+            <PendingAgentUpdates onApproved={loadData} />
             <KPICards
               conversations={filteredConversations}
               linkClicks={linkClickCount}
