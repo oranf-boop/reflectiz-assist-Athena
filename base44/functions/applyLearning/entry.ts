@@ -192,22 +192,55 @@ Return only the full improved system prompt text, nothing else.`;
 
   const today = new Date().toISOString().split("T")[0];
 
-  const [newConfig] = await Promise.all([
-    base44.asServiceRole.entities.AgentConfig.create({
-      version: nextVersion,
-      systemPrompt: improvedPrompt,
-      updatedAt: today,
-      updateReason: `Applied learning from report dated ${report.reportDate}. Confidence score: ${report.confidenceScore}/10.`,
-      previousPrompt: currentPrompt,
-    }),
-    base44.asServiceRole.entities.LearningReports.update(report.id, { appliedToAgent: true }),
-  ]);
+  // Generate plain English change summary for human review
+  const summaryPrompt = `Compare these two AI agent system prompts and write a 2-3 sentence plain English summary of what changed and why, for a non-technical marketing manager to review.
 
-  return Response.json({
-    updatedToVersion: nextVersion,
-    reportApplied: report.reportDate,
+LEARNING REPORT CONTEXT:
+Confidence: ${report.confidenceScore}/10
+Sample size: ${report.totalConversations} conversations
+Conversion rate: ${report.conversionRate || "unknown"}
+
+OLD PROMPT (first 1500 chars):
+${currentPrompt.slice(0, 1500)}
+
+NEW PROMPT (first 1500 chars):
+${improvedPrompt.slice(0, 1500)}
+
+Write only the summary, 2-3 sentences, focused on WHAT changed and WHY based on the data. No preamble.`;
+
+  const summaryResult = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 300 });
+  const changeSummary = (summaryResult?.content?.[0]?.text ?? "").trim() || "Gemini updated the system prompt based on recent conversation data. Review the full diff before approving.";
+
+  // Create a pending change record instead of applying directly
+  const pendingChange = await base44.asServiceRole.entities.PendingConfigChanges.create({
+    proposedPrompt: improvedPrompt,
+    previousPrompt: currentPrompt,
+    changeSummary,
+    reportId: report.id,
     confidenceScore: report.confidenceScore,
-    newConfigId: newConfig.id,
-    summary: `System prompt updated from v${currentConfig.version} to v${nextVersion} based on analysis of ${report.totalConversations} conversations (${report.conversionRate}% conversion rate).`,
+    sampleSize: report.totalConversations,
+    status: "pending",
+    createdAt: today,
   });
+
+  // Mark the report as applied so it doesn't get reprocessed
+  await base44.asServiceRole.entities.LearningReports.update(report.id, { appliedToAgent: true });
+
+  // Notify Slack
+  const slackText = `:robot_face: *Agent Prompt Update Proposed*
+
+*What changed:*
+${changeSummary}
+
+*Based on:* ${report.totalConversations} conversations, confidence ${report.confidenceScore}/10
+
+<https://reflect-web-wise.base44.app/AgentDashboard|Review and approve in Dashboard>`;
+
+  await fetch(Deno.env.get("SLACK_WEBHOOK_URL"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: slackText }),
+  }).catch(err => console.error("Slack notification failed:", err.message));
+
+  return Response.json({ status: "pending_review", pendingChangeId: pendingChange.id, changeSummary });
 });

@@ -1,0 +1,54 @@
+{
+  "name": "PendingConfigChanges",
+  "type": "object",
+  "properties": {
+    "proposedPrompt": {
+      "type": "string",
+      "title": "Proposed Prompt",
+      "format": "textarea"
+    },
+    "previousPrompt": {
+      "type": "string",
+      "title": "Previous Prompt",
+      "format": "textarea"
+    },
+    "changeSummary": {
+      "type": "string",
+      "title": "Change Summary",
+      "format": "textarea"
+    },
+    "reportId": {
+      "type": "string",
+      "title": "Report ID"
+    },
+    "confidenceScore": {
+      "type": "number",
+      "title": "Confidence Score"
+    },
+    "sampleSize": {
+      "type": "number",
+      "title": "Sample Size"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date",
+      "title": "Created At"
+    },
+    "reviewedAt": {
+      "type": "string",
+      "format": "date",
+      "title": "Reviewed At"
+    }
+  },
+  "required": []
+}
