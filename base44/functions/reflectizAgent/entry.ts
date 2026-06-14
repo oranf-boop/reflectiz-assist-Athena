@@ -526,10 +526,10 @@ Deno.serve(async (req) => {
       }
 
       if (isHealthcare) return { category: "healthcare", reason: "healthcare" };
+      if (isPrivacy) return { category: "privacy", reason: "privacy" };
       if (isPCI) return { category: "pci", reason: "pci" };
       if (isMagecart) return { category: "magecart", reason: "magecart" };
       if (isSupplyChain) return { category: "supply-chain", reason: "supply-chain" };
-      if (isPrivacy) return { category: "privacy", reason: "privacy" };
       if (isAI) return { category: "ai-threats", reason: "ai" };
       if (isRetail) return { category: "retail", reason: "retail" };
       if (isFinancial) return { category: "financial", reason: "financial" };
