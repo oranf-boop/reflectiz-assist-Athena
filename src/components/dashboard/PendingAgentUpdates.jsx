@@ -105,11 +105,16 @@ function PendingChangeCard({ change, onApprove, onReject }) {
 export default function PendingAgentUpdates({ onApproved }) {
   const { toast } = useToast();
   const [pendingChanges, setPendingChanges] = useState([]);
+  const [historyChanges, setHistoryChanges] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     base44.entities.PendingConfigChanges.list("-createdAt", 50)
-      .then(all => setPendingChanges(all.filter(c => c.status === "pending")))
-      .catch(() => setPendingChanges([]));
+      .then(all => {
+        setPendingChanges(all.filter(c => c.status === "pending"));
+        setHistoryChanges(all.filter(c => c.status !== "pending"));
+      })
+      .catch(() => { setPendingChanges([]); setHistoryChanges([]); });
   }, []);
 
   async function handleApprove(change) {
@@ -146,26 +151,54 @@ export default function PendingAgentUpdates({ onApproved }) {
     toast({ title: "Change rejected and dismissed." });
   }
 
-  if (pendingChanges.length === 0) return null;
+  if (pendingChanges.length === 0 && historyChanges.length === 0) return null;
 
   return (
     <div className="mb-8">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold" style={{ color: NAVY }}>Pending Agent Updates</h2>
-        <p className="text-sm text-slate-400 mt-0.5">
-          Review AI-proposed changes before they go live
-        </p>
-      </div>
-      <div className="flex flex-col gap-4">
-        {pendingChanges.map(change => (
-          <PendingChangeCard
-            key={change.id}
-            change={change}
-            onApprove={handleApprove}
-            onReject={handleReject}
-          />
-        ))}
-      </div>
+      {pendingChanges.length > 0 && (
+        <>
+          <div className="mb-4">
+            <h2 className="text-xl font-bold" style={{ color: NAVY }}>Pending Agent Updates</h2>
+            <p className="text-sm text-slate-400 mt-0.5">Review AI-proposed changes before they go live</p>
+          </div>
+          <div className="flex flex-col gap-4 mb-6">
+            {pendingChanges.map(change => (
+              <PendingChangeCard key={change.id} change={change} onApprove={handleApprove} onReject={handleReject} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {historyChanges.length > 0 && (
+        <div>
+          <button
+            onClick={() => setHistoryOpen(v => !v)}
+            className="flex items-center gap-2 w-full text-left px-4 py-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:bg-slate-50 transition-colors mb-2"
+          >
+            <span className="font-semibold text-sm" style={{ color: NAVY }}>Changes Log ({historyChanges.length})</span>
+            {historyOpen ? <ChevronUp className="w-4 h-4 text-slate-400 ml-auto" /> : <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />}
+          </button>
+          {historyOpen && (
+            <div className="flex flex-col gap-3">
+              {historyChanges.map(change => (
+                <div key={change.id} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${change.status === "approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                      {change.status === "approved" ? "Approved" : "Rejected"}
+                    </span>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Confidence {change.confidenceScore ?? "—"}/10</span>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">{change.sampleSize ?? "—"} conversations</span>
+                    <span className="text-xs text-slate-400 ml-auto">
+                      {change.reviewedAt ? `Reviewed ${change.reviewedAt}` : `Created ${change.createdAt || "—"}`}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600">{change.changeSummary}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
