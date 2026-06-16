@@ -349,6 +349,13 @@ Default to GENERAL_AWARENESS only if none of the above apply.`,
 }
 
 Deno.serve(async (req) => {
+  console.log("DEBUG HEADERS:", JSON.stringify({
+    cfIpCountry: req.headers.get("cf-ipcountry"),
+    cfConnectingIp: req.headers.get("cf-connecting-ip"),
+    xForwardedFor: req.headers.get("x-forwarded-for"),
+    allHeaderKeys: Array.from(req.headers.keys())
+  }));
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
