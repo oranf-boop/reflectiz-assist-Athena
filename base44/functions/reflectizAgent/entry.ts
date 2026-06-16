@@ -349,12 +349,16 @@ Default to GENERAL_AWARENESS only if none of the above apply.`,
 }
 
 Deno.serve(async (req) => {
-  console.log("DEBUG HEADERS:", JSON.stringify({
-    cfIpCountry: req.headers.get("cf-ipcountry"),
-    cfConnectingIp: req.headers.get("cf-connecting-ip"),
-    xForwardedFor: req.headers.get("x-forwarded-for"),
-    allHeaderKeys: Array.from(req.headers.keys())
-  }));
+  // EXHAUSTIVE IP DEBUG
+  const allHeaders = {};
+  for (const [k, v] of req.headers.entries()) { allHeaders[k] = v; }
+  console.log("DEBUG ALL HEADERS:", JSON.stringify(allHeaders));
+
+  // Check non-header properties on the req object itself
+  const reqProps = {};
+  for (const key of Object.getOwnPropertyNames(req)) { try { reqProps[key] = String(req[key]); } catch(e) { reqProps[key] = "(error)"; } }
+  for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(req))) { try { reqProps[key] = String(req[key]); } catch(e) { reqProps[key] = "(error)"; } }
+  console.log("DEBUG REQ PROPS:", JSON.stringify(reqProps));
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
