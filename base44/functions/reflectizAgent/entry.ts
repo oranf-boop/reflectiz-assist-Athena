@@ -484,24 +484,61 @@ Deno.serve(async (req) => {
       currentPageUrl.includes("reflectiz.com")
     );
 
-    const ASSET_LIBRARY = [
-      { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", categories: ["retail", "supply-chain"] },
-      { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", categories: ["pci"] },
-      { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study", categories: ["pci", "travel"] },
-      { url: "https://www.reflectiz.com/learning-hub/live-panel-discussion-2026/", label: "Watch the payment risk panel discussion", categories: ["pci", "financial"] },
-      { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar", categories: ["ai-threats", "retail"] },
-      { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", categories: ["ai-threats", "supply-chain"] },
-      { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", categories: ["pci"] },
-      { url: "https://www.reflectiz.com/use-cases/magecart-web-skimming/", label: "See the Magecart prevention use case", categories: ["magecart"] },
-      { url: "https://www.reflectiz.com/use-cases/web-supply-chain-risks/", label: "See the supply chain risks use case", categories: ["supply-chain"] },
-      { url: "https://www.reflectiz.com/use-cases/website-privacy-compliance/", label: "See the privacy compliance use case", categories: ["privacy"] },
-      { url: "https://www.reflectiz.com/industries/financial-services/", label: "See financial services security", categories: ["financial"] },
-      { url: "https://www.reflectiz.com/industries/healthcare/", label: "See healthcare web security", categories: ["healthcare"] },
-      { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance", categories: ["healthcare"] },
-      { url: "https://www.reflectiz.com/blog/supply-chain-anz/", label: "Read the ANZ supply chain research", categories: ["supply-chain", "anz"] },
-      { url: "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/", label: "See the State of Web Exposure 2026 report", categories: ["low-context"] },
-      { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", categories: ["high-intent"] }
-    ];
+    // ASSET_LIBRARY kept as rollback reference — no longer active in code path
+    // const ASSET_LIBRARY = [
+    //   { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", categories: ["retail", "supply-chain"] },
+    //   { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", categories: ["pci"] },
+    //   { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study", categories: ["pci", "travel"] },
+    //   { url: "https://www.reflectiz.com/learning-hub/live-panel-discussion-2026/", label: "Watch the payment risk panel discussion", categories: ["pci", "financial"] },
+    //   { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar", categories: ["ai-threats", "retail"] },
+    //   { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", categories: ["ai-threats", "supply-chain"] },
+    //   { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", categories: ["pci"] },
+    //   { url: "https://www.reflectiz.com/use-cases/magecart-web-skimming/", label: "See the Magecart prevention use case", categories: ["magecart"] },
+    //   { url: "https://www.reflectiz.com/use-cases/web-supply-chain-risks/", label: "See the supply chain risks use case", categories: ["supply-chain"] },
+    //   { url: "https://www.reflectiz.com/use-cases/website-privacy-compliance/", label: "See the privacy compliance use case", categories: ["privacy"] },
+    //   { url: "https://www.reflectiz.com/industries/financial-services/", label: "See financial services security", categories: ["financial"] },
+    //   { url: "https://www.reflectiz.com/industries/healthcare/", label: "See healthcare web security", categories: ["healthcare"] },
+    //   { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance", categories: ["healthcare"] },
+    //   { url: "https://www.reflectiz.com/blog/supply-chain-anz/", label: "Read the ANZ supply chain research", categories: ["supply-chain", "anz"] },
+    //   { url: "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/", label: "See the State of Web Exposure 2026 report", categories: ["low-context"] },
+    //   { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", categories: ["high-intent"] }
+    // ];
+
+    function deriveLabel(pageTitle, pageType) {
+      const typeLabels = {
+        "case-study": "Read the case study",
+        "use-case": "See the use case",
+        "blog": "Read the article",
+        "webinar": "Watch the webinar",
+        "product": "Learn more",
+        "comparison": "See the comparison",
+        "homepage": "Visit the homepage",
+        "other": "Learn more"
+      };
+      const base = typeLabels[pageType] || "Learn more";
+      return pageTitle ? `${base}: ${pageTitle.split(/[\u2013\u2014|-]/)[0].trim()}` : base;
+    }
+
+    async function getCandidatesForCategory(category, currentPageUrl, base44) {
+      const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
+      try {
+        const allContent = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
+        const matches = allContent.filter(page =>
+          Array.isArray(page.categories) &&
+          page.categories.includes(category) &&
+          page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
+          page.pageContent && page.pageContent.length > 200
+        );
+        return matches.map(page => ({
+          url: page.pageUrl,
+          label: deriveLabel(page.pageTitle, page.pageType),
+          pageContent: page.pageContent
+        }));
+      } catch (e) {
+        console.error("getCandidatesForCategory failed:", e.message);
+        return [];
+      }
+    }
 
     function determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation) {
       const url = (currentPageUrl || "").toLowerCase();
@@ -551,12 +588,8 @@ Deno.serve(async (req) => {
     }
 
     const routing = determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
-    const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
 
-    const matchingAssets = ASSET_LIBRARY.filter(a =>
-      a.categories.includes(routing.category) &&
-      a.url.replace(/\/$/, "") !== normalizedCurrentUrl
-    );
+    let matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
 
     let candidates;
     let isMultiCandidate;
@@ -568,8 +601,12 @@ Deno.serve(async (req) => {
       candidates = matchingAssets;
       isMultiCandidate = false;
     } else {
-      let fallback = ASSET_LIBRARY.filter(a => a.categories.includes("low-context") && a.url.replace(/\/$/, "") !== normalizedCurrentUrl);
-      if (fallback.length === 0) fallback = ASSET_LIBRARY.filter(a => a.categories.includes("high-intent"));
+      // Fallback 1: low-context category
+      let fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
+      // Fallback 2: hardcoded registration page
+      if (fallback.length === 0) {
+        fallback = [{ url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", pageContent: "" }];
+      }
       candidates = fallback;
       isMultiCandidate = false;
     }
@@ -591,13 +628,16 @@ Deno.serve(async (req) => {
     let candidateInsights = [];
 
     if (!isMultiCandidate) {
-      assetInsight = (await fetchInsight(selectedAsset.url)).slice(0, 1500);
+      // pageContent is already on the candidate from getCandidatesForCategory; fall back to DB fetch if missing
+      assetInsight = selectedAsset.pageContent
+        ? selectedAsset.pageContent.slice(0, 1500)
+        : (await fetchInsight(selectedAsset.url)).slice(0, 1500);
     } else {
-      candidateInsights = await Promise.all(candidates.map(async (c) => ({
+      candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: (await fetchInsight(c.url)).slice(0, 500)
-      })));
+        insight: (c.pageContent || "").slice(0, 500)
+      }));
     }
 
     // STEP 2: Gemini writes the copy only
@@ -732,7 +772,8 @@ Return only valid JSON, nothing else:
 
     // Fallback if Gemini failed
     if (!opener) {
-      opener = `This page covers one of the most critical areas in web security right now. [${selectedAsset.label}](${selectedAsset.url})`;
+      const fallbackAsset = selectedAsset || candidates[0];
+      opener = `This page covers one of the most critical areas in web security right now. [${fallbackAsset.label}](${fallbackAsset.url})`;
       bubbleText = bubbleText || "Web security insight worth reading";
     }
 
