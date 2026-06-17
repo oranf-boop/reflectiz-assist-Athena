@@ -519,6 +519,11 @@ Deno.serve(async (req) => {
       return pageTitle ? `${base}: ${pageTitle.split(/[\u2013\u2014|-]/)[0].trim()}` : base;
     }
 
+    const isTaxonomyPage = (url) => {
+      const u = (url || "").toLowerCase();
+      return u.includes("/category/") || u.includes("/tag/") || u.includes("/author/") || u.includes("/page/") || u.includes("/event-locations/");
+    };
+
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
       try {
@@ -528,7 +533,8 @@ Deno.serve(async (req) => {
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
           page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
-          page.pageContent && page.pageContent.length > 400
+          page.pageContent && page.pageContent.length > 400 &&
+          !isTaxonomyPage(page.pageUrl)
         );
         return matches.map(page => ({
           url: page.pageUrl,
