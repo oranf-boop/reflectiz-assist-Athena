@@ -80,8 +80,17 @@ Deno.serve(async (req) => {
     const batchSize = body.batchSize ?? 20;
     const offset = body.offset ?? 0;
 
-    // Fetch all active records, sorted by created_date for stable pagination
-    const allActive = await base44.asServiceRole.entities.WebsiteContent.list("created_date", 500);
+    // Fetch all records with internal pagination to avoid hardcoded cap
+    let allActive = [];
+    let skip = 0;
+    const PAGE_SIZE = 200;
+    while (true) {
+      const page = await base44.asServiceRole.entities.WebsiteContent.list("created_date", PAGE_SIZE, skip);
+      if (!page || page.length === 0) break;
+      allActive = allActive.concat(page);
+      if (page.length < PAGE_SIZE) break;
+      skip += PAGE_SIZE;
+    }
 
     // Only process records with no categories yet
     const uncategorized = allActive.filter(r =>
