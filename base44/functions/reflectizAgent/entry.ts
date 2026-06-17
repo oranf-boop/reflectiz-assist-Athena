@@ -562,6 +562,7 @@ Deno.serve(async (req) => {
       if (isANZ) return { category: "anz", reason: "geo-anz" };
 
       const isCaseStudy = url.includes("/customers/");
+      console.log("[DEBUG] isCaseStudy:", isCaseStudy, "url:", url);
       const isHealthcare = url.includes("healthcare") || url.includes("hipaa");
       const isPCI = url.includes("pci") || url.includes("compliance") || url.includes("dss");
       const isMagecart = url.includes("magecart") || url.includes("skimming");
