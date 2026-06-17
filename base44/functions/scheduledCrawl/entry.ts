@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
 
   // Combine: recent sitemap URLs + hub-discovered URLs not already in sitemap
   const sitemapUrlSet = new Set(allEntries.map(e => e.url));
-  const offSitemapUrls = [...hubUrls].filter(u => !sitemapUrlSet.has(u));
+  const offSitemapUrls = [...hubUrls].filter(u => !sitemapUrlSet.has(u) && !/\/page\/\d+\/?$/.test(u));
   console.log(`Off-sitemap URLs discovered from hubs: ${offSitemapUrls.length}`);
 
   const urlsToCrawl = [...new Set([...recentUrls, ...offSitemapUrls])];
