@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
 
   // Filter: pages with lastmod >= cutoff OR no lastmod (crawl them to be safe)
   const recentEntries = allEntries.filter(e => !e.lastmod || e.lastmod.slice(0, 10) >= cutoffDate);
-  const recentUrls = recentEntries.map(e => e.url);
+  const recentUrls = recentEntries.map(e => e.url).filter(u => !u.includes("?faq_category="));
 
   console.log(`Sitemap total: ${allEntries.length}, recent (last 2 days): ${recentUrls.length}`);
 
