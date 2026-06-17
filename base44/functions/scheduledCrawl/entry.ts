@@ -52,9 +52,9 @@ CATEGORIES AND DEFINITIONS:
 - supply-chain: third-party/fourth-party script risk, web supply chain, vendor script risk
 - privacy: GDPR, CCPA, PIPEDA, cookie consent, tracking pixels, data privacy regulation
 - ai-threats: AI-powered attacks, AI supply chain risk, AI-driven security threats
-- retail: ecommerce, online retail, shopping platforms
-- healthcare: HIPAA, patient data, healthcare industry security
-- financial: banking, financial services industry security
+- retail: Pages specifically about the ecommerce or online retail industry as an industry vertical (e.g. a retail case study, a retail-focused report, retail-specific risks). Only assign if the page's target audience or subject is retailers/online stores/shopping platforms themselves -- NOT just because the page discusses checkout security, payment pages, or web scripts in general (those belong to pci/magecart/supply-chain, not retail).
+- healthcare: Pages specifically about the healthcare industry, HIPAA, or patient data as the core subject -- not just any page that mentions "health" or medical examples in passing.
+- financial: Pages specifically about the financial services or banking industry as an industry vertical -- not just any page that mentions payments or money in passing.
 - comparison: comparing Reflectiz against a competitor
 - pentest: penetration testing, offensive security testing
 - low-context: general awareness content, broad research reports, introductory material
