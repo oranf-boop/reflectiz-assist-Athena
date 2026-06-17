@@ -7,6 +7,15 @@ const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 const VALID_CATEGORIES = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "healthcare", "financial", "comparison", "pentest", "low-context"];
 
+const HUB_PAGES = [
+  "https://www.reflectiz.com/blog/",
+  "https://www.reflectiz.com/learning-hub/",
+  "https://www.reflectiz.com/industries/",
+  "https://www.reflectiz.com/events/",
+  "https://www.reflectiz.com/customers/",
+  "https://www.reflectiz.com/use-cases/",
+];
+
 async function getAccessToken() {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
