@@ -86,7 +86,8 @@ Deno.serve(async (req) => {
     // Only process records with no categories yet
     const uncategorized = allActive.filter(r =>
       r.isActive !== false &&
-      (!r.categories || r.categories.length === 0)
+      (!r.categories || r.categories.length === 0) &&
+      !HUB_PAGES.includes(r.pageUrl.replace(/\/$/, "") + "/")
     );
 
     const total = uncategorized.length;
