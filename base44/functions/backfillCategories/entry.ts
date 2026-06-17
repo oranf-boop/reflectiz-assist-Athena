@@ -45,6 +45,8 @@ CATEGORIES AND DEFINITIONS:
 - pentest: penetration testing, offensive security testing
 - low-context: general awareness content, broad research reports, introductory material
 
+IMPORTANT: Only assign a category if it is a PRIMARY topic the page is substantively about -- not just mentioned in passing or implied by adjacent keywords. A page about an event dinner that briefly mentions 'payment page integrity' in one sentence is NOT a pci page unless PCI compliance is a core focus of the content. Most pages should have 1-3 categories. If you're tempted to assign 4 or more categories, re-read the content and ask whether it's truly that broad, or whether you're over-matching on keywords. Err toward fewer, more accurate categories.
+
 PAGE TITLE: ${record.pageTitle || ""}
 PAGE CONTENT: ${(record.pageContent || "").slice(0, 2000)}
 
