@@ -182,6 +182,20 @@ async function withRetry(fn, maxRetries = 3) {
   }
 }
 
+const DEAD_PAGE_PATTERNS = [
+  "temporarily unavailable",
+  "page not found",
+  "oops",
+  "this page doesn't exist",
+  "404 error",
+  "we can't find the page",
+];
+
+function isDeadPage(content) {
+  const lower = content.toLowerCase();
+  return DEAD_PAGE_PATTERNS.some(p => lower.includes(p));
+}
+
 async function crawlPage(pageUrl, base44, now) {
   const pageRes = await fetch(pageUrl, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
@@ -193,7 +207,14 @@ async function crawlPage(pageUrl, base44, now) {
   const pageTitle = extractTitle(html);
   const pageContent = extractTextContent(html);
   const pageType = classifyPageType(pageUrl);
-  const categories = await categorizeContent(pageUrl, pageTitle, pageContent);
+
+  const dead = isDeadPage(pageContent) || isDeadPage(html.slice(0, 5000));
+  const isActive = !dead;
+  const categories = dead ? [] : await categorizeContent(pageUrl, pageTitle, pageContent);
+
+  if (dead) {
+    console.log(`[DEAD PAGE] ${pageUrl} — marked inactive, skipping categorization`);
+  }
 
   const existing = await withRetry(() =>
     base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl })
@@ -202,14 +223,14 @@ async function crawlPage(pageUrl, base44, now) {
   if (existing && existing.length > 0) {
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.update(existing[0].id, {
-        pageTitle, pageContent, pageType, lastScanned: now, isActive: true, categories,
+        pageTitle, pageContent, pageType, lastScanned: now, isActive, categories,
       })
     );
     return { status: "updated", html };
   } else {
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.create({
-        pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive: true, categories,
+        pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive, categories,
       })
     );
     return { status: "created", html };

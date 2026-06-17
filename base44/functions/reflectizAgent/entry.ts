@@ -524,10 +524,11 @@ Deno.serve(async (req) => {
       try {
         const allContent = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
         const matches = allContent.filter(page =>
+          page.isActive !== false &&
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
           page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
-          page.pageContent && page.pageContent.length > 200
+          page.pageContent && page.pageContent.length > 400
         );
         return matches.map(page => ({
           url: page.pageUrl,
