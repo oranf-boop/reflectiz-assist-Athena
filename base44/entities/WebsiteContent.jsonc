@@ -37,6 +37,27 @@
     "isActive": {
       "type": "boolean",
       "title": "Is Active"
+    },
+    "categories": {
+      "type": "array",
+      "title": "Categories",
+      "items": {
+        "type": "string",
+        "enum": [
+          "pci",
+          "magecart",
+          "supply-chain",
+          "privacy",
+          "ai-threats",
+          "retail",
+          "healthcare",
+          "financial",
+          "comparison",
+          "pentest",
+          "low-context"
+        ]
+      },
+      "default": []
     }
   },
   "required": []
