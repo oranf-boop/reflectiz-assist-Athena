@@ -1,9 +1,89 @@
+import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-const HUB_PAGES = [
+const HUB_PAGES_CRAWL = [
   "https://www.reflectiz.com/learning-hub/",
   "https://www.reflectiz.com/events/",
 ];
+
+// --- Categorization helper ---
+
+const CATEGORIZATION_HUB_PAGES = [
+  "https://www.reflectiz.com/blog/",
+  "https://www.reflectiz.com/learning-hub/",
+  "https://www.reflectiz.com/industries/",
+  "https://www.reflectiz.com/events/",
+  "https://www.reflectiz.com/customers/",
+  "https://www.reflectiz.com/use-cases/",
+];
+
+const VALID_CATEGORIES = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "healthcare", "financial", "comparison", "pentest", "low-context"];
+
+let _geminiToken = null;
+let _geminiTokenExpiry = 0;
+
+async function getGeminiToken() {
+  if (_geminiToken && Date.now() < _geminiTokenExpiry) return _geminiToken;
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
+  const jwt = new JWT({
+    email: sa.client_email,
+    key: sa.private_key,
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const { token } = await jwt.getAccessToken();
+  _geminiToken = token;
+  _geminiTokenExpiry = Date.now() + 55 * 60 * 1000; // 55 min cache
+  return token;
+}
+
+async function categorizeContent(pageUrl, pageTitle, pageContent) {
+  const normalizedUrl = (pageUrl || "").replace(/\/$/, "") + "/";
+  if (CATEGORIZATION_HUB_PAGES.includes(normalizedUrl)) return [];
+
+  try {
+    const token = await getGeminiToken();
+    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/dashboarderv0/locations/us-central1/publishers/google/models/gemini-2.5-flash-lite:generateContent`;
+
+    const prompt = `Read this webpage content and determine which topic categories it covers. A page can have multiple categories or none.
+
+CATEGORIES AND DEFINITIONS:
+- pci: PCI DSS compliance, payment card security, checkout page security
+- magecart: Magecart attacks, web skimming, checkout script injection
+- supply-chain: third-party/fourth-party script risk, web supply chain, vendor script risk
+- privacy: GDPR, CCPA, PIPEDA, cookie consent, tracking pixels, data privacy regulation
+- ai-threats: AI-powered attacks, AI supply chain risk, AI-driven security threats
+- retail: ecommerce, online retail, shopping platforms
+- healthcare: HIPAA, patient data, healthcare industry security
+- financial: banking, financial services industry security
+- comparison: comparing Reflectiz against a competitor
+- pentest: penetration testing, offensive security testing
+- low-context: general awareness content, broad research reports, introductory material
+
+PAGE TITLE: ${pageTitle || ""}
+PAGE CONTENT: ${(pageContent || "").slice(0, 2000)}
+
+Return only a JSON array of matching category strings from the list above, nothing else. Example: ["pci", "retail"]. If no categories clearly apply, return an empty array: []`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 128 },
+      }),
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+    const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(c => VALID_CATEGORIES.includes(c));
+  } catch (e) {
+    console.error(`categorizeContent failed for ${pageUrl}: ${e.message}`);
+    return [];
+  }
+}
 
 function classifyPageType(url) {
   if (url === "https://www.reflectiz.com/" || url === "https://www.reflectiz.com") return "homepage";
@@ -111,6 +191,7 @@ async function crawlPage(pageUrl, base44, now) {
   const pageTitle = extractTitle(html);
   const pageContent = extractTextContent(html);
   const pageType = classifyPageType(pageUrl);
+  const categories = await categorizeContent(pageUrl, pageTitle, pageContent);
 
   const existing = await withRetry(() =>
     base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl })
@@ -119,14 +200,14 @@ async function crawlPage(pageUrl, base44, now) {
   if (existing && existing.length > 0) {
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.update(existing[0].id, {
-        pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
+        pageTitle, pageContent, pageType, lastScanned: now, isActive: true, categories,
       })
     );
     return { status: "updated", html };
   } else {
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.create({
-        pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive: true,
+        pageUrl, pageTitle, pageContent, pageType, lastScanned: now, isActive: true, categories,
       })
     );
     return { status: "created", html };
@@ -172,7 +253,7 @@ Deno.serve(async (req) => {
 
   // STEP 2: Discover off-sitemap URLs from hub pages
   const hubUrls = new Set();
-  for (const hubPage of HUB_PAGES) {
+  for (const hubPage of HUB_PAGES_CRAWL) {
     try {
       const res = await fetch(hubPage, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; Reflectiz-Crawler/1.0)" },
