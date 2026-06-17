@@ -547,16 +547,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    function determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation) {
+    async function determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation, base44) {
       const url = (currentPageUrl || "").toLowerCase();
       const ref = (referralSource || "").toLowerCase();
       const geoLower = (geo || "").toLowerCase();
 
-      if (hasActiveConversation) return { category: "high-intent", reason: "returning" };
+      if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
 
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs");
-      if (isPaidSearch || isComparisonPage) return { category: "high-intent", reason: "high-intent" };
+      if (isPaidSearch || isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
 
       const isANZ = geoLower.includes("australia") || geoLower.includes("new zealand");
       if (isANZ) return { category: "anz", reason: "geo-anz" };
@@ -574,10 +574,20 @@ Deno.serve(async (req) => {
       const isBlog = url.includes("/blog/") || url.includes("/learning-hub/");
 
       if (isCaseStudy) {
-        if (url.includes("castore")) return { category: "ai-threats", reason: "castore" };
-        if (url.includes("broadway")) return { category: "pci", reason: "broadway" };
-        if (url.includes("lastminute")) return { category: "pci", reason: "lastminute" };
-        return { category: "high-intent", reason: "case-study" };
+        // Look up this case study's own categories from WebsiteContent and use the first one as the routing category
+        try {
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl });
+          const pageCategories = pageRecord?.[0]?.categories;
+          console.log(`[DEBUG] Case study ${currentPageUrl} categories:`, pageCategories);
+          if (Array.isArray(pageCategories) && pageCategories.length > 0) {
+            const result = { category: pageCategories[0], reason: "case-study-dynamic" };
+            console.log("[DEBUG] Case study routing result:", result);
+            return result;
+          }
+        } catch (e) {
+          console.error("Case study category lookup failed:", e.message);
+        }
+        return { category: "low-context", reason: "case-study-fallback" };
       }
 
       if (isHealthcare) return { category: "healthcare", reason: "healthcare" };
@@ -594,31 +604,39 @@ Deno.serve(async (req) => {
       return { category: "low-context", reason: "default" };
     }
 
-    const routing = determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation);
+    const routing = await determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation, base44);
+    console.log("[DEBUG] determineRouting result:", routing);
 
-    let matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
-
-    let candidates;
+    // FIX 1: Direct registration bypass
+    let selectedAsset;
     let isMultiCandidate;
+    let candidates;
 
-    if (matchingAssets.length >= 2) {
-      candidates = matchingAssets;
-      isMultiCandidate = true;
-    } else if (matchingAssets.length === 1) {
-      candidates = matchingAssets;
+    if (routing.category === "DIRECT_REGISTRATION") {
+      selectedAsset = { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment" };
       isMultiCandidate = false;
+      candidates = [selectedAsset];
     } else {
-      // Fallback 1: low-context category
-      let fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
-      // Fallback 2: hardcoded registration page
-      if (fallback.length === 0) {
-        fallback = [{ url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", pageContent: "" }];
-      }
-      candidates = fallback;
-      isMultiCandidate = false;
-    }
+      const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
 
-    let selectedAsset = isMultiCandidate ? null : candidates[0];
+      if (matchingAssets.length >= 2) {
+        candidates = matchingAssets;
+        isMultiCandidate = true;
+      } else if (matchingAssets.length === 1) {
+        candidates = matchingAssets;
+        isMultiCandidate = false;
+      } else {
+        // Fallback 1: low-context category
+        let fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
+        // Fallback 2: hardcoded registration page
+        if (fallback.length === 0) {
+          fallback = [{ url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", pageContent: "" }];
+        }
+        candidates = fallback;
+        isMultiCandidate = false;
+      }
+      selectedAsset = isMultiCandidate ? null : candidates[0];
+    }
 
     async function fetchInsight(url) {
       try {
