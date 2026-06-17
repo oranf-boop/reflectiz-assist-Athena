@@ -562,7 +562,6 @@ Deno.serve(async (req) => {
       if (isANZ) return { category: "anz", reason: "geo-anz" };
 
       const isCaseStudy = url.includes("/customers/");
-      console.log("[DEBUG] isCaseStudy:", isCaseStudy, "url:", url);
       const isHealthcare = url.includes("healthcare") || url.includes("hipaa");
       const isPCI = url.includes("pci") || url.includes("compliance") || url.includes("dss");
       const isMagecart = url.includes("magecart") || url.includes("skimming");
@@ -579,11 +578,8 @@ Deno.serve(async (req) => {
         try {
           const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl });
           const pageCategories = pageRecord?.[0]?.categories;
-          console.log(`[DEBUG] Case study ${currentPageUrl} categories:`, pageCategories);
           if (Array.isArray(pageCategories) && pageCategories.length > 0) {
-            const result = { category: pageCategories[0], reason: "case-study-dynamic" };
-            console.log("[DEBUG] Case study routing result:", result);
-            return result;
+            return { category: pageCategories[0], reason: "case-study-dynamic" };
           }
         } catch (e) {
           console.error("Case study category lookup failed:", e.message);
@@ -606,7 +602,6 @@ Deno.serve(async (req) => {
     }
 
     const routing = await determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation, base44);
-    console.log("[DEBUG] determineRouting result:", routing);
 
     // FIX 1: Direct registration bypass
     let selectedAsset;
