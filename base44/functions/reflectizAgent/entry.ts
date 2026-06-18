@@ -349,17 +349,6 @@ Default to GENERAL_AWARENESS only if none of the above apply.`,
 }
 
 Deno.serve(async (req) => {
-  // EXHAUSTIVE IP DEBUG
-  const allHeaders = {};
-  for (const [k, v] of req.headers.entries()) { allHeaders[k] = v; }
-  console.log("DEBUG ALL HEADERS:", JSON.stringify(allHeaders));
-
-  // Check non-header properties on the req object itself
-  const reqProps = {};
-  for (const key of Object.getOwnPropertyNames(req)) { try { reqProps[key] = String(req[key]); } catch(e) { reqProps[key] = "(error)"; } }
-  for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(req))) { try { reqProps[key] = String(req[key]); } catch(e) { reqProps[key] = "(error)"; } }
-  console.log("DEBUG REQ PROPS:", JSON.stringify(reqProps));
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS });
   }
@@ -595,7 +584,7 @@ Deno.serve(async (req) => {
       if (isAI) return { category: "ai-threats", reason: "ai" };
       if (isRetail) return { category: "retail", reason: "retail" };
       if (isFinancial) return { category: "financial", reason: "financial" };
-      if (isPlatform) return { category: "retail", reason: "platform" };
+      if (isPlatform) return { category: "low-context", reason: "platform" };
       if (isBlog) return { category: "pci", reason: "blog" };
 
       return { category: "low-context", reason: "default" };
