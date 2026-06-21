@@ -540,7 +540,7 @@ Deno.serve(async (req) => {
           !isHubPage(page.pageUrl)
         );
         const aged = matches.map(page => {
-          const urlYear = (page.pageUrl || "").match(/\/(202[4-6]|201\d|202[0-3])\//);
+          const urlYear = (page.pageUrl || "").match(/\b(202[0-3]|201\d)\b/);
           const year = urlYear ? parseInt(urlYear[1]) : null;
           const ageTier = (!year || year >= 2025) ? 0 : (year === 2024 ? 1 : 2);
           return {
