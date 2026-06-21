@@ -585,7 +585,18 @@ Deno.serve(async (req) => {
       if (isRetail) return { category: "retail", reason: "retail" };
       if (isFinancial) return { category: "financial", reason: "financial" };
       if (isPlatform) return { category: "low-context", reason: "platform" };
-      if (isBlog) return { category: "pci", reason: "blog" };
+      if (isBlog) {
+        try {
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl });
+          const pageCategories = pageRecord?.[0]?.categories;
+          if (Array.isArray(pageCategories) && pageCategories.length > 0) {
+            return { category: pageCategories[0], reason: "blog-dynamic" };
+          }
+        } catch (e) {
+          console.error("Blog category lookup failed:", e.message);
+        }
+        return { category: "low-context", reason: "blog-fallback" };
+      }
 
       return { category: "low-context", reason: "default" };
     }
