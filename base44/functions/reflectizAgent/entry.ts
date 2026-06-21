@@ -569,8 +569,6 @@ Deno.serve(async (req) => {
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs");
       if (isPaidSearch || isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
 
-      const isANZ = geoLower.includes("australia") || geoLower.includes("new zealand");
-      if (isANZ) return { category: "anz", reason: "geo-anz" };
 
       const isCaseStudy = url.includes("/customers/");
       const isHealthcare = url.includes("healthcare") || url.includes("hipaa");
