@@ -499,6 +499,7 @@ Deno.serve(async (req) => {
         "use-case": "See the use case",
         "blog": "Read the article",
         "webinar": "Watch the webinar",
+        "event": "Register for the event",
         "product": "Learn more",
         "comparison": "See the comparison",
         "homepage": "Visit the homepage",

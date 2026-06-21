@@ -93,7 +93,9 @@ function classifyPageType(url) {
   if (url.includes("/use-case/") || url.includes("/use-cases/")) return "use-case";
   if (url.includes("/product/")) return "product";
   if (url.includes("/customers/") || url.includes("/case-study/")) return "case-study";
-  if (url.includes("/webinar/") || url.includes("/events/") || url.includes("/event/") || url.includes("/learning-hub/")) return "webinar";
+  if (url.includes("/events/") || url.includes("/event/")) return "event";
+  if (url.includes("/webinar/") || url.includes("/learning-hub/webinar")) return "webinar";
+  if (url.includes("/learning-hub/")) return "other";
   if (url.includes("/vs-") || url.includes("/compare")) return "comparison";
   return "other";
 }
