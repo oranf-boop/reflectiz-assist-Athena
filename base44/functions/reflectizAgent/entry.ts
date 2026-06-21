@@ -513,6 +513,18 @@ Deno.serve(async (req) => {
       return u.includes("/category/") || u.includes("/tag/") || u.includes("/author/") || u.includes("/page/") || u.includes("/event-locations/");
     };
 
+    const isHubPage = (url) => {
+      const normalized = (url || "").replace(/\/$/, "") + "/";
+      return [
+        "https://www.reflectiz.com/blog/",
+        "https://www.reflectiz.com/learning-hub/",
+        "https://www.reflectiz.com/industries/",
+        "https://www.reflectiz.com/events/",
+        "https://www.reflectiz.com/customers/",
+        "https://www.reflectiz.com/use-cases/",
+      ].includes(normalized);
+    };
+
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
       try {
@@ -523,7 +535,8 @@ Deno.serve(async (req) => {
           page.categories.includes(category) &&
           page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
           page.pageContent && page.pageContent.length > 400 &&
-          !isTaxonomyPage(page.pageUrl)
+          !isTaxonomyPage(page.pageUrl) &&
+          !isHubPage(page.pageUrl)
         );
         return matches.map(page => ({
           url: page.pageUrl,
