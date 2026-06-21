@@ -538,11 +538,19 @@ Deno.serve(async (req) => {
           !isTaxonomyPage(page.pageUrl) &&
           !isHubPage(page.pageUrl)
         );
-        return matches.map(page => ({
-          url: page.pageUrl,
-          label: deriveLabel(page.pageTitle, page.pageType),
-          pageContent: page.pageContent
-        }));
+        const aged = matches.map(page => {
+          const urlYear = (page.pageUrl || "").match(/\/(202[4-6]|201\d|202[0-3])\//);
+          const year = urlYear ? parseInt(urlYear[1]) : null;
+          const ageTier = (!year || year >= 2025) ? 0 : (year === 2024 ? 1 : 2);
+          return {
+            url: page.pageUrl,
+            label: deriveLabel(page.pageTitle, page.pageType),
+            pageContent: page.pageContent,
+            ageTier,
+          };
+        });
+        aged.sort((a, b) => a.ageTier - b.ageTier);
+        return aged;
       } catch (e) {
         console.error("getCandidatesForCategory failed:", e.message);
         return [];
