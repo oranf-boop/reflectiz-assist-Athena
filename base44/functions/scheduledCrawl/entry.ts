@@ -276,6 +276,7 @@ Deno.serve(async (req) => {
   const recentUrls = recentEntries.map(e => e.url).filter(u => 
     !u.includes("?faq_category=") && 
     !u.includes("?taxonomy=") &&
+    !u.includes("?job_divisions") &&
     !u.includes("?tag=") &&
     !u.includes("?author=") &&
     !u.includes("?s=")
