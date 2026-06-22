@@ -516,14 +516,17 @@ Deno.serve(async (req) => {
 
     const isHubPage = (url) => {
       const normalized = (url || "").replace(/\/$/, "") + "/";
-      return [
+      const exactHubs = [
         "https://www.reflectiz.com/blog/",
         "https://www.reflectiz.com/learning-hub/",
         "https://www.reflectiz.com/industries/",
         "https://www.reflectiz.com/events/",
         "https://www.reflectiz.com/customers/",
         "https://www.reflectiz.com/use-cases/",
-      ].includes(normalized);
+      ];
+      if (exactHubs.includes(normalized)) return true;
+      if ((url || "").toLowerCase().includes("/learninghub/")) return true;
+      return false;
     };
 
     async function getCandidatesForCategory(category, currentPageUrl, base44) {

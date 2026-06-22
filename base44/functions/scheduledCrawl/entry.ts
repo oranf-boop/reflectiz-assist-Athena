@@ -39,6 +39,7 @@ async function getGeminiToken() {
 async function categorizeContent(pageUrl, pageTitle, pageContent) {
   const normalizedUrl = (pageUrl || "").replace(/\/$/, "") + "/";
   if (CATEGORIZATION_HUB_PAGES.includes(normalizedUrl)) return [];
+  if ((pageUrl || "").toLowerCase().includes("/learninghub/")) return [];
 
   try {
     const token = await getGeminiToken();
