@@ -822,6 +822,18 @@ Return only valid JSON, nothing else:
       opener = opener.replace(/([^.!?])\s*\[/g, "$1. [").replace(/([.!?])\s*\.\s*\[/g, "$1 [");
     }
 
+    // Enforce maximum 2 sentences before the markdown link
+    if (opener) {
+      var sentences = opener.split(/(?<=[.!?])\s+(?=[A-Z])/);
+      if (sentences.length > 2) {
+        // Keep only the last sentence (the link) and the
+        // most compelling sentence before it
+        var linkSentence = sentences[sentences.length - 1];
+        var firstSentence = sentences[0];
+        opener = firstSentence.trim() + " " + linkSentence.trim();
+      }
+    }
+
     // Fallback if Gemini failed
     if (!opener) {
       const fallbackAsset = selectedAsset || candidates[0];
