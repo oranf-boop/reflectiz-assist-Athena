@@ -529,6 +529,13 @@ Deno.serve(async (req) => {
       return false;
     };
 
+    const isPRPage = (url) => {
+      const u = (url || "").toLowerCase();
+      return u.includes("/media/") ||
+             u.includes("/about/") ||
+             u.includes("/partners/");
+    };
+
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
       try {
@@ -540,7 +547,8 @@ Deno.serve(async (req) => {
           page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
           page.pageContent && page.pageContent.length > 400 &&
           !isTaxonomyPage(page.pageUrl) &&
-          !isHubPage(page.pageUrl)
+          !isHubPage(page.pageUrl) &&
+          !isPRPage(page.pageUrl)
         );
         const aged = matches.map(page => {
           const urlYear = (page.pageUrl || "").match(/\b(202[0-3]|201\d)\b/);
