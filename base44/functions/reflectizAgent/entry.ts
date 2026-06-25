@@ -776,7 +776,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer case study. Write an opener that references a next logical step — a relevant technical resource, compliance guide, or data insight — not another case study.\n" : ""}
+${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer case study. Write an opener that references a next logical step — a relevant technical resource, compliance guide, or data insight — not another case study.\n" : ""}${(currentPageUrl || "").includes("/blog/") ? "\nVISITOR CONTEXT: This visitor is reading a specific blog article. Pick the candidate that is most topically similar to the current page content — same attack type, same industry, or same threat vector. Do not pick a generic report or unrelated topic.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
