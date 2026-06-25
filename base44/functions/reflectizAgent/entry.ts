@@ -640,6 +640,9 @@ Deno.serve(async (req) => {
         return { category: "low-context", reason: "blog-fallback" };
       }
 
+      const isPentest = url.includes("offensive-hub") || url.includes("pentest") || url.includes("offensive");
+      if (isPentest) return { category: "pentest", reason: "pentest" };
+
       return { category: "low-context", reason: "default" };
     }
 
