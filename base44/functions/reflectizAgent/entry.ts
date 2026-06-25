@@ -581,7 +581,7 @@ Deno.serve(async (req) => {
       if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
 
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
-      const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs");
+      const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
       if (isPaidSearch || isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
 
 
@@ -957,7 +957,7 @@ Generate a natural one-sentence opening message that:
 
   // SAME PAGE SAFETY NET: Remove any URL in the reply that matches the visitor's current page
   // Exception: skip replacement on competitor comparison pages (they should self-reference)
-  const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs-") || (currentPageUrl || "").includes("-vs-reflectiz");
+  const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs") || (currentPageUrl || "").includes("vs-reflectiz") || (currentPageUrl || "").includes("cside");
   if (currentPageUrl && !isComparisonPage) {
     const urlRegex = /https?:\/\/[^\s)\]"']+/g;
     const normalize = (u) => u.replace(/\/$/, "").toLowerCase();
