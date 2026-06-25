@@ -802,14 +802,16 @@ Return only valid JSON, nothing else:
       }
     }
 
-    if (isMultiCandidate && !selectedAsset) {
-      selectedAsset = candidates[0];
+    // Validate opener using Gemini's chosen asset
+    // Only fall back to candidates[0] if opener already failed
+    const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
+    if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset || 
+        !opener.includes(validationAsset.url.replace(/\/$/, ""))) {
+      opener = null;
     }
 
-    // Validate opener
-    if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !selectedAsset || 
-        !opener.includes(selectedAsset.url.replace(/\/$/, ""))) {
-      opener = null;
+    if (isMultiCandidate && !selectedAsset) {
+      selectedAsset = candidates[0];
     }
 
     // Privacy violation check
