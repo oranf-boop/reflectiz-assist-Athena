@@ -523,9 +523,13 @@ Deno.serve(async (req) => {
         "https://www.reflectiz.com/events/",
         "https://www.reflectiz.com/customers/",
         "https://www.reflectiz.com/use-cases/",
+        "https://www.reflectiz.com/security-hub/",
+        "https://www.reflectiz.com/privacy-hub/",
+        "https://www.reflectiz.com/offensive-hub/",
       ];
       if (exactHubs.includes(normalized)) return true;
       if ((url || "").toLowerCase().includes("/learninghub/")) return true;
+      if ((url || "").toLowerCase().includes("/events/")) return true;
       return false;
     };
 
