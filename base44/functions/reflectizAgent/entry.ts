@@ -806,7 +806,8 @@ Return only valid JSON, nothing else:
     }
 
     // Validate opener
-    if (!opener || opener.split(" ").length < 8 || !selectedAsset || !opener.includes(selectedAsset.url)) {
+    if (!opener || opener.split(" ").length < 8 || !selectedAsset || 
+        !opener.includes(selectedAsset.url.replace(/\/$/, ""))) {
       opener = null;
     }
 
