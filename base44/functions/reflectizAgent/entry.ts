@@ -568,12 +568,17 @@ Deno.serve(async (req) => {
         });
         aged.sort((a, b) => a.ageTier - b.ageTier);
 
+        // Always strip the current page itself from candidates (belt-and-suspenders over normalizedCurrentUrl)
+        const filtered = aged.filter(c =>
+          c.url.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "")
+        );
+
         // Exclude other case-study pages when visitor is already on a case study
         if ((currentPageUrl || "").includes("/customers/")) {
-          return aged.filter(c => c.pageType !== "case-study");
+          return filtered.filter(c => c.pageType !== "case-study");
         }
 
-        return aged;
+        return filtered;
       } catch (e) {
         console.error("getCandidatesForCategory failed:", e.message);
         return [];
@@ -657,6 +662,12 @@ Deno.serve(async (req) => {
       selectedAsset = { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment" };
       isMultiCandidate = false;
       candidates = [selectedAsset];
+      // Registration page has no pageContent — skip Gemini and return hardcoded opener immediately
+      if (!selectedAsset.pageContent || selectedAsset.pageContent.length < 100) {
+        const hardcodedOpener = "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
+        const hardcodedBubble = "See your full web exposure now";
+        return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
+      }
     } else {
       const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
 
