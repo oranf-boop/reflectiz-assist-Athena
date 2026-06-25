@@ -562,10 +562,17 @@ Deno.serve(async (req) => {
             url: page.pageUrl,
             label: deriveLabel(page.pageTitle, page.pageType),
             pageContent: page.pageContent,
+            pageType: page.pageType,
             ageTier,
           };
         });
         aged.sort((a, b) => a.ageTier - b.ageTier);
+
+        // Exclude other case-study pages when visitor is already on a case study
+        if ((currentPageUrl || "").includes("/customers/")) {
+          return aged.filter(c => c.pageType !== "case-study");
+        }
+
         return aged;
       } catch (e) {
         console.error("getCandidatesForCategory failed:", e.message);
@@ -689,6 +696,22 @@ Deno.serve(async (req) => {
         ? selectedAsset.pageContent.slice(0, 1500)
         : (await fetchInsight(selectedAsset.url)).slice(0, 1500);
     } else {
+      function shuffleWithinTiers(arr) {
+        const tiers = {};
+        arr.forEach(c => {
+          const t = c.ageTier || 0;
+          if (!tiers[t]) tiers[t] = [];
+          tiers[t].push(c);
+        });
+        return Object.keys(tiers).sort().reduce((acc, t) => {
+          const shuffled = tiers[t].sort(() => Math.random() - 0.5);
+          return acc.concat(shuffled);
+        }, []);
+      }
+
+      const isHomepage = (currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com";
+      if (isHomepage) candidates = shuffleWithinTiers(candidates);
+
       candidates = candidates.slice(0, 8);
       candidateInsights = candidates.map(c => ({
         url: c.url,
