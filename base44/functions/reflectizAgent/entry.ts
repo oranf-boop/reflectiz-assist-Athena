@@ -452,13 +452,6 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const contextTitle = clientPageTitle || currentPageUrl;
 
-    // Check cache first
-    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
-    const cached = cachedResults?.[0];
-    if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
-      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
-    }
-
     const effectiveLanguage = geo === "Israel" ? "en" : (language || "en");
 
     const isValidPageUrl = (
@@ -653,22 +646,25 @@ Deno.serve(async (req) => {
 
     const routing = await determineRouting(currentPageUrl, referralSource, geo, pagesViewed, timeOnPage, hasActiveConversation, base44);
 
-    // FIX 1: Direct registration bypass
+    // DIRECT_REGISTRATION: return hardcoded opener immediately, never hit cache
+    if (routing.category === "DIRECT_REGISTRATION") {
+      const hardcodedOpener = "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
+      const hardcodedBubble = "See your full web exposure now";
+      return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
+    }
+
+    // Cache check — only for non-DIRECT_REGISTRATION pages
+    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
+    const cached = cachedResults?.[0];
+    if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
+      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
+    }
+
     let selectedAsset;
     let isMultiCandidate;
     let candidates;
 
-    if (routing.category === "DIRECT_REGISTRATION") {
-      selectedAsset = { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment" };
-      isMultiCandidate = false;
-      candidates = [selectedAsset];
-      // Registration page has no pageContent — skip Gemini and return hardcoded opener immediately
-      if (!selectedAsset.pageContent || selectedAsset.pageContent.length < 100) {
-        const hardcodedOpener = "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
-        const hardcodedBubble = "See your full web exposure now";
-        return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
-      }
-    } else {
+    {
       const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
 
       if (matchingAssets.length >= 2) {
