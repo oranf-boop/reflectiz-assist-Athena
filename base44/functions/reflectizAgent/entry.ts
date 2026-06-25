@@ -593,7 +593,7 @@ Deno.serve(async (req) => {
       const isPrivacy = url.includes("privacy") || url.includes("gdpr") || url.includes("ccpa");
       const isAI = url.includes("ai-supply") || url.includes("ai-attack") || url.includes("ai-retail");
       const isRetail = url.includes("ecommerce") || url.includes("retail") || url.includes("shopify");
-      const isFinancial = url.includes("financial") || url.includes("finance") || url.includes("banking");
+      const isFinancial = url.includes("financial") || url.includes("finance") || url.includes("banking") || url.includes("dora");
       const isPlatform = url.includes("/platform/") || url.includes("/product/") || url.includes("remote-monitoring") || url.includes("how-it-works");
       const isBlog = url.includes("/blog/") || url.includes("/learning-hub/");
 
@@ -689,6 +689,7 @@ Deno.serve(async (req) => {
         ? selectedAsset.pageContent.slice(0, 1500)
         : (await fetchInsight(selectedAsset.url)).slice(0, 1500);
     } else {
+      candidates = candidates.slice(0, 8);
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
