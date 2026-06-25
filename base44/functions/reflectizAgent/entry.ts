@@ -605,7 +605,8 @@ Deno.serve(async (req) => {
       if (isCaseStudy) {
         // Look up this case study's own categories from WebsiteContent and use the first one as the routing category
         try {
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl });
+          const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
           const pageCategories = pageRecord?.[0]?.categories;
           if (Array.isArray(pageCategories) && pageCategories.length > 0) {
             return { category: pageCategories[0], reason: "case-study-dynamic" };
@@ -627,7 +628,8 @@ Deno.serve(async (req) => {
       if (isPlatform) return { category: "low-context", reason: "platform" };
       if (isBlog) {
         try {
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: currentPageUrl });
+          const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
           const pageCategories = pageRecord?.[0]?.categories;
           if (Array.isArray(pageCategories) && pageCategories.length > 0) {
             return { category: pageCategories[0], reason: "blog-dynamic" };
