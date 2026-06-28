@@ -650,8 +650,13 @@ Deno.serve(async (req) => {
 
     // DIRECT_REGISTRATION: return hardcoded opener immediately, never hit cache
     if (routing.category === "DIRECT_REGISTRATION") {
-      const hardcodedOpener = "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
-      const hardcodedBubble = "See your full web exposure now";
+      const competitorName = (currentPageUrl || "").split("reflectiz-vs-").pop().split("/")[0].replace(/-/g, " ");
+      const hardcodedOpener = competitorName
+        ? `Most teams comparing Reflectiz to ${competitorName} care about one thing: which one actually shows what third-party scripts do inside the browser. [See the difference](https://www.reflectiz.com/registration/)`
+        : "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
+      const hardcodedBubble = competitorName
+        ? `See how Reflectiz outperforms ${competitorName}`
+        : "See your full web exposure now";
       return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
     }
 
