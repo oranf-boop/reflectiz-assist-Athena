@@ -728,12 +728,12 @@ Deno.serve(async (req) => {
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: (c.pageContent || "").slice(0, 500)
+        insight: (c.pageContent || "").slice(0, 200)
       }));
     }
 
     // STEP 2: Gemini writes the copy only
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
 
     let openerPrompt;
 
