@@ -224,9 +224,15 @@ async function crawlPage(pageUrl, base44, now) {
   );
 
   if (existing && existing.length > 0) {
+    const shouldUpdateCategories = !existing[0].lockCategories;
     await withRetry(() =>
       base44.asServiceRole.entities.WebsiteContent.update(existing[0].id, {
-        pageTitle, pageContent, pageType, lastScanned: now, isActive, categories,
+        pageTitle,
+        pageContent,
+        pageType,
+        lastScanned: now,
+        isActive,
+        ...(shouldUpdateCategories ? { categories } : {})
       })
     );
     return { status: "updated", html };

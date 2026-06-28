@@ -38,6 +38,11 @@
       "type": "boolean",
       "title": "Is Active"
     },
+    "lockCategories": {
+      "type": "boolean",
+      "title": "Lock Categories",
+      "default": false
+    },
     "categories": {
       "type": "array",
       "title": "Categories",
