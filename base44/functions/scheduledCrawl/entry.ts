@@ -279,7 +279,12 @@ Deno.serve(async (req) => {
     !u.includes("?job_divisions") &&
     !u.includes("?tag=") &&
     !u.includes("?author=") &&
-    !u.includes("?s=")
+    !u.includes("?s=") &&
+    !u.includes("/blog/category/") &&
+    !u.includes("/security-hub/") &&
+    !u.includes("/offensive-hub/") &&
+    !u.includes("/privacy-hub/") &&
+    !u.includes("/lp/")
   );
 
   console.log(`Sitemap total: ${allEntries.length}, recent (last 2 days): ${recentUrls.length}`);
