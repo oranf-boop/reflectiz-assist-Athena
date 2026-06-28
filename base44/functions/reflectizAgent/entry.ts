@@ -306,6 +306,14 @@ Content: ${(p.pageContent || "").slice(0, 300)}
 ${lines.join("\n")}`;
 }
 
+function sanitizeContent(text) {
+  return (text || "")
+    .replace(/&#\d+;/g, " ")
+    .replace(/&[a-z]+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function classifyIntent(messages, currentPageUrl) {
   const cleanMessages = messages
     .map(m => ({
@@ -712,8 +720,8 @@ Deno.serve(async (req) => {
     if (!isMultiCandidate) {
       // pageContent is already on the candidate from getCandidatesForCategory; fall back to DB fetch if missing
       assetInsight = selectedAsset.pageContent
-        ? selectedAsset.pageContent.slice(0, 1500)
-        : (await fetchInsight(selectedAsset.url)).slice(0, 1500);
+        ? sanitizeContent(selectedAsset.pageContent).slice(0, 1500)
+        : sanitizeContent(await fetchInsight(selectedAsset.url)).slice(0, 1500);
     } else {
       function shuffleWithinTiers(arr) {
         const tiers = {};
@@ -735,7 +743,7 @@ Deno.serve(async (req) => {
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: (c.pageContent || "").slice(0, 200)
+        insight: sanitizeContent(c.pageContent).slice(0, 200)
       }));
     }
 
