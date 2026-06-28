@@ -844,6 +844,30 @@ Return only valid JSON, nothing else:
       }
     }
 
+    // Sanitize HTML entities from opener and bubbleText
+    if (opener) {
+      opener = opener
+        .replace(/&#039;/g, "'")
+        .replace(/&#8211;/g, "-")
+        .replace(/&#8212;/g, "-")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&#\d+;/g, "")
+        .replace(/&[a-z]+;/g, "");
+    }
+    if (bubbleText) {
+      bubbleText = bubbleText
+        .replace(/&#039;/g, "'")
+        .replace(/&#8211;/g, "-")
+        .replace(/&#8212;/g, "-")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#\d+;/g, "")
+        .replace(/&[a-z]+;/g, "");
+    }
+
     // Validate opener using Gemini's chosen asset
     // Only fall back to candidates[0] if opener already failed
     const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
@@ -872,15 +896,13 @@ Return only valid JSON, nothing else:
       opener = opener.replace(/([^.!?])\s*\[/g, "$1. [").replace(/([.!?])\s*\.\s*\[/g, "$1 [");
     }
 
-    // Enforce maximum 2 sentences before the markdown link
+    // Enforce maximum 1 prose sentence before the markdown link
     if (opener) {
-      var sentences = opener.split(/(?<=[.!?])\s+(?=[A-Z])/);
-      if (sentences.length > 2) {
-        // Keep only the last sentence (the link) and the
-        // most compelling sentence before it
-        var linkSentence = sentences[sentences.length - 1];
-        var firstSentence = sentences[0];
-        opener = firstSentence.trim() + " " + linkSentence.trim();
+      const linkMatch = opener.match(/\[.*?\]\(.*?\)/);
+      const prose = opener.replace(/\[.*?\]\(.*?\)/g, "").trim();
+      const sentences = prose.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+      if (sentences.length > 1) {
+        opener = sentences[0].trim() + (linkMatch ? " " + linkMatch[0] : "");
       }
     }
 
