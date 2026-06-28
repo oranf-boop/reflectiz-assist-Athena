@@ -792,6 +792,8 @@ Referral source: ${referralSource || "direct"}
 Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" -> ") : (pagesViewed || currentPageUrl)}
 Time on page: ${timeOnPage || 0} seconds
 
+**SENTENCE 1 RULE: Must contain one specific number, statistic, fine amount, company name, or named threat from the candidate content. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". Lead with the most compelling specific fact.**
+
 CANDIDATE NEXT STEPS (pick the ONE best fit for THIS specific visitor, based on geo, referral source, and journey):
 ${candidateList}
 
