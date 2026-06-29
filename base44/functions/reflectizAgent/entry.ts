@@ -594,8 +594,22 @@ Deno.serve(async (req) => {
       if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
 
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
+      if (isPaidSearch) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
+
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
-      if (isPaidSearch || isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
+      if (isComparisonPage) {
+        try {
+          const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
+          const pageCategories = (pageRecord?.[0]?.categories || []).filter(c => c !== "comparison");
+          const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "financial", "healthcare"];
+          const matched = CATEGORY_PRIORITY.find(c => pageCategories.includes(c));
+          if (matched) return { category: matched, reason: "comparison-dynamic" };
+        } catch (e) {
+          console.error("Comparison category lookup failed:", e.message);
+        }
+        return { category: "low-context", reason: "comparison-fallback" };
+      }
 
 
       const isCaseStudy = url.includes("/customers/");
