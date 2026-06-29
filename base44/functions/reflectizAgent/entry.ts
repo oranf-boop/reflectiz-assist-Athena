@@ -629,7 +629,8 @@ Deno.serve(async (req) => {
       const isPCI = url.includes("pci") || url.includes("compliance") || url.includes("dss");
       const isMagecart = url.includes("magecart") || url.includes("skimming");
       const isSupplyChain = url.includes("supply-chain") || url.includes("supply_chain") || url.includes("security-hub");
-      const isPrivacy = url.includes("privacy") || url.includes("gdpr") || url.includes("ccpa");
+      const isConsent = url.includes("consent") || url.includes("cookie-banner") || url.includes("shein") || url.includes("ccpa");
+      const isPrivacy = url.includes("privacy") || url.includes("gdpr");
       const isAI = url.includes("ai-supply") || url.includes("ai-attack") || url.includes("ai-retail");
       const isRetail = url.includes("ecommerce") || url.includes("retail") || url.includes("shopify");
       const isFinancial = url.includes("financial") || url.includes("finance") || url.includes("banking") || url.includes("dora");
@@ -652,10 +653,11 @@ Deno.serve(async (req) => {
       }
 
       if (isHealthcare) return { category: "healthcare", reason: "healthcare" };
-      if (isPrivacy) return { category: "privacy", reason: "privacy" };
       if (isPCI) return { category: "pci", reason: "pci" };
       if (isMagecart) return { category: "magecart", reason: "magecart" };
       if (isSupplyChain) return { category: "supply-chain", reason: "supply-chain" };
+      if (isConsent) return { category: "consent", reason: "consent" };
+      if (isPrivacy) return { category: "privacy", reason: "privacy" };
       if (isAI) return { category: "ai-threats", reason: "ai" };
       if (isRetail) return { category: "retail", reason: "retail" };
       if (isFinancial) return { category: "financial", reason: "financial" };
@@ -691,8 +693,9 @@ Deno.serve(async (req) => {
         return { category: "low-context", reason: "blog-fallback" };
       }
 
-      const isPentest = url.includes("offensive-hub") || url.includes("pentest") || url.includes("offensive");
-      if (isPentest) return { category: "pentest", reason: "pentest" };
+      if (url.includes("offensive-hub") || url.includes("pentest") || url.includes("offensive")) {
+        return { category: "pentest", reason: "pentest" };
+      }
 
       return { category: "low-context", reason: "default" };
     }
@@ -860,7 +863,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}
+${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
