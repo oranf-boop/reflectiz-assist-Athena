@@ -599,8 +599,19 @@ Deno.serve(async (req) => {
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
       if (isComparisonPage) {
         try {
-          const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
+          const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          // Step 1: check if other comparison pages exist — use those as the primary candidate pool
+          const allComparisons = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
+          const otherComparisonPages = allComparisons.filter(p =>
+            Array.isArray(p.categories) &&
+            p.categories.includes("comparison") &&
+            p.pageUrl.replace(/\/$/, "") + "/" !== normalizedCurrentUrl
+          );
+          if (otherComparisonPages.length > 0) {
+            return { category: "comparison", reason: "comparison-pool" };
+          }
+          // Step 2: fall back to stripping "comparison" and routing via remaining categories
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedCurrentUrl });
           const pageCategories = (pageRecord?.[0]?.categories || []).filter(c => c !== "comparison");
           const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "financial", "healthcare"];
           const matched = CATEGORY_PRIORITY.find(c => pageCategories.includes(c));
@@ -805,7 +816,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer case study. Write an opener that references a next logical step — a relevant technical resource, compliance guide, or data insight — not another case study.\n" : ""}${(currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}
+${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer case study. Write an opener that references a next logical step — a relevant technical resource, compliance guide, or data insight — not another case study.\n" : ""}${(currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
