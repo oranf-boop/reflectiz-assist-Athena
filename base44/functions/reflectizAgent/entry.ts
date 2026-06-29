@@ -624,6 +624,23 @@ Deno.serve(async (req) => {
       }
 
 
+      // T11 FIX: DB categories take priority over URL slug heuristics for all non-comparison, non-case-study pages
+      const isHomepageUrl = url.replace(/\/$/, "") === "https://www.reflectiz.com";
+      if (!isHomepageUrl) {
+        try {
+          const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
+          const dbCategories = pageRecord?.[0]?.categories;
+          if (Array.isArray(dbCategories) && dbCategories.length > 0) {
+            const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "consent", "privacy", "ai-threats", "retail", "financial", "healthcare", "pentest", "comparison", "low-context"];
+            const matched = CATEGORY_PRIORITY.find(c => dbCategories.includes(c));
+            if (matched) return { category: matched, reason: "db-categories" };
+          }
+        } catch (e) {
+          console.error("DB category priority lookup failed:", e.message);
+        }
+      }
+
       const isCaseStudy = url.includes("/customers/");
       const isHealthcare = url.includes("healthcare") || url.includes("hipaa");
       const isPCI = url.includes("pci") || url.includes("compliance") || url.includes("dss");
@@ -664,7 +681,7 @@ Deno.serve(async (req) => {
       if (isPlatform) return { category: "low-context", reason: "platform" };
       if (isBlog) {
         // BUG 3 FIX: panel/webinar pages get priority routing to other panel/event pages
-        if (url.includes("live-panel-discussion") || url.includes("panel-discussion")) {
+        if (url.includes("live-panel-discussion") || url.includes("panel-discussion") || url.includes("/webinar") || url.includes("webinar-")) {
           try {
             const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
             const otherPanelPages = allPages.filter(p =>
@@ -863,7 +880,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
+${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
