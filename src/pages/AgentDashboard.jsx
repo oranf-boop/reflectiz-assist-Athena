@@ -9,6 +9,7 @@ import SegmentTables from "@/components/dashboard/SegmentTables";
 import LeadsView from "@/components/dashboard/LeadsView";
 import DateFilter from "@/components/dashboard/DateFilter";
 import PendingAgentUpdates from "@/components/dashboard/PendingAgentUpdates";
+import VisitsTable from "@/components/dashboard/VisitsTable";
 
 const NAVY = "#103a77";
 
@@ -197,6 +198,10 @@ export default function AgentDashboard() {
             </div>
 
 
+            {/* Visits Table */}
+            <div className="mb-8">
+              <VisitsTable conversations={filteredConversations} />
+            </div>
           </>
         )}
       </div>
