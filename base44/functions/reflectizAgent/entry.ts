@@ -544,9 +544,10 @@ Deno.serve(async (req) => {
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
       try {
-        const allContent = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
+        // BUG 1 FIX: fetch ALL active records and filter in-memory — DB array-field queries are unreliable
+        const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
         const matches = allContent.filter(page =>
-          page.isActive !== false &&
+          page.isActive === true &&
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
           page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
@@ -660,6 +661,23 @@ Deno.serve(async (req) => {
       if (isFinancial) return { category: "financial", reason: "financial" };
       if (isPlatform) return { category: "low-context", reason: "platform" };
       if (isBlog) {
+        // BUG 3 FIX: panel/webinar pages get priority routing to other panel/event pages
+        if (url.includes("live-panel-discussion") || url.includes("panel-discussion")) {
+          try {
+            const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+            const otherPanelPages = allPages.filter(p =>
+              p.isActive === true &&
+              p.pageUrl !== (currentPageUrl || "") &&
+              p.pageUrl.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "") &&
+              (p.pageUrl.includes("panel-discussion") || p.pageUrl.includes("live-panel") || p.pageUrl.includes("/webinar/") || p.pageUrl.includes("/events/"))
+            );
+            if (otherPanelPages.length > 0) {
+              return { category: "panel", reason: "panel-priority" };
+            }
+          } catch (e) {
+            console.error("Panel priority lookup failed:", e.message);
+          }
+        }
         try {
           const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
           const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
@@ -706,7 +724,33 @@ Deno.serve(async (req) => {
     let isMultiCandidate;
     let candidates;
 
-    {
+    // BUG 3 FIX: panel routing — fetch panel/event pages directly (not a DB category)
+    if (routing.reason === "panel-priority") {
+      try {
+        const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+        const panelPages = allPages.filter(p =>
+          p.isActive === true &&
+          p.pageUrl.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "") &&
+          (p.pageUrl.includes("panel-discussion") || p.pageUrl.includes("live-panel") || p.pageUrl.includes("/webinar/") || p.pageUrl.includes("/events/")) &&
+          p.pageContent && p.pageContent.length > 400
+        ).map(p => ({
+          url: p.pageUrl,
+          label: deriveLabel(p.pageTitle, p.pageType),
+          pageContent: p.pageContent,
+          pageType: p.pageType,
+          ageTier: 0,
+        }));
+        if (panelPages.length > 0) {
+          candidates = panelPages;
+          isMultiCandidate = panelPages.length >= 2;
+          selectedAsset = isMultiCandidate ? null : panelPages[0];
+        }
+      } catch (e) {
+        console.error("Panel candidate fetch failed:", e.message);
+      }
+    }
+
+    if (!candidates) {
       const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
 
       if (matchingAssets.length >= 2) {
@@ -816,7 +860,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer case study. Write an opener that references a next logical step — a relevant technical resource, compliance guide, or data insight — not another case study.\n" : ""}${(currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}
+${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
