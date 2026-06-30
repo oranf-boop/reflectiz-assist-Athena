@@ -751,19 +751,13 @@ Deno.serve(async (req) => {
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
-      // Reject stale cache entries where the opener links back to the current page
       const normalizedCurrent = normalizeUrl(currentPageUrl);
-      const cachedUrls = (cached.opener.match(/https?:\/\/[^\s)\]"']+/g) || []);
-      const linksSamePage = cachedUrls.some(u => normalizeUrl(u) === normalizedCurrent);
+      const openerText = cached.opener || "";
+      const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
       if (!linksSamePage) {
-        // Sanitize HTML entities that may have been stored before sanitization was added
-        const sanitizeCache = (s) => (s || "")
-          .replace(/&#8211;/g, "-").replace(/&#8212;/g, "-").replace(/&#039;/g, "'")
-          .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-          .replace(/&#\d+;/g, "").replace(/&[a-z]+;/g, "");
-        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText), sessionId }), { headers: CORS_HEADERS });
+        const sanitizeCache = (s) => (s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-");
+        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
       }
-      // Fall through to regenerate — stale entry will be overwritten below
     }
 
     let selectedAsset;
