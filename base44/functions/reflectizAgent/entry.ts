@@ -844,17 +844,11 @@ Deno.serve(async (req) => {
     let assetInsight = "";
     let candidateInsights = [];
 
-    function extractStatDenseSegment(raw) {
-      const cleaned = sanitizeContent(raw);
-      const paras = cleaned.split(/\n+/).filter(p => p.trim().length >= 80);
-      return paras.length > 0 ? paras.slice(0, 6).join(" ").slice(0, 1500) : cleaned.slice(0, 1500);
-    }
-
     if (!isMultiCandidate) {
       // pageContent is already on the candidate from getCandidatesForCategory; fall back to DB fetch if missing
       assetInsight = selectedAsset.pageContent
-        ? extractStatDenseSegment(selectedAsset.pageContent)
-        : extractStatDenseSegment(await fetchInsight(selectedAsset.url));
+        ? sanitizeContent(selectedAsset.pageContent).slice(0, 1500)
+        : sanitizeContent(await fetchInsight(selectedAsset.url)).slice(0, 1500);
     } else {
       function shuffleWithinTiers(arr) {
         const tiers = {};
