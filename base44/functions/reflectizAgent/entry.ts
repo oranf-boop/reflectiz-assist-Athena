@@ -592,6 +592,12 @@ Deno.serve(async (req) => {
       const ref = (referralSource || "").toLowerCase();
       const geoLower = (geo || "").toLowerCase();
 
+      // PANEL PRIORITY: panel/webinar URL detection must run FIRST, before the T11 DB-category
+      // override, otherwise panel pages tagged categories:["pci"] route to "pci" and panel routing never fires.
+      if (url.includes("panel-discussion") || url.includes("live-panel") || url.includes("/webinar/")) {
+        return { category: "panel", reason: "panel-priority" };
+      }
+
       if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
 
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
