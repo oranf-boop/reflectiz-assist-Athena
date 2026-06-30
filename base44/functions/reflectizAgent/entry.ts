@@ -296,7 +296,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 function formatRetrievedPages(pages) {
   if (!pages || pages.length === 0) return "";
   const lines = pages.map(p =>
-    `Page: ${p.pageTitle || "(no title)"}
+    `Page: ${sanitizeContent(p.pageTitle) || "(no title)"}
 URL: ${p.pageUrl}
 Type: ${p.pageType || "other"}
 Content: ${(p.pageContent || "").slice(0, 300)}
@@ -311,6 +311,15 @@ function sanitizeContent(text) {
     .replace(/&#\d+;/g, " ")
     .replace(/&[a-z]+;/g, " ")
     .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeUrl(url) {
+  if (!url) return "";
+  return url
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, "")
+    .replace(/\/$/, "")
     .trim();
 }
 
@@ -507,7 +516,7 @@ Deno.serve(async (req) => {
         "other": "Learn more"
       };
       const base = typeLabels[pageType] || "Learn more";
-      return pageTitle ? `${base}: ${pageTitle.split(/[\u2013\u2014|-]/)[0].trim()}` : base;
+      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/[\u2013\u2014|-]/)[0].trim()}` : base;
     }
 
     const isTaxonomyPage = (url) => {
@@ -542,7 +551,6 @@ Deno.serve(async (req) => {
     };
 
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
-      const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "");
       try {
         // BUG 1 FIX: fetch ALL active records and filter in-memory — DB array-field queries are unreliable
         const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
@@ -550,7 +558,7 @@ Deno.serve(async (req) => {
           page.isActive === true &&
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
-          page.pageUrl.replace(/\/$/, "") !== normalizedCurrentUrl &&
+          normalizeUrl(page.pageUrl) !== normalizeUrl(currentPageUrl) &&
           page.pageContent && page.pageContent.length > 400 &&
           !isTaxonomyPage(page.pageUrl) &&
           !isHubPage(page.pageUrl) &&
@@ -570,9 +578,9 @@ Deno.serve(async (req) => {
         });
         aged.sort((a, b) => a.ageTier - b.ageTier);
 
-        // Always strip the current page itself from candidates (belt-and-suspenders over normalizedCurrentUrl)
+        // Always strip the current page itself from candidates
         const filtered = aged.filter(c =>
-          c.url.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "")
+          normalizeUrl(c.url) !== normalizeUrl(currentPageUrl)
         );
 
         // Exclude other case-study pages when visitor is already on a case study
@@ -606,13 +614,12 @@ Deno.serve(async (req) => {
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
       if (isComparisonPage) {
         try {
-          const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
           // Step 1: check if other comparison pages exist — use those as the primary candidate pool
           const allComparisons = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
           const otherComparisonPages = allComparisons.filter(p =>
             Array.isArray(p.categories) &&
             p.categories.includes("comparison") &&
-            p.pageUrl.replace(/\/$/, "") + "/" !== normalizedCurrentUrl
+            normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl)
           );
           if (otherComparisonPages.length > 0) {
             return { category: "comparison", reason: "comparison-pool" };
@@ -690,11 +697,11 @@ Deno.serve(async (req) => {
         if (url.includes("live-panel-discussion") || url.includes("panel-discussion") || url.includes("/webinar") || url.includes("webinar-")) {
           try {
             const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+            const panelKws = ["panel-discussion", "live-panel", "/webinar/", "/events/"];
             const otherPanelPages = allPages.filter(p =>
               p.isActive === true &&
-              p.pageUrl !== (currentPageUrl || "") &&
-              p.pageUrl.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "") &&
-              (p.pageUrl.includes("panel-discussion") || p.pageUrl.includes("live-panel") || p.pageUrl.includes("/webinar/") || p.pageUrl.includes("/events/"))
+              normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl) &&
+              panelKws.some(kw => (p.pageUrl || "").includes(kw))
             );
             if (otherPanelPages.length > 0) {
               return { category: "panel", reason: "panel-priority" };
@@ -750,14 +757,15 @@ Deno.serve(async (req) => {
     let isMultiCandidate;
     let candidates;
 
-    // BUG 3 FIX: panel routing — fetch panel/event pages directly (not a DB category)
+    // Panel routing — fetch companion panel/event pages dynamically from DB
     if (routing.reason === "panel-priority") {
       try {
         const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+        const panelKeywords = ["panel-discussion", "live-panel", "/webinar/", "/events/"];
         const panelPages = allPages.filter(p =>
           p.isActive === true &&
-          p.pageUrl.replace(/\/$/, "") !== (currentPageUrl || "").replace(/\/$/, "") &&
-          (p.pageUrl.includes("panel-discussion") || p.pageUrl.includes("live-panel") || p.pageUrl.includes("/webinar/") || p.pageUrl.includes("/events/")) &&
+          normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl) &&
+          panelKeywords.some(kw => (p.pageUrl || "").includes(kw)) &&
           p.pageContent && p.pageContent.length > 400
         ).map(p => ({
           url: p.pageUrl,
@@ -786,16 +794,21 @@ Deno.serve(async (req) => {
         candidates = matchingAssets;
         isMultiCandidate = false;
       } else {
-        // Fallback 1: low-context category
-        let fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
-        // Fallback 2: hardcoded registration page
-        if (fallback.length === 0) {
-          fallback = [{ url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", pageContent: "" }];
-        }
+        // Fallback: only pages explicitly tagged low-context in DB
+        const fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
         candidates = fallback;
         isMultiCandidate = false;
       }
       selectedAsset = isMultiCandidate ? null : candidates[0];
+    }
+
+    // Safety net: if no candidates found at all, return hardcoded registration opener
+    if (!candidates || candidates.length === 0) {
+      return new Response(JSON.stringify({
+        reply: "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)",
+        bubbleText: "See your full web exposure now",
+        sessionId
+      }), { headers: CORS_HEADERS });
     }
 
     async function fetchInsight(url) {
@@ -865,6 +878,7 @@ WRITE TWO THINGS:
 1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
 
 2. opener: Exactly 2 sentences.
+REQUIRED: Your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Do not use vague openers.
 Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page -- extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 1000)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
 Sentence 2: Must be exactly this markdown link with no extra words before it: [${selectedAsset.label}](${selectedAsset.url})
 
@@ -895,7 +909,7 @@ Referral source: ${referralSource || "direct"}
 Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" -> ") : (pagesViewed || currentPageUrl)}
 Time on page: ${timeOnPage || 0} seconds
 
-**SENTENCE 1 RULE: Must contain one specific number, statistic, fine amount, company name, or named threat from the candidate content. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". Lead with the most compelling specific fact.**
+**SENTENCE 1 RULE: REQUIRED — your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
 
 CANDIDATE NEXT STEPS (pick the ONE best fit for THIS specific visitor, based on geo, referral source, and journey):
 ${candidateList}
