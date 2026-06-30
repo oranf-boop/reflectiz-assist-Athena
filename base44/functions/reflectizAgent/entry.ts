@@ -599,6 +599,7 @@ Deno.serve(async (req) => {
       const url = (currentPageUrl || "").toLowerCase();
       const ref = (referralSource || "").toLowerCase();
       const geoLower = (geo || "").toLowerCase();
+      const normalizedCurrentUrl = normalizeUrl(currentPageUrl);
 
       // PANEL PRIORITY: panel/webinar URL detection must run FIRST, before the T11 DB-category
       // override, otherwise panel pages tagged categories:["pci"] route to "pci" and panel routing never fires.
