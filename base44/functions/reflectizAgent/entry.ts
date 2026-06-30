@@ -224,7 +224,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
   const scored = reflectizPages.map(page => {
   const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
   const pageUrl = (page.pageUrl || "").toLowerCase();
-  const urlBoost = 0; // Current page excluded from RAG candidates, not boosted
+  const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
   const score = keywords.reduce((acc, kw) => {
     const matches = (text.match(new RegExp(kw, "g")) || []).length;
     return acc + matches;
@@ -625,8 +625,7 @@ Deno.serve(async (req) => {
             return { category: "comparison", reason: "comparison-pool" };
           }
           // Step 2: fall back to stripping "comparison" and routing via remaining categories
-          const normalizedUrlForLookup = (currentPageUrl || "").replace(/\/$/, "") + "/";
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrlForLookup });
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedCurrentUrl });
           const pageCategories = (pageRecord?.[0]?.categories || []).filter(c => c !== "comparison");
           const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "financial", "healthcare"];
           const matched = CATEGORY_PRIORITY.find(c => pageCategories.includes(c));
@@ -751,13 +750,7 @@ Deno.serve(async (req) => {
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
-      const normalizedCurrent = normalizeUrl(currentPageUrl);
-      const openerText = cached.opener || "";
-      const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
-      if (!linksSamePage) {
-        const sanitizeCache = (s) => (s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-");
-        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
-      }
+      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
     }
 
     let selectedAsset;
@@ -768,19 +761,13 @@ Deno.serve(async (req) => {
     if (routing.reason === "panel-priority") {
       try {
         const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
-        const panelKeywords = ["panel-discussion", "live-panel", "/webinar/"];
-        const securityEventKws = ["pci", "security", "compliance", "privacy", "supply", "pentest", "magecart", "threat", "breach", "risk"];
-        const panelPages = allPages.filter(p => {
-          if (!p.isActive || normalizeUrl(p.pageUrl) === normalizeUrl(currentPageUrl)) return false;
-          if (!p.pageContent || p.pageContent.length <= 400) return false;
-          const pUrl = (p.pageUrl || "").toLowerCase();
-          const pTitle = (p.pageTitle || "").toLowerCase();
-          if (panelKeywords.some(kw => pUrl.includes(kw))) return true;
-          if (pUrl.includes("/events/")) {
-            return securityEventKws.some(kw => pUrl.includes(kw) || pTitle.includes(kw));
-          }
-          return false;
-        }).map(p => ({
+        const panelKeywords = ["panel-discussion", "live-panel", "/webinar/", "/events/"];
+        const panelPages = allPages.filter(p =>
+          p.isActive === true &&
+          normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl) &&
+          panelKeywords.some(kw => (p.pageUrl || "").includes(kw)) &&
+          p.pageContent && p.pageContent.length > 400
+        ).map(p => ({
           url: p.pageUrl,
           label: deriveLabel(p.pageTitle, p.pageType),
           pageContent: p.pageContent,
@@ -864,7 +851,7 @@ Deno.serve(async (req) => {
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: sanitizeContent(c.pageContent).slice(0, 600)
+        insight: sanitizeContent(c.pageContent).slice(0, 200)
       }));
     }
 
@@ -1158,7 +1145,7 @@ Generate a natural one-sentence opening message that:
   const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs") || (currentPageUrl || "").includes("vs-reflectiz") || (currentPageUrl || "").includes("cside");
   if (currentPageUrl && !isComparisonPage) {
     const urlRegex = /https?:\/\/[^\s)\]"']+/g;
-    const normalize = normalizeUrl; // strips protocol, www, trailing slash — consistent with DB format
+    const normalize = (u) => u.replace(/\/$/, "").toLowerCase();
     const normalizedCurrentPage = normalize(currentPageUrl);
     reply = reply.replace(urlRegex, (foundUrl) => {
       if (normalize(foundUrl) === normalizedCurrentPage) {
