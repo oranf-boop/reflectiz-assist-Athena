@@ -119,7 +119,7 @@ When a visitor asks for an article, blog post, or reading material, always check
 ---
 
 TONE RULES:
-- NEVER use an em dash (—) anywhere in any response. This is a hard rule with no exceptions. Instead of an em dash use a comma, a period, or rewrite the sentence to avoid it entirely. Search your response before sending and replace any em dash with a comma or period.
+- NEVER use an em dash (â) anywhere in any response. This is a hard rule with no exceptions. Instead of an em dash use a comma, a period, or rewrite the sentence to avoid it entirely. Search your response before sending and replace any em dash with a comma or period.
 - No filler: "Great question", "Absolutely", "Certainly", "Of course", "Happy to help"
 - Never recap what the visitor just said
 - Never start a sentence with "I"
@@ -141,12 +141,12 @@ NEVER treat these as off-topic:
 
 For country or industry mentions: acknowledge it naturally and use it as context. Example: if visitor says "I am from Israel" respond with "Good to know, our EMEA team covers Israel specifically. What brings you to Reflectiz today?"
 
-For "what version are you" or "who made you" or similar meta questions: respond with "I am the Reflectiz website assistant. What can I help you with today?"
+For bwhat version are you" or "who made you" or similar meta questions: respond with "I am the Reflectiz website assistant. What can I help you with today?"
 
 ---
 
 FINANCIAL SERVICES RECOMMENDATION:
-When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ — but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
+When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ â but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
 
 const FORM_PAGES = ["/registration", "/free-trial", "/contact", "/careers", "/jobs"];
 
@@ -173,21 +173,21 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   // FIX 1: Translate Hebrew security terms to English before keyword extraction
   const hebrewKeywords = {
-    "שרשרת אספקה": "supply chain",
-    "שרשרת": "supply chain",
-    "אספקה": "supply chain",
-    "צד שלישי": "third party",
-    "סקריפט": "script",
-    "פיקסל": "pixel",
-    "מגקארט": "magecart",
-    "אבטחה": "security",
-    "ציות": "compliance",
-    "פרטיות": "privacy",
-    "סיכון": "risk",
-    "התקפה": "attack",
-    "מאמר": "article blog",
-    "מדריך": "guide",
-    "דוח": "report",
+    "×©×¨×©×¨×ª ××¡×¤×§×": "supply chain",
+    "×©×¨×©×¨×ª": "supply chain",
+    "××¡×¤×§×": "supply chain",
+    "×¦× ×©×××©×": "third party",
+    "×¡×§×¨××¤×": "script",
+    "×¤××§×¡×": "pixel",
+    "×××§××¨×": "magecart",
+    "×××××": "security",
+    "×¦×××ª": "compliance",
+    "×¤×¨××××ª": "privacy",
+    "×¡××××": "risk",
+    "××ª×§×¤×": "attack",
+    "××××¨": "article blog",
+    "×××¨××": "guide",
+    "×××": "report",
   };
   let searchQuery = query;
   Object.entries(hebrewKeywords).forEach(([hebrew, english]) => {
@@ -222,38 +222,38 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
   const recencySignals = ["upcoming", "register", "live", "join us", "may 2026", "june 2026", "july 2026"];
 
   const scored = reflectizPages.map(page => {
-  const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
-  const pageUrl = (page.pageUrl || "").toLowerCase();
-  const urlBoost = currentPageUrl && page.pageUrl === currentPageUrl ? 5 : 0;
-  const score = keywords.reduce((acc, kw) => {
-    const matches = (text.match(new RegExp(kw, "g")) || []).length;
-    return acc + matches;
-  }, 0);
+    const text = ((page.pageTitle || "") + " " + (page.pageContent || "")).toLowerCase();
+    const pageUrl = (page.pageUrl || "").toLowerCase();
+    const urlBoost = 0; // Current page excluded from RAG candidates, not boosted
+    const score = keywords.reduce((acc, kw) => {
+      const matches = (text.match(new RegExp(kw, "g")) || []).length;
+      return acc + matches;
+    }, 0);
 
-  const urlYearMatch = (page.pageUrl || "").match(/20(2[0-3])/);
-  const yearPenalty = urlYearMatch ? 25 : 0;
-  const longUrlPenalty = (page.pageUrl || "").length > 80 ? 10 : 0;
+    const urlYearMatch = (page.pageUrl || "").match(/20(2[0-3])/);
+    const yearPenalty = urlYearMatch ? 25 : 0;
+    const longUrlPenalty = (page.pageUrl || "").length > 80 ? 10 : 0;
 
-  const aiIntent = ["ai", "artificial intelligence", "machine learning", "future", "llm", "chatgpt"].some(kw => queryLower.includes(kw));
-  const aiBoost = aiIntent && (
-    pageUrl.includes("ai") ||
-    (page.pageTitle || "").toLowerCase().includes("ai") ||
-    (page.pageTitle || "").toLowerCase().includes("artificial")
-  ) ? 15 : 0;
+    const aiIntent = ["ai", "artificial intelligence", "machine learning", "future", "llm", "chatgpt"].some(kw => queryLower.includes(kw));
+    const aiBoost = aiIntent && (
+      pageUrl.includes("ai") ||
+      (page.pageTitle || "").toLowerCase().includes("ai") ||
+      (page.pageTitle || "").toLowerCase().includes("artificial")
+    ) ? 15 : 0;
 
     const recencyBoost = hasEventIntent && recencySignals.some(sig => text.includes(sig)) ? 20 : 0;
 
     const companyCaseStudyBoost =
       (page.pageType === "case-study" || page.pageType === "customers") &&
-      keywords.some(kw =>
-        (page.pageTitle || "").toLowerCase().includes(kw) ||
-        pageUrl.includes(kw)
-      ) ? 10 : 0;
+        keywords.some(kw =>
+          (page.pageTitle || "").toLowerCase().includes(kw) ||
+          pageUrl.includes(kw)
+        ) ? 10 : 0;
 
     // FIX 1: boost webinar/event pages
     const eventBoost = hasEventIntent &&
       (page.pageType === "webinar" || pageUrl.includes("/events/") || pageUrl.includes("/webinar/") || pageUrl.includes("/learning-hub/") ||
-       (page.pageTitle || "").toLowerCase().includes("webinar") || (page.pageTitle || "").toLowerCase().includes("panel"))
+        (page.pageTitle || "").toLowerCase().includes("webinar") || (page.pageTitle || "").toLowerCase().includes("panel"))
       ? 20 : 0;
 
     // FIX 4: boost blog/learning hub pages on content topic queries
@@ -442,7 +442,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
         body: JSON.stringify(updatedConv),
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
@@ -483,7 +483,7 @@ Deno.serve(async (req) => {
       currentPageUrl.includes("reflectiz.com")
     );
 
-    // ASSET_LIBRARY kept as rollback reference — no longer active in code path
+    // ASSET_LIBRARY kept as rollback reference â no longer active in code path
     // const ASSET_LIBRARY = [
     //   { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", categories: ["retail", "supply-chain"] },
     //   { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", categories: ["pci"] },
@@ -546,13 +546,13 @@ Deno.serve(async (req) => {
     const isPRPage = (url) => {
       const u = (url || "").toLowerCase();
       return u.includes("/media/") ||
-             u.includes("/about/") ||
-             u.includes("/partners/");
+        u.includes("/about/") ||
+        u.includes("/partners/");
     };
 
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       try {
-        // BUG 1 FIX: fetch ALL active records and filter in-memory — DB array-field queries are unreliable
+        // BUG 1 FIX: fetch ALL active records and filter in-memory â DB array-field queries are unreliable
         const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
         const matches = allContent.filter(page =>
           page.isActive === true &&
@@ -599,7 +599,6 @@ Deno.serve(async (req) => {
       const url = (currentPageUrl || "").toLowerCase();
       const ref = (referralSource || "").toLowerCase();
       const geoLower = (geo || "").toLowerCase();
-      const normalizedCurrentUrl = normalizeUrl(currentPageUrl);
 
       // PANEL PRIORITY: panel/webinar URL detection must run FIRST, before the T11 DB-category
       // override, otherwise panel pages tagged categories:["pci"] route to "pci" and panel routing never fires.
@@ -615,7 +614,7 @@ Deno.serve(async (req) => {
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
       if (isComparisonPage) {
         try {
-          // Step 1: check if other comparison pages exist — use those as the primary candidate pool
+          // Step 1: check if other comparison pages exist â use those as the primary candidate pool
           const allComparisons = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
           const otherComparisonPages = allComparisons.filter(p =>
             Array.isArray(p.categories) &&
@@ -626,7 +625,8 @@ Deno.serve(async (req) => {
             return { category: "comparison", reason: "comparison-pool" };
           }
           // Step 2: fall back to stripping "comparison" and routing via remaining categories
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedCurrentUrl });
+          const normalizedUrlForLookup = (currentPageUrl || "").replace(/\/$/, "") + "/";
+          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrlForLookup });
           const pageCategories = (pageRecord?.[0]?.categories || []).filter(c => c !== "comparison");
           const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "financial", "healthcare"];
           const matched = CATEGORY_PRIORITY.find(c => pageCategories.includes(c));
@@ -747,28 +747,48 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
     }
 
-    // Cache check — only for non-DIRECT_REGISTRATION pages
+    // Cache check â only for non-DIRECT_REGISTRATION pages
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
-      return new Response(JSON.stringify({ reply: cached.opener, bubbleText: cached.bubbleText || "", sessionId }), { headers: CORS_HEADERS });
+      // Reject stale cache entries where the opener links back to the current page
+      const normalizedCurrent = normalizeUrl(currentPageUrl);
+      const cachedUrls = (cached.opener.match(/https?:\/\/[^\s)\]"']+/g) || []);
+      const linksSamePage = cachedUrls.some(u => normalizeUrl(u) === normalizedCurrent);
+      if (!linksSamePage) {
+        // Sanitize HTML entities that may have been stored before sanitization was added
+        const sanitizeCache = (s) => (s || "")
+          .replace(/&#8211;/g, "-").replace(/&#8212;/g, "-").replace(/&#039;/g, "'")
+          .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+          .replace(/&#\d+;/g, "").replace(/&[a-z]+;/g, "");
+        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText), sessionId }), { headers: CORS_HEADERS });
+      }
+      // Fall through to regenerate â stale entry will be overwritten below
     }
 
     let selectedAsset;
     let isMultiCandidate;
     let candidates;
 
-    // Panel routing — fetch companion panel/event pages dynamically from DB
+    // Panel routing â fetch companion panel/event pages dynamically from DB
     if (routing.reason === "panel-priority") {
       try {
         const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
-        const panelKeywords = ["panel-discussion", "live-panel", "/webinar/", "/events/"];
-        const panelPages = allPages.filter(p =>
-          p.isActive === true &&
-          normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl) &&
-          panelKeywords.some(kw => (p.pageUrl || "").includes(kw)) &&
-          p.pageContent && p.pageContent.length > 400
-        ).map(p => ({
+        const panelKeywords = ["panel-discussion", "live-panel", "/webinar/"];
+        const securityEventKws = ["pci", "security", "compliance", "privacy", "supply", "pentest", "magecart", "threat", "breach", "risk"];
+        const panelPages = allPages.filter(p => {
+          if (!p.isActive || normalizeUrl(p.pageUrl) === normalizeUrl(currentPageUrl)) return false;
+          if (!p.pageContent || p.pageContent.length <= 400) return false;
+          const pUrl = (p.pageUrl || "").toLowerCase();
+          const pTitle = (p.pageTitle || "").toLowerCase();
+          // Core panel/webinar URLs always qualify
+          if (panelKeywords.some(kw => pUrl.includes(kw))) return true;
+          // /events/ pages only qualify if they are security-relevant
+          if (pUrl.includes("/events/")) {
+            return securityEventKws.some(kw => pUrl.includes(kw) || pTitle.includes(kw));
+          }
+          return false;
+        }).map(p => ({
           url: p.pageUrl,
           label: deriveLabel(p.pageTitle, p.pageType),
           pageContent: p.pageContent,
@@ -826,11 +846,18 @@ Deno.serve(async (req) => {
     let assetInsight = "";
     let candidateInsights = [];
 
+    function extractStatDenseSegment(raw) {
+      const cleaned = sanitizeContent(raw);
+      // Skip short lines (nav/title/header boilerplate); extract first dense paragraphs
+      const paras = cleaned.split(/\n+/).filter(p => p.trim().length >= 80);
+      return paras.length > 0 ? paras.slice(0, 6).join(" ").slice(0, 1500) : cleaned.slice(0, 1500);
+    }
+
     if (!isMultiCandidate) {
       // pageContent is already on the candidate from getCandidatesForCategory; fall back to DB fetch if missing
       assetInsight = selectedAsset.pageContent
-        ? sanitizeContent(selectedAsset.pageContent).slice(0, 1500)
-        : sanitizeContent(await fetchInsight(selectedAsset.url)).slice(0, 1500);
+        ? extractStatDenseSegment(selectedAsset.pageContent)
+        : extractStatDenseSegment(await fetchInsight(selectedAsset.url));
     } else {
       function shuffleWithinTiers(arr) {
         const tiers = {};
@@ -852,7 +879,7 @@ Deno.serve(async (req) => {
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: sanitizeContent(c.pageContent).slice(0, 200)
+        insight: sanitizeContent(c.pageContent).slice(0, 600)
       }));
     }
 
@@ -901,7 +928,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context — if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator — a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
+${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context â if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator â a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
@@ -910,7 +937,7 @@ Referral source: ${referralSource || "direct"}
 Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" -> ") : (pagesViewed || currentPageUrl)}
 Time on page: ${timeOnPage || 0} seconds
 
-**SENTENCE 1 RULE: REQUIRED — your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
+**SENTENCE 1 RULE: REQUIRED â your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
 
 CANDIDATE NEXT STEPS (pick the ONE best fit for THIS specific visitor, based on geo, referral source, and journey):
 ${candidateList}
@@ -991,8 +1018,8 @@ Return only valid JSON, nothing else:
     // Validate opener using Gemini's chosen asset
     // Only fall back to candidates[0] if opener already failed
     const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
-    if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset || 
-        !opener.includes(validationAsset.url.replace(/\/$/, ""))) {
+    if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset ||
+      !opener.includes(validationAsset.url.replace(/\/$/, ""))) {
       opener = null;
     }
 
@@ -1008,7 +1035,7 @@ Return only valid JSON, nothing else:
 
     // Em-dash stripping
     if (opener) {
-      opener = opener.replace(/—/g, ",").replace(/--/g, ",").replace(/–/g, ",");
+      opener = opener.replace(/â/g, ",").replace(/--/g, ",").replace(/â/g, ",");
     }
 
     // Sentence boundary enforcement: always a period before markdown links
@@ -1045,7 +1072,7 @@ Return only valid JSON, nothing else:
         opener,
         bubbleText,
         generatedAt: new Date().toISOString()
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
@@ -1083,9 +1110,9 @@ Generate a natural one-sentence opening message that:
       messages: [{ role: "user", content: returningPrompt }],
     });
 
-    const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/—/g, ",");
+    const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/â/g, ",");
 
-    // No DB write for INIT — the first real visitor message will create the record and fire slackAlert
+    // No DB write for INIT â the first real visitor message will create the record and fire slackAlert
     return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
   }
 
@@ -1102,7 +1129,7 @@ Generate a natural one-sentence opening message that:
     systemPrompt = agentConfigs[0].systemPrompt;
   }
 
-  // Language detection: Hebrew characters → Hebrew; Israel geo without Hebrew → English; otherwise use browser language
+  // Language detection: Hebrew characters â Hebrew; Israel geo without Hebrew â English; otherwise use browser language
   const containsHebrew = /[\u0590-\u05FF]/.test(message);
   const effectiveLanguage = containsHebrew ? "he" : (geo === "Israel" ? "en" : language);
 
@@ -1129,10 +1156,10 @@ Generate a natural one-sentence opening message that:
 
   const rawReply = response.content[0]?.text ?? "";
   let reply = rawReply
-    .replace(/—/g, ",")
+    .replace(/â/g, ",")
     .replace(/ -- /g, ", ")
     .replace(/--/g, ",")
-    .replace(/–/g, ",");
+    .replace(/â/g, ",");
 
   reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
   reply = reply.replace(/www\.https:\/\//g, "https://");
@@ -1146,7 +1173,7 @@ Generate a natural one-sentence opening message that:
   const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs") || (currentPageUrl || "").includes("vs-reflectiz") || (currentPageUrl || "").includes("cside");
   if (currentPageUrl && !isComparisonPage) {
     const urlRegex = /https?:\/\/[^\s)\]"']+/g;
-    const normalize = (u) => u.replace(/\/$/, "").toLowerCase();
+    const normalize = normalizeUrl; // strips protocol, www, trailing slash â consistent with DB format
     const normalizedCurrentPage = normalize(currentPageUrl);
     reply = reply.replace(urlRegex, (foundUrl) => {
       if (normalize(foundUrl) === normalizedCurrentPage) {
@@ -1168,8 +1195,8 @@ Generate a natural one-sentence opening message that:
   function isCleanMessage(m) {
     const c = m.content || "";
     return !c.includes("[RELEVANT WEBSITE CONTENT]") &&
-           !c.includes("[Visitor language") &&
-           !c.includes("[Visitor geo");
+      !c.includes("[Visitor language") &&
+      !c.includes("[Visitor geo");
   }
 
   const cleanTranscript = messages
