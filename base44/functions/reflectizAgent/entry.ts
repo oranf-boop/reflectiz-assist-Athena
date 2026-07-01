@@ -647,7 +647,7 @@ Return only valid JSON:
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
 
       // Cache this result
-      if (isValidPageUrl && opener && bubbleText) {
+      if (opener && bubbleText) {
         await base44.asServiceRole.entities.PageOpeners.create({
           pageUrl: currentPageUrl,
           opener,
