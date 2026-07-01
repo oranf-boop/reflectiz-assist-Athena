@@ -148,6 +148,29 @@ For bwhat version are you" or "who made you" or similar meta questions: respond 
 FINANCIAL SERVICES RECOMMENDATION:
 When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ -- but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
 
+// Blog articles that have a corresponding gated learning-hub asset.
+// When a visitor is on one of these blogs, recommend the hub page instead of a random article.
+// Key = blog URL (trailing slash canonical), Value = learning-hub URL
+const BLOG_TO_HUB_MAP = {
+  "https://www.reflectiz.com/blog/web-exposure-2026-article/": "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/",
+  "https://www.reflectiz.com/blog/javascript-injection-playbook/": "https://www.reflectiz.com/learning-hub/javascript-injection-playbook/",
+  "https://www.reflectiz.com/blog/secure-vibe-coding/": "https://www.reflectiz.com/learning-hub/secure-vibe-coding/",
+  "https://www.reflectiz.com/blog/tiktok-pixel-privacy-case-study/": "https://www.reflectiz.com/learning-hub/tiktok-pixel-privacy/",
+  "https://www.reflectiz.com/blog/evil-twin-checkout-case-study/": "https://www.reflectiz.com/learning-hub/evil-twin-checkout-case-study/",
+  "https://www.reflectiz.com/blog/chatbots-risk-exposure/": "https://www.reflectiz.com/learning-hub/chatbots-risk-exposure/",
+  "https://www.reflectiz.com/blog/pci-dss-solution-assessment-integrity360/": "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/",
+  "https://www.reflectiz.com/blog/ai-typosquatting-guide/": "https://www.reflectiz.com/learning-hub/ai-typosquatting-guide/",
+  "https://www.reflectiz.com/blog/iframe-security-guide/": "https://www.reflectiz.com/learning-hub/iframe-security-guide/",
+  "https://www.reflectiz.com/blog/ctem-guide-expert-ciso/": "https://www.reflectiz.com/learning-hub/ciso-guide-ctem/",
+  "https://www.reflectiz.com/blog/ctem-divide-market-research-article/": "https://www.reflectiz.com/learning-hub/ctem-divide-2026-research/",
+  "https://www.reflectiz.com/blog/malicious-comment-case-study/": "https://www.reflectiz.com/learning-hub/malicious-comment-case-study/",
+  "https://www.reflectiz.com/blog/ai-supply-chain/": "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/",
+  "https://www.reflectiz.com/blog/proactive-web-security/": "https://www.reflectiz.com/learning-hub/proactive-web-security-essential-strategies/",
+  "https://www.reflectiz.com/blog/web-exposure-management/": "https://www.reflectiz.com/learning-hub/web-exposure-management-report/",
+  "https://www.reflectiz.com/blog/web-privacy-validation-guide/": "https://www.reflectiz.com/learning-hub/ciso-guide-web-privacy-validation/",
+  "https://www.reflectiz.com/blog/cookie-privacy-case-study/": "https://www.reflectiz.com/learning-hub/cookie-privacy-monster-case-study/",
+};
+
 const FORM_PAGES = ["/registration", "/free-trial", "/contact", "/careers", "/jobs"];
 
 function isFormPage(url) {
@@ -551,6 +574,90 @@ Return only valid JSON, nothing else:
 
     const base44 = createClientFromRequest(req);
     const contextTitle = clientPageTitle || currentPageUrl;
+
+    // Blog -> Hub companion: if this blog has a gated learning-hub counterpart, recommend it directly
+    const canonicalBlogUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+    const hubCompanionUrl = BLOG_TO_HUB_MAP[canonicalBlogUrl];
+    if (hubCompanionUrl) {
+      // Fetch hub page content from DB for the opener
+      let hubContent = "";
+      let hubTitle = "";
+      try {
+        const hubRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: hubCompanionUrl });
+        hubContent = hubRecord?.[0]?.pageContent || "";
+        hubTitle = hubRecord?.[0]?.pageTitle || "";
+      } catch (e) {
+        console.error("Hub companion fetch failed:", e.message);
+      }
+
+      const hubLabel = hubTitle ? `Get the full resource: ${sanitizeContent(hubTitle).split(/[|\-\u2013\u2014]/)[0].trim()}` : "Get the full resource";
+      const hubPrompt = `You are Athena, a web security expert for Reflectiz. A visitor is reading a blog article. There is a deeper gated resource on the same topic in the learning hub.
+
+BLOG PAGE:
+Title: ${contextTitle}
+URL: ${currentPageUrl}
+
+GATED HUB RESOURCE:
+Title: ${hubTitle}
+URL: ${hubCompanionUrl}
+Content preview: "${sanitizeContent(hubContent).slice(0, 800)}"
+
+WRITE TWO THINGS:
+
+1. bubbleText: 5-6 words. Tease the deeper resource without giving it away. No question mark.
+
+2. opener: Exactly 2 sentences.
+Sentence 1: One sharp specific insight from the hub resource content -- a stat, named company, named threat, or regulatory figure. Make them want more.
+Sentence 2: Must be exactly this markdown link with no extra words before it: [${hubLabel}](${hubCompanionUrl})
+
+ABSOLUTE RULES:
+- No em dashes
+- No greeting words
+- Sentence 2 must use the exact label and URL above
+- Sound like a peer, not a salesperson
+
+Return only valid JSON:
+{"bubbleText": "5-6 words here", "opener": "Insight sentence. [${hubLabel}](${hubCompanionUrl})"}`;
+
+      const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const geminiResult = await Promise.race([
+        callGemini({ messages: [{ role: "user", content: hubPrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite" }),
+        geminiTimeout
+      ]);
+
+      let opener = null;
+      let bubbleText = null;
+      if (geminiResult) {
+        try {
+          const cleaned = (geminiResult?.content?.[0]?.text ?? "").trim().replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(cleaned);
+          opener = parsed.opener || null;
+          bubbleText = parsed.bubbleText || null;
+        } catch (e) {
+          console.error("Hub companion JSON parse failed:", e.message);
+        }
+      }
+
+      if (opener) opener = opener.replace(/\u2014/g, ",").replace(/\u2013/g, "-").replace(/--/g, ",").replace(/&#[0-9]+;/g, "").replace(/&[a-z]+;/g, "");
+      if (bubbleText) bubbleText = bubbleText.replace(/&#[0-9]+;/g, "").replace(/&[a-z]+;/g, "");
+
+      if (!opener || !opener.includes(hubCompanionUrl.replace(/\/$/, ""))) {
+        opener = `This topic goes deeper than most articles cover. [${hubLabel}](${hubCompanionUrl})`;
+      }
+      if (!bubbleText) bubbleText = "There's a deeper resource on this";
+
+      // Cache this result
+      if (isValidPageUrl && opener && bubbleText) {
+        await base44.asServiceRole.entities.PageOpeners.create({
+          pageUrl: currentPageUrl,
+          opener,
+          bubbleText,
+          generatedAt: new Date().toISOString()
+        }).catch(() => {});
+      }
+
+      return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
+    }
 
     const effectiveLanguage = geo === "Israel" ? "en" : (language || "en");
 
