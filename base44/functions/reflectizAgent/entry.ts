@@ -156,6 +156,17 @@ function isFormPage(url) {
   return FORM_PAGES.some(p => u.includes(p));
 }
 
+const FORM_NUDGE_PATH_PREFIX = "/learning-hub/";
+
+function isFormNudgePage(url) {
+  if (!url) return false;
+  const u = url.toLowerCase();
+  // Must contain /learning-hub/ but NOT be the hub index itself
+  if (!u.includes("/learning-hub/")) return false;
+  const normalized = u.replace(/^https?:\/\/(www\.)?reflectiz\.com/, "").replace(/\/$/, "");
+  return normalized !== "/learning-hub";
+}
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -464,6 +475,78 @@ Deno.serve(async (req) => {
 
     if (isFormPage(currentPageUrl)) {
       return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
+    }
+
+    // Form nudge: learning-hub gated/webinar pages get a form-focused opener instead of an article link
+    if (isFormNudgePage(currentPageUrl)) {
+      const base44 = createClientFromRequest(req);
+      const contextTitle = clientPageTitle || currentPageUrl;
+
+      // Fetch page content from DB for context
+      let pageContent = "";
+      try {
+        const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+        const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
+        pageContent = pageRecord?.[0]?.pageContent || "";
+      } catch (e) {
+        console.error("Form nudge page content fetch failed:", e.message);
+      }
+
+      const formNudgePrompt = `You are Athena, a web security expert for Reflectiz. A visitor is on a gated content or webinar registration page and may be hesitating to fill out the form.
+
+PAGE CONTEXT:
+Page title: ${contextTitle}
+Page URL: ${currentPageUrl}
+Page content: "${pageContent.slice(0, 800)}"
+
+WRITE TWO THINGS:
+
+1. bubbleText: 5-6 words. Specific to what they get by filling the form. Start with an action verb. Example: "Get the CISO guide free" or "Watch the webinar — 2 min"
+
+2. opener: Exactly 2 sentences.
+Sentence 1: One sharp specific insight about the topic of this page. Must include at least one of: a specific stat, a named company, a named threat or attack, or a dollar/regulatory figure. Never start vague.
+Sentence 2: Plain text only (absolutely NO markdown links) — a natural nudge encouraging them to fill out the form above. Example: "Fill out the form above to get instant access." or "The form above takes under a minute to unlock it."
+
+ABSOLUTE RULES:
+- No em dashes
+- No greeting words
+- Sentence 2 must be plain text — no URLs, no markdown, no brackets
+- Sound like a peer, not a salesperson
+
+Return only valid JSON, nothing else:
+{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}`;
+
+      const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const geminiResult = await Promise.race([
+        callGemini({ messages: [{ role: "user", content: formNudgePrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite" }),
+        geminiTimeout
+      ]);
+
+      let opener = null;
+      let bubbleText = null;
+
+      if (geminiResult) {
+        try {
+          const cleaned = (geminiResult?.content?.[0]?.text ?? "").trim().replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(cleaned);
+          opener = parsed.opener || null;
+          bubbleText = parsed.bubbleText || null;
+        } catch (e) {
+          console.error("Form nudge JSON parse failed:", e.message);
+        }
+      }
+
+      // Sanitize
+      if (opener) opener = opener.replace(/\u2014/g, ",").replace(/\u2013/g, "-").replace(/--/g, ",").replace(/&#[0-9]+;/g, "").replace(/&[a-z]+;/g, "");
+      if (bubbleText) bubbleText = bubbleText.replace(/&#[0-9]+;/g, "").replace(/&[a-z]+;/g, "");
+
+      // Safety: strip any accidental links from opener
+      if (opener) opener = opener.replace(/\[.*?\]\(.*?\)/g, "").replace(/https?:\/\/\S+/g, "").trim();
+
+      if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
+      if (!bubbleText) bubbleText = "Get access — fill the form";
+
+      return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
