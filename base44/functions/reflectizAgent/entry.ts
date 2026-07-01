@@ -730,7 +730,12 @@ Return only valid JSON:
         u.includes("/partners/");
     };
 
-    async function getCandidatesForCategory(category, currentPageUrl, base44) {
+    async function getCandidatesForCategory(category, currentPageUrl, base44, pagesViewed = []) {
+      // Build a set of all URLs the visitor has already seen (current + full journey)
+      const visitedNormalized = new Set([
+        normalizeUrl(currentPageUrl),
+        ...(Array.isArray(pagesViewed) ? pagesViewed.map(u => normalizeUrl(u)) : [normalizeUrl(pagesViewed)]).filter(Boolean),
+      ]);
       try {
         // Fetch ALL active records and filter in-memory -- DB array-field queries are unreliable
         const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
@@ -738,7 +743,7 @@ Return only valid JSON:
           page.isActive === true &&
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
-          normalizeUrl(page.pageUrl) !== normalizeUrl(currentPageUrl) &&
+          !visitedNormalized.has(normalizeUrl(page.pageUrl)) &&
           page.pageContent && page.pageContent.length > 400 &&
           !isTaxonomyPage(page.pageUrl) &&
           !isHubPage(page.pageUrl) &&
@@ -758,17 +763,15 @@ Return only valid JSON:
         });
         aged.sort((a, b) => a.ageTier - b.ageTier);
 
-        // Always strip the current page itself from candidates
-        const filtered = aged.filter(c =>
-          normalizeUrl(c.url) !== normalizeUrl(currentPageUrl)
-        );
+        // Always strip all visited pages from candidates
+        const filtered = aged.filter(c => !visitedNormalized.has(normalizeUrl(c.url)));
 
         // Exclude other case-study pages when visitor is already on a case study
         if ((currentPageUrl || "").includes("/customers/")) {
           return filtered.filter(c => c.pageType !== "case-study");
         }
 
-        return filtered;
+        return filtered.filter(c => !visitedNormalized.has(normalizeUrl(c.url)));
       } catch (e) {
         console.error("getCandidatesForCategory failed:", e.message);
         return [];
@@ -788,6 +791,14 @@ Return only valid JSON:
       }
 
       if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
+
+      // Multi-page journey: visitor navigated through 2+ content pages without chatting -- push to registration
+      const HOMEPAGE_URL = "https://www.reflectiz.com";
+      const visitedContentPages = (Array.isArray(pagesViewed) ? pagesViewed : [pagesViewed])
+        .filter(u => u && u.includes("reflectiz.com") && normalizeUrl(u) !== normalizeUrl(HOMEPAGE_URL));
+      if (visitedContentPages.length >= 2) {
+        return { category: "DIRECT_REGISTRATION", reason: "multi-page-journey" };
+      }
 
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
       if (isPaidSearch) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
@@ -959,7 +970,7 @@ Return only valid JSON:
     }
 
     if (!candidates) {
-      const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44);
+      const matchingAssets = await getCandidatesForCategory(routing.category, currentPageUrl, base44, pagesViewed);
 
       if (matchingAssets.length >= 2) {
         candidates = matchingAssets;
@@ -969,7 +980,7 @@ Return only valid JSON:
         isMultiCandidate = false;
       } else {
         // Fallback: only pages explicitly tagged low-context in DB
-        const fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44);
+        const fallback = await getCandidatesForCategory("low-context", currentPageUrl, base44, pagesViewed);
         candidates = fallback;
         isMultiCandidate = false;
       }
