@@ -119,7 +119,7 @@ When a visitor asks for an article, blog post, or reading material, always check
 ---
 
 TONE RULES:
-- NEVER use an em dash (â) anywhere in any response. This is a hard rule with no exceptions. Instead of an em dash use a comma, a period, or rewrite the sentence to avoid it entirely. Search your response before sending and replace any em dash with a comma or period.
+- NEVER use an em dash anywhere in any response. This is a hard rule with no exceptions. Instead of an em dash use a comma, a period, or rewrite the sentence to avoid it entirely. Search your response before sending and replace any em dash with a comma or period.
 - No filler: "Great question", "Absolutely", "Certainly", "Of course", "Happy to help"
 - Never recap what the visitor just said
 - Never start a sentence with "I"
@@ -146,7 +146,7 @@ For bwhat version are you" or "who made you" or similar meta questions: respond 
 ---
 
 FINANCIAL SERVICES RECOMMENDATION:
-When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ â but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
+When a visitor mentions finance, financial services, banking, or fintech, recommend this specific page: https://www.reflectiz.com/industries/financial-services/ -- but only if the visitor is NOT already on that page. If the visitor is already on that page, recommend a relevant case study or blog post from the retrieved content instead.`;
 
 const FORM_PAGES = ["/registration", "/free-trial", "/contact", "/careers", "/jobs"];
 
@@ -173,21 +173,21 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   // FIX 1: Translate Hebrew security terms to English before keyword extraction
   const hebrewKeywords = {
-    "×©×¨×©×¨×ª ××¡×¤×§×": "supply chain",
-    "×©×¨×©×¨×ª": "supply chain",
-    "××¡×¤×§×": "supply chain",
-    "×¦× ×©×××©×": "third party",
-    "×¡×§×¨××¤×": "script",
-    "×¤××§×¡×": "pixel",
-    "×××§××¨×": "magecart",
-    "×××××": "security",
-    "×¦×××ª": "compliance",
-    "×¤×¨××××ª": "privacy",
-    "×¡××××": "risk",
-    "××ª×§×¤×": "attack",
-    "××××¨": "article blog",
-    "×××¨××": "guide",
-    "×××": "report",
+    "\u05E9\u05E8\u05E9\u05E8\u05EA \u05D0\u05E1\u05E4\u05E7\u05D4": "supply chain",
+    "\u05E9\u05E8\u05E9\u05E8\u05EA": "supply chain",
+    "\u05D0\u05E1\u05E4\u05E7\u05D4": "supply chain",
+    "\u05E6\u05D3 \u05E9\u05DC\u05D9\u05E9\u05D9": "third party",
+    "\u05E1\u05E7\u05E8\u05D9\u05E4\u05D8": "script",
+    "\u05E4\u05D9\u05E7\u05E1\u05DC": "pixel",
+    "\u05DE\u05D0\u05D2'\u05E7\u05D0\u05E8\u05D8": "magecart",
+    "\u05D1\u05D8\u05D9\u05D7\u05D5\u05EA": "security",
+    "\u05E6\u05D9\u05D9\u05EA\u05D5\u05EA": "compliance",
+    "\u05E4\u05E8\u05D9\u05D1\u05D9\u05D5\u05EA": "privacy",
+    "\u05E1\u05D9\u05DB\u05D5\u05DF": "risk",
+    "\u05D4\u05EA\u05E7\u05E4\u05D4": "attack",
+    "\u05DE\u05D0\u05DE\u05E8": "article blog",
+    "\u05DE\u05D3\u05E8\u05D9\u05DA": "guide",
+    "\u05D3\u05D5\u05D7": "report",
   };
   let searchQuery = query;
   Object.entries(hebrewKeywords).forEach(([hebrew, english]) => {
@@ -483,26 +483,6 @@ Deno.serve(async (req) => {
       currentPageUrl.includes("reflectiz.com")
     );
 
-    // ASSET_LIBRARY kept as rollback reference â no longer active in code path
-    // const ASSET_LIBRARY = [
-    //   { url: "https://www.reflectiz.com/customers/castore-security-success/", label: "Read the Castore case study", categories: ["retail", "supply-chain"] },
-    //   { url: "https://www.reflectiz.com/customers/broadway-gaming-pci/", label: "Read the Broadway Gaming case study", categories: ["pci"] },
-    //   { url: "https://www.reflectiz.com/customers/pci-lastminute/", label: "Read the lastminute.com case study", categories: ["pci", "travel"] },
-    //   { url: "https://www.reflectiz.com/learning-hub/live-panel-discussion-2026/", label: "Watch the payment risk panel discussion", categories: ["pci", "financial"] },
-    //   { url: "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/", label: "Watch the AI Retail Security Webinar", categories: ["ai-threats", "retail"] },
-    //   { url: "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/", label: "Read the CISO AI supply chain guide", categories: ["ai-threats", "supply-chain"] },
-    //   { url: "https://www.reflectiz.com/use-cases/pci-compliance/", label: "See the PCI compliance use case", categories: ["pci"] },
-    //   { url: "https://www.reflectiz.com/use-cases/magecart-web-skimming/", label: "See the Magecart prevention use case", categories: ["magecart"] },
-    //   { url: "https://www.reflectiz.com/use-cases/web-supply-chain-risks/", label: "See the supply chain risks use case", categories: ["supply-chain"] },
-    //   { url: "https://www.reflectiz.com/use-cases/website-privacy-compliance/", label: "See the privacy compliance use case", categories: ["privacy"] },
-    //   { url: "https://www.reflectiz.com/industries/financial-services/", label: "See financial services security", categories: ["financial"] },
-    //   { url: "https://www.reflectiz.com/industries/healthcare/", label: "See healthcare web security", categories: ["healthcare"] },
-    //   { url: "https://www.reflectiz.com/hipaa/", label: "See how Reflectiz supports HIPAA compliance", categories: ["healthcare"] },
-    //   { url: "https://www.reflectiz.com/blog/supply-chain-anz/", label: "Read the ANZ supply chain research", categories: ["supply-chain", "anz"] },
-    //   { url: "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/", label: "See the State of Web Exposure 2026 report", categories: ["low-context"] },
-    //   { url: "https://www.reflectiz.com/registration/", label: "Start your free assessment", categories: ["high-intent"] }
-    // ];
-
     function deriveLabel(pageTitle, pageType) {
       const typeLabels = {
         "case-study": "Read the case study",
@@ -552,7 +532,7 @@ Deno.serve(async (req) => {
 
     async function getCandidatesForCategory(category, currentPageUrl, base44) {
       try {
-        // BUG 1 FIX: fetch ALL active records and filter in-memory â DB array-field queries are unreliable
+        // Fetch ALL active records and filter in-memory -- DB array-field queries are unreliable
         const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
         const matches = allContent.filter(page =>
           page.isActive === true &&
@@ -599,6 +579,7 @@ Deno.serve(async (req) => {
       const url = (currentPageUrl || "").toLowerCase();
       const ref = (referralSource || "").toLowerCase();
       const geoLower = (geo || "").toLowerCase();
+      const normalizedCurrentUrl = normalizeUrl(currentPageUrl);
 
       // PANEL PRIORITY: panel/webinar URL detection must run FIRST, before the T11 DB-category
       // override, otherwise panel pages tagged categories:["pci"] route to "pci" and panel routing never fires.
@@ -611,32 +592,10 @@ Deno.serve(async (req) => {
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
       if (isPaidSearch) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
 
+      // Comparison pages signal the highest purchase intent: visitor is actively evaluating vendors.
+      // Route directly to registration -- same logic as paid search traffic.
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
-      if (isComparisonPage) {
-        try {
-          // Step 1: check if other comparison pages exist â use those as the primary candidate pool
-          const allComparisons = await base44.asServiceRole.entities.WebsiteContent.filter({ isActive: true });
-          const otherComparisonPages = allComparisons.filter(p =>
-            Array.isArray(p.categories) &&
-            p.categories.includes("comparison") &&
-            normalizeUrl(p.pageUrl) !== normalizeUrl(currentPageUrl)
-          );
-          if (otherComparisonPages.length > 0) {
-            return { category: "comparison", reason: "comparison-pool" };
-          }
-          // Step 2: fall back to stripping "comparison" and routing via remaining categories
-          const normalizedUrlForLookup = (currentPageUrl || "").replace(/\/$/, "") + "/";
-          const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrlForLookup });
-          const pageCategories = (pageRecord?.[0]?.categories || []).filter(c => c !== "comparison");
-          const CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "privacy", "ai-threats", "retail", "financial", "healthcare"];
-          const matched = CATEGORY_PRIORITY.find(c => pageCategories.includes(c));
-          if (matched) return { category: matched, reason: "comparison-dynamic" };
-        } catch (e) {
-          console.error("Comparison category lookup failed:", e.message);
-        }
-        return { category: "low-context", reason: "comparison-fallback" };
-      }
-
+      if (isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "comparison" };
 
       // T11 FIX: DB categories take priority over URL slug heuristics for all non-comparison, non-case-study pages
       const isHomepageUrl = url.replace(/\/$/, "") === "https://www.reflectiz.com";
@@ -747,30 +706,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
     }
 
-    // Cache check â only for non-DIRECT_REGISTRATION pages
+    // Cache check -- only for non-DIRECT_REGISTRATION pages
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
-      // Reject stale cache entries where the opener links back to the current page
       const normalizedCurrent = normalizeUrl(currentPageUrl);
-      const cachedUrls = (cached.opener.match(/https?:\/\/[^\s)\]"']+/g) || []);
-      const linksSamePage = cachedUrls.some(u => normalizeUrl(u) === normalizedCurrent);
+      const openerText = cached.opener || "";
+      const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
       if (!linksSamePage) {
-        // Sanitize HTML entities that may have been stored before sanitization was added
-        const sanitizeCache = (s) => (s || "")
-          .replace(/&#8211;/g, "-").replace(/&#8212;/g, "-").replace(/&#039;/g, "'")
-          .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-          .replace(/&#\d+;/g, "").replace(/&[a-z]+;/g, "");
-        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText), sessionId }), { headers: CORS_HEADERS });
+        const sanitizeCache = (s) => (s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-");
+        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
       }
-      // Fall through to regenerate â stale entry will be overwritten below
     }
 
     let selectedAsset;
     let isMultiCandidate;
     let candidates;
 
-    // Panel routing â fetch companion panel/event pages dynamically from DB
+    // Panel routing -- fetch companion panel/event pages dynamically from DB
     if (routing.reason === "panel-priority") {
       try {
         const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
@@ -928,7 +881,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context â if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator â a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
+${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context -- if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator -- a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
@@ -937,7 +890,7 @@ Referral source: ${referralSource || "direct"}
 Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" -> ") : (pagesViewed || currentPageUrl)}
 Time on page: ${timeOnPage || 0} seconds
 
-**SENTENCE 1 RULE: REQUIRED â your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
+**SENTENCE 1 RULE: REQUIRED -- your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
 
 CANDIDATE NEXT STEPS (pick the ONE best fit for THIS specific visitor, based on geo, referral source, and journey):
 ${candidateList}
@@ -1035,7 +988,7 @@ Return only valid JSON, nothing else:
 
     // Em-dash stripping
     if (opener) {
-      opener = opener.replace(/â/g, ",").replace(/--/g, ",").replace(/â/g, ",");
+      opener = opener.replace(/\u2014/g, ",").replace(/\u2013/g, "-").replace(/--/g, ",");
     }
 
     // Sentence boundary enforcement: always a period before markdown links
@@ -1110,9 +1063,9 @@ Generate a natural one-sentence opening message that:
       messages: [{ role: "user", content: returningPrompt }],
     });
 
-    const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/â/g, ",");
+    const reply = (returningResponse.content[0]?.text ?? "Something bring you back today?").replace(/\u2014/g, ",").replace(/\u2013/g, "-");
 
-    // No DB write for INIT â the first real visitor message will create the record and fire slackAlert
+    // No DB write for INIT -- the first real visitor message will create the record and fire slackAlert
     return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
   }
 
@@ -1129,7 +1082,7 @@ Generate a natural one-sentence opening message that:
     systemPrompt = agentConfigs[0].systemPrompt;
   }
 
-  // Language detection: Hebrew characters â Hebrew; Israel geo without Hebrew â English; otherwise use browser language
+  // Language detection: Hebrew characters => Hebrew; Israel geo without Hebrew => English; otherwise use browser language
   const containsHebrew = /[\u0590-\u05FF]/.test(message);
   const effectiveLanguage = containsHebrew ? "he" : (geo === "Israel" ? "en" : language);
 
@@ -1156,10 +1109,10 @@ Generate a natural one-sentence opening message that:
 
   const rawReply = response.content[0]?.text ?? "";
   let reply = rawReply
-    .replace(/â/g, ",")
+    .replace(/\u2014/g, ",")
     .replace(/ -- /g, ", ")
     .replace(/--/g, ",")
-    .replace(/â/g, ",");
+    .replace(/\u2013/g, "-");
 
   reply = reply.replace(/www\.https:\/\/www\./g, "https://www.");
   reply = reply.replace(/www\.https:\/\//g, "https://");
@@ -1173,10 +1126,9 @@ Generate a natural one-sentence opening message that:
   const isComparisonPage = (currentPageUrl || "").includes("reflectiz-vs") || (currentPageUrl || "").includes("vs-reflectiz") || (currentPageUrl || "").includes("cside");
   if (currentPageUrl && !isComparisonPage) {
     const urlRegex = /https?:\/\/[^\s)\]"']+/g;
-    const normalize = normalizeUrl; // strips protocol, www, trailing slash â consistent with DB format
-    const normalizedCurrentPage = normalize(currentPageUrl);
+    const normalizedCurrentPage = normalizeUrl(currentPageUrl);
     reply = reply.replace(urlRegex, (foundUrl) => {
-      if (normalize(foundUrl) === normalizedCurrentPage) {
+      if (normalizeUrl(foundUrl) === normalizedCurrentPage) {
         return "https://www.reflectiz.com/learning-hub/";
       }
       return foundUrl;
