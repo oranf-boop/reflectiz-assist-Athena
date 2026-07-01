@@ -659,6 +659,16 @@ Return only valid JSON:
       return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
 
+    // Fetch current page's own DB content for richer opener personalization
+    let currentPageContent = "";
+    try {
+      const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
+      const currentPageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedCurrentUrl });
+      currentPageContent = (currentPageRecord?.[0]?.pageContent || "").replace(/\s+/g, " ").trim().slice(0, 700);
+    } catch (e) {
+      console.error("Current page content fetch failed:", e.message);
+    }
+
     const effectiveLanguage = geo === "Israel" ? "en" : (language || "en");
 
     const isValidPageUrl = (
@@ -1037,8 +1047,12 @@ Return only valid JSON:
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
+Page meta description: ${pageDescription || "(none)"}
+Current page content: "${currentPageContent || "(not in DB yet)"}"
 Visitor geo: ${geo || "Unknown"}
-Time on page: ${timeOnPage || 0} seconds
+Time on page: ${timeOnPage || 0} seconds — calibrate tone: under 10s visitor just arrived (be curious and broad); 15-60s actively reading (build on what they are reading); over 60s deeply engaged (go technical and specific)
+Session journey: ${Array.isArray(pagesViewed) ? pagesViewed.join(" → ") : (pagesViewed || currentPageUrl)}
+Journey note: if the visitor has seen multiple pages, infer their research angle from the sequence (e.g. compliance research, vendor evaluation, incident investigation) and use it to sharpen sentence 1.
 
 CHOSEN NEXT STEP (use this exact link in your response):
 Label: ${selectedAsset.label}
@@ -1075,12 +1089,15 @@ ${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
+Page meta description: ${pageDescription || "(none)"}
+Current page content: "${currentPageContent || "(not in DB yet)"}"
 Visitor geo: ${geo || "Unknown"}
 Referral source: ${referralSource || "direct"}
-Pages viewed this session: ${Array.isArray(pagesViewed) ? pagesViewed.join(" -> ") : (pagesViewed || currentPageUrl)}
-Time on page: ${timeOnPage || 0} seconds
+Session journey: ${Array.isArray(pagesViewed) ? pagesViewed.join(" → ") : (pagesViewed || currentPageUrl)}
+Journey note: analyze the page sequence. A visitor who went compliance page → supply-chain page → blog is in deep research mode and needs a specific technical angle. A visitor on their first page is still exploring. Use the journey to pick the sharpest, most relevant candidate and angle for this specific visitor.
+Time on page: ${timeOnPage || 0} seconds — calibrate tone: under 10s visitor just arrived; 15-60s actively reading; over 60s deeply engaged (go more technical and specific).
 
-**SENTENCE 1 RULE: REQUIRED -- your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
+**SENTENCE 1 RULE: REQUIRED -- your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If the current page content above contains a specific stat or fact, prefer using it in sentence 1 since the visitor is already engaged with that topic. If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
 
 CANDIDATE NEXT STEPS (pick the ONE best fit for THIS specific visitor, based on geo, referral source, and journey):
 ${candidateList}
