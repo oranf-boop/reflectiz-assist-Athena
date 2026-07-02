@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
 
   // Handle link click tracking events without calling Claude
   if (trackingEvent === "widget_opened") {
-    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
@@ -431,12 +431,12 @@ Deno.serve(async (req) => {
         language: language ?? "en",
         isWidgetOpen: true,
       }),
-    }).catch(() => {});
+    }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
   if (trackingEvent === "widget_opened") {
-    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
         language: language ?? "en",
         isWidgetOpen: true,
       }),
-    }).catch(() => {});
+    }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
@@ -514,7 +514,7 @@ Deno.serve(async (req) => {
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
     const convRecord = existing || {};
     const updatedConv = { ...convRecord, linksClicked: (convRecord.linksClicked || 0) + 1, clickedUrl };
-    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
@@ -525,7 +525,7 @@ Deno.serve(async (req) => {
         language: language ?? "en",
         isHighIntentClick: isHighIntent,
       }),
-    }).catch(() => { });
+    }).catch((e) => console.error("slackAlert link_click failed:", e.message));
 
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
