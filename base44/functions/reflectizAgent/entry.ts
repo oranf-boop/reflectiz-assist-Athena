@@ -470,14 +470,13 @@ Deno.serve(async (req) => {
 
     const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
-    if (isHighIntent) {
-      const updatedConv = { ...existing, linksClicked: (existing.linksClicked || 0) + 1, clickedUrl };
-      fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
-        body: JSON.stringify(updatedConv),
-      }).catch(() => { });
-    }
+    const convRecord = existing || {};
+    const updatedConv = { ...convRecord, linksClicked: (convRecord.linksClicked || 0) + 1, clickedUrl };
+    fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+      body: JSON.stringify({ ...updatedConv, isHighIntentClick: isHighIntent }),
+    }).catch(() => { });
 
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
@@ -1444,7 +1443,7 @@ Generate a natural one-sentence opening message that:
       conversationOutcome,
     });
 
-    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+    fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
       body: JSON.stringify({
@@ -1452,7 +1451,7 @@ Generate a natural one-sentence opening message that:
         geo: geo ?? "",
         intentClassification,
         conversationTurns: 1,
-        ctaReached,
+        ctaReached: ctaReached ?? false,
         linksClicked: 0,
         language: language ?? "en",
         referralSource: referralSource ?? "",
@@ -1460,7 +1459,7 @@ Generate a natural one-sentence opening message that:
         pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
         conversationOutcome: "BOUNCED",
       }),
-    }).catch(err => console.error("slackAlert failed:", err.message));
+    }).catch(() => {});
   }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
