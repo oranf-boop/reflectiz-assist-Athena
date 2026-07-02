@@ -1405,6 +1405,28 @@ Generate a natural one-sentence opening message that:
       conversationOutcome,
       pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
     });
+
+    const prevCtaReached = existingConversation[0].ctaReached;
+    if (ctaReached && !prevCtaReached) {
+      fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+        body: JSON.stringify({
+          sessionId,
+          geo: geo ?? "",
+          intentClassification,
+          conversationTurns: userMessageCount,
+          ctaReached: true,
+          linksClicked: existingConversation[0].linksClicked ?? 0,
+          language: language ?? "en",
+          referralSource: referralSource ?? "",
+          conversationTranscript: cleanTranscript,
+          pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+          conversationOutcome,
+          isConversion: true,
+        }),
+      }).catch(err => console.error("slackAlert conversion notification failed:", err.message));
+    }
   } else {
     // CREATE new conversation - fire slack alert
     await base44.asServiceRole.entities.Conversations.create({
@@ -1432,6 +1454,7 @@ Generate a natural one-sentence opening message that:
         conversationTurns: 1,
         ctaReached,
         linksClicked: 0,
+        language: language ?? "en",
         referralSource: referralSource ?? "",
         conversationTranscript: cleanTranscript,
         pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),

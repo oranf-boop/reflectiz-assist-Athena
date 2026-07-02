@@ -97,6 +97,12 @@ Deno.serve(async (req) => {
     referralSource,
     conversationTranscript,
     pagesViewed,
+    linksClicked,
+    ctaReached,
+    language,
+    clickedUrl,
+    isConversion,
+    isHighIntentClick,
   } = body;
 
   const intentLabel = INTENT_LABELS[intentClassification] || intentClassification || "Unknown";
@@ -104,15 +110,39 @@ Deno.serve(async (req) => {
   const preview = cleanTranscriptPreview(conversationTranscript);
   const domainLabel = cleanDomain(referralSource);
   const pageJourney = formatPageJourney(pagesViewed);
-  const outcomeLabel = (conversationOutcome === "BOUNCED" && conversationTurns === 1)
-    ? "New"
-    : conversationOutcome
-      ? conversationOutcome.charAt(0) + conversationOutcome.slice(1).toLowerCase()
-      : "Unknown";
 
-  let summary = "";
-  if (conversationTranscript) {
-    const summaryPrompt = `Write one complete sentence summarizing this sales conversation for a sales team. Be specific -- mention the exact topic or question the visitor asked about, not just general categories. Minimum 15 words. Example: 'A visitor from Israel asked about protecting e-commerce checkout pages from Magecart attacks and clicked the industries page link.'
+  const OUTCOME_EMOJI = {
+    CONVERTED: ":trophy:",
+    ENGAGED: ":handshake:",
+    DROPPED: ":arrow_right:",
+    BOUNCED: ":no_entry_sign:",
+    New: ":new:",
+  };
+  const outcomeRaw = (conversationOutcome === "BOUNCED" && conversationTurns <= 1) ? "New" : (conversationOutcome || "Unknown");
+  const outcomeLabel = outcomeRaw.charAt(0) + outcomeRaw.slice(1).toLowerCase();
+  const outcomeEmoji = OUTCOME_EMOJI[outcomeRaw] || ":speech_balloon:";
+
+  const langLabel = (language && language !== "en") ? ` · :globe_with_meridians: ${language.toUpperCase()}` : "";
+  const clicksLabel = (linksClicked > 0) ? ` · :link: ${linksClicked} link${linksClicked > 1 ? "s" : ""} clicked` : "";
+  const ctaLabel = ctaReached ? " · :dart: CTA reached" : "";
+
+  // Determine notification type
+  const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
+  const isHotClick = isHighIntentClick || (clickedUrl && HIGH_INTENT_PATHS.some(p => (clickedUrl || "").toLowerCase().includes(p)));
+  const isConv = isConversion || conversationOutcome === "CONVERTED";
+
+  let header, summary = "";
+
+  if (isHotClick) {
+    header = `:fire: *High-Intent Click*`;
+  } else if (isConv) {
+    header = `:trophy: *Conversion — CTA Reached*`;
+  } else {
+    header = `:speech_balloon: *New Conversation*`;
+  }
+
+  if (conversationTranscript && !isHotClick) {
+    const summaryPrompt = `Write one complete sentence summarizing this sales conversation for a sales team. Be specific — mention the exact topic or question the visitor asked about, not just general categories. Minimum 15 words. Example: 'A visitor from Israel asked about protecting e-commerce checkout pages from Magecart attacks and clicked the industries page link.'
 
 Conversation:
 ${cleanTranscriptPreview(conversationTranscript)}
@@ -120,26 +150,38 @@ ${cleanTranscriptPreview(conversationTranscript)}
 Page journey: ${pagesViewed}
 Intent: ${intentClassification}
 Outcome: ${conversationOutcome}
+Links clicked: ${linksClicked ?? 0}
+CTA reached: ${ctaReached ? "yes" : "no"}
 
 Return only the one sentence summary.`;
-    summary = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 300 });
+    summary = await callGemini({ messages: [{ role: "user", content: summaryPrompt }], max_tokens: 300 }).catch(() => "");
   }
 
-  const text = `:speech_balloon: *New Conversation*
+  const metaLine = `${outcomeEmoji} *${outcomeLabel}*  ·  :round_pushpin: ${geoLabel}  ·  :mag: ${intentLabel}  ·  :arrows_counterclockwise: ${conversationTurns ?? 0} turn${(conversationTurns ?? 0) !== 1 ? "s" : ""}${clicksLabel}${ctaLabel}${langLabel}`;
+  const referralLine = domainLabel !== "direct" ? `*Referral:* ${domainLabel}` : "";
 
-*Geo:* ${geoLabel}
-*Intent:* ${intentLabel}
-*Turns:* ${conversationTurns ?? 0}
-*Outcome:* ${outcomeLabel}
-*Referral:* ${domainLabel}
+  let clickedUrlLine = "";
+  if (isHotClick && clickedUrl) {
+    clickedUrlLine = `\n*Clicked:* ${clickedUrl}`;
+  }
 
-*Page Journey:*
-${pageJourney}
-${summary ? `\n*Summary:* ${summary}\n` : ""}
-*Conversation:*
-${preview}
+  const transcriptSection = (preview && !isHotClick)
+    ? `\n*Conversation:*\n${preview}`
+    : "";
 
-<https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>`;
+  const text = [
+    header,
+    "",
+    metaLine,
+    referralLine,
+    clickedUrlLine,
+    "",
+    `*Page Journey:*\n${pageJourney}`,
+    summary ? `\n*Summary:* ${summary}` : "",
+    transcriptSection,
+    "",
+    "<https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>",
+  ].filter(s => s !== undefined && s !== null).join("\n");
 
   const slackRes = await fetch(SLACK_WEBHOOK_URL, {
     method: "POST",
