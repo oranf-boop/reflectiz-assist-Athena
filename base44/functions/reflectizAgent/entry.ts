@@ -520,7 +520,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         ...updatedConv,
         geo: geo ?? "",
-        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+        pagesViewed: Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed.join(",") : (pagesViewed || currentPageUrl || ""),
         referralSource: referralSource ?? "",
         language: language ?? "en",
         isHighIntentClick: isHighIntent,
