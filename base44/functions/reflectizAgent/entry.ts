@@ -414,6 +414,27 @@ Deno.serve(async (req) => {
   const conversationHistory = body.conversationHistory || body.messages || [];
 
   // Handle link click tracking events without calling Claude
+  if (trackingEvent === "widget_opened") {
+    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+      body: JSON.stringify({
+        geo: geo ?? "",
+        intentClassification: "GENERAL_AWARENESS",
+        conversationTurns: 0,
+        conversationOutcome: "BOUNCED",
+        referralSource: referralSource ?? "",
+        conversationTranscript: "",
+        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
+        linksClicked: 0,
+        ctaReached: false,
+        language: language ?? "en",
+        isWidgetOpen: true,
+      }),
+    }).catch(() => {});
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  }
+
   if (trackingEvent === "link_click") {
     const sessionId = incomingSessionId;
     if (!sessionId) {
