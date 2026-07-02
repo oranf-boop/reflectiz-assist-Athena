@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
     clickedUrl,
     isConversion,
     isHighIntentClick,
+    isWidgetOpen,
   } = body;
 
   const intentLabel = INTENT_LABELS[intentClassification] || intentClassification || "Unknown";
@@ -137,6 +138,8 @@ Deno.serve(async (req) => {
     header = `:fire: *High-Intent Click*`;
   } else if (isConv) {
     header = `:trophy: *Conversion — CTA Reached*`;
+  } else if (isWidgetOpen) {
+    header = `:eyes: *Widget Opened*`;
   } else {
     header = `:speech_balloon: *New Conversation*`;
   }
