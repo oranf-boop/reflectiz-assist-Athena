@@ -63,6 +63,11 @@
         ]
       },
       "default": []
+    },
+    "performanceScore": {
+      "type": "number",
+      "title": "Performance Score",
+      "description": "Click-to-conversion score written by analyzeAndLearn. Higher = more likely to convert visitors who click it."
     }
   },
   "required": []

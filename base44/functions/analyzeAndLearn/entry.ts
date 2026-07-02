@@ -39,6 +39,11 @@ async function callGemini({ system, messages, max_tokens }) {
   return { content: [{ text }] };
 }
 
+function normalizeUrl(url) {
+  if (!url) return "";
+  return url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "").trim();
+}
+
 function mostCommon(arr) {
   if (!arr.length) return null;
   const freq = {};
@@ -151,6 +156,60 @@ Deno.serve(async (req) => {
   const winnerPatterns = extractPatterns(winners);
   const loserPatterns = extractPatterns(losers);
   const clickData = analyzeClickData(recentClicks, recent);
+
+  // ── OPENER CACHE INVALIDATION ──────────────────────────────────────────────
+  // Group real (non-training) conversations by their landing page (first in pagesViewed).
+  // Pages where >60% of sessions bounce with zero clicks have a bad cached opener — delete it.
+  const pageSessionMap = {};
+  for (const conv of recent) {
+    const firstPage = (conv.pagesViewed || "").split(",")[0].trim();
+    if (!firstPage) continue;
+    const key = normalizeUrl(firstPage);
+    if (!pageSessionMap[key]) pageSessionMap[key] = { total: 0, pureBouncedNoClick: 0 };
+    pageSessionMap[key].total++;
+    if (conv.conversationOutcome === "BOUNCED" && !(conv.linksClicked > 0)) {
+      pageSessionMap[key].pureBouncedNoClick++;
+    }
+  }
+  const urlsToInvalidate = Object.entries(pageSessionMap)
+    .filter(([_, s]) => s.total >= 5 && s.pureBouncedNoClick / s.total > 0.6)
+    .map(([url]) => url);
+
+  if (urlsToInvalidate.length > 0) {
+    const allOpeners = await base44.asServiceRole.entities.PageOpeners.list("-generatedAt", 500);
+    const staleOpeners = allOpeners.filter(o =>
+      urlsToInvalidate.includes(normalizeUrl(o.pageUrl))
+    );
+    await Promise.all(
+      staleOpeners.map(o => base44.asServiceRole.entities.PageOpeners.delete(o.id).catch(() => {}))
+    );
+    console.log(`Invalidated ${staleOpeners.length} stale PageOpeners for pages with >60% pure bounce rate.`);
+  }
+
+  // ── CONTENT PERFORMANCE SCORE UPDATE ──────────────────────────────────────
+  // Use urlByOutcome from click data to write a 0-30 performance score to WebsiteContent.
+  // Score = (converted / total) * 30. Only update pages with at least 3 data points.
+  const performanceUpdates = [];
+  for (const [url, outcomes] of Object.entries(clickData.urlByOutcome)) {
+    const total = (outcomes.converted || 0) + (outcomes.dropped || 0);
+    if (total < 3) continue;
+    const score = Math.round((outcomes.converted / total) * 30);
+    performanceUpdates.push({ url: normalizeUrl(url), score });
+  }
+
+  if (performanceUpdates.length > 0) {
+    const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
+    const contentById = {};
+    for (const page of allContent) contentById[normalizeUrl(page.pageUrl)] = page;
+    await Promise.all(
+      performanceUpdates.map(({ url, score }) => {
+        const page = contentById[url];
+        if (!page) return Promise.resolve();
+        return base44.asServiceRole.entities.WebsiteContent.update(page.id, { performanceScore: score }).catch(() => {});
+      })
+    );
+    console.log(`Updated performanceScore for ${performanceUpdates.length} pages from click outcome data.`);
+  }
 
   // Sample up to 8 winning and 8 losing transcripts that have actual text
   const winnerSample = winners
@@ -309,5 +368,7 @@ Return exactly this JSON structure:
     contentPerformance,
     patterns: { winners: winnerPatterns, losers: loserPatterns },
     clickData,
+    invalidatedOpeners: urlsToInvalidate.length,
+    performanceScoresUpdated: performanceUpdates.length,
   });
 });

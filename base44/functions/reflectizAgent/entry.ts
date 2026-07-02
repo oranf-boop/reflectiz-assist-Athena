@@ -753,15 +753,23 @@ Return only valid JSON:
           const urlYear = (page.pageUrl || "").match(/\b(202[0-3]|201\d)\b/);
           const year = urlYear ? parseInt(urlYear[1]) : null;
           const ageTier = (!year || year >= 2025) ? 0 : (year === 2024 ? 1 : 2);
+          // performanceScore written by analyzeAndLearn: 0-30, higher = more converting.
+          // Default 10 (neutral) for pages with no click data yet.
+          const performanceScore = typeof page.performanceScore === "number" ? page.performanceScore : 10;
           return {
             url: page.pageUrl,
             label: deriveLabel(page.pageTitle, page.pageType),
             pageContent: page.pageContent,
             pageType: page.pageType,
             ageTier,
+            performanceScore,
           };
         });
-        aged.sort((a, b) => a.ageTier - b.ageTier);
+        // Sort: newer content first (ageTier), then by performance score (higher = better) within same tier.
+        aged.sort((a, b) => {
+          if (a.ageTier !== b.ageTier) return a.ageTier - b.ageTier;
+          return b.performanceScore - a.performanceScore;
+        });
 
         // Always strip all visited pages from candidates
         const filtered = aged.filter(c => !visitedNormalized.has(normalizeUrl(c.url)));
@@ -1043,7 +1051,8 @@ Return only valid JSON:
       candidateInsights = candidates.map(c => ({
         url: c.url,
         label: c.label,
-        insight: sanitizeContent(c.pageContent).slice(0, 600)
+        insight: sanitizeContent(c.pageContent).slice(0, 600),
+        performanceScore: c.performanceScore ?? 10,
       }));
     }
 
@@ -1089,7 +1098,7 @@ Return only valid JSON, nothing else:
 {"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}`;
     } else {
       const candidateList = candidateInsights.map((c, i) =>
-        `OPTION ${i + 1}:
+        `OPTION ${i + 1} [performance score: ${c.performanceScore}/30]:
 Label: ${c.label}
 URL: ${c.url}
 Content: "${c.insight || "No content available, use general knowledge about this topic."}"`
