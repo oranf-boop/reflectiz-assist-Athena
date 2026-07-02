@@ -184,6 +184,19 @@ Deno.serve(async (req) => {
       staleOpeners.map(o => base44.asServiceRole.entities.PageOpeners.delete(o.id).catch(() => {}))
     );
     console.log(`Invalidated ${staleOpeners.length} stale PageOpeners for pages with >60% pure bounce rate.`);
+
+    if (staleOpeners.length > 0) {
+      const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+      if (SLACK_WEBHOOK_URL) {
+        const invalidatedList = urlsToInvalidate.map(u => `• ${u}`).join("\n");
+        const slackText = `:broom: *Athena — Opener Cache Cleanup*\n\n${staleOpeners.length} cached opener(s) were automatically deleted because their pages had >60% pure bounce rate (visitor saw opener, did not click, did not chat) over the past 7 days.\n\nThese pages will generate fresh openers on the next visit using the current prompt.\n\n*Pages cleared:*\n${invalidatedList}\n\n<https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>`;
+        await fetch(SLACK_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: slackText }),
+        }).catch(err => console.error("Slack opener invalidation notification failed:", err.message));
+      }
+    }
   }
 
   // ── CONTENT PERFORMANCE SCORE UPDATE ──────────────────────────────────────
