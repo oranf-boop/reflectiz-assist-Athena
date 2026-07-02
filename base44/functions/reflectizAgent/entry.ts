@@ -80,9 +80,9 @@ Use these exact openers based on the current page URL:
 - URL contains /customers/ or /case-study/: "Looking for proof it works in your industry specifically, or just getting a feel for the customer base?"
 - URL contains /blog/: "Something on this page caught your attention. What was it?"
 - Default (use timeOnPage to choose):
-  * timeOnPage < 15 seconds: "What brought you here today -- compliance, a recent concern, or just exploring?"
-  * timeOnPage 15 to 45 seconds: "You have been looking around -- anything specific catch your eye, or still getting the lay of the land?"
-  * timeOnPage > 45 seconds: "Spending some time here -- usually means something specific is on your radar. What is it?"
+  * timeOnPage < 15 seconds: "What brought you here today, compliance, a recent concern, or just exploring?"
+  * timeOnPage 15 to 45 seconds: "You have been looking around, anything specific catch your eye, or still getting the lay of the land?"
+  * timeOnPage > 45 seconds: "Spending some time here, usually means something specific is on your radar. What is it?"
 
 ---
 
@@ -567,7 +567,7 @@ Return only valid JSON, nothing else:
       if (opener) opener = opener.replace(/\[.*?\]\(.*?\)/g, "").replace(/https?:\/\/\S+/g, "").trim();
 
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
-      if (!bubbleText) bubbleText = "Get access — fill the form";
+      if (!bubbleText) bubbleText = "Fill the form to get access";
 
       return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
