@@ -146,17 +146,17 @@ async function simulatePersona(anthropic, base44, persona, systemPrompt) {
 
   console.log(`Simulating: ${persona.name} (${persona.personality})`);
 
-  lastAgentMessage = await callAgent(anthropic, systemPrompt, [], "INIT", persona);
+  lastAgentMessage = await callAgent(systemPrompt, [], "INIT", persona);
   transcript.push(`Agent: ${lastAgentMessage}`);
   conversationHistory.push({ role: "assistant", content: lastAgentMessage });
 
   for (let i = 0; i < maxTurns; i++) {
-    const visitorMsg = await generateVisitorMessage(anthropic, persona, lastAgentMessage);
+    const visitorMsg = await generateVisitorMessage(persona, lastAgentMessage);
     transcript.push(`Visitor: ${visitorMsg}`);
     conversationHistory.push({ role: "user", content: visitorMsg });
     turnCount++;
 
-    lastAgentMessage = await callAgent(anthropic, systemPrompt, conversationHistory.slice(0, -1), visitorMsg, persona);
+    lastAgentMessage = await callAgent(systemPrompt, conversationHistory.slice(0, -1), visitorMsg, persona);
     transcript.push(`Agent: ${lastAgentMessage}`);
     conversationHistory.push({ role: "assistant", content: lastAgentMessage });
   }

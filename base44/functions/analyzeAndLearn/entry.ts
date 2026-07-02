@@ -152,28 +152,54 @@ Deno.serve(async (req) => {
   const loserPatterns = extractPatterns(losers);
   const clickData = analyzeClickData(recentClicks, recent);
 
+  // Sample up to 8 winning and 8 losing transcripts that have actual text
+  const winnerSample = winners
+    .filter(c => c.conversationTranscript && c.conversationTranscript.length > 100)
+    .slice(0, 8);
+  const loserSample = losers
+    .filter(c => c.conversationTranscript && c.conversationTranscript.length > 100)
+    .slice(0, 8);
+
+  const winnerTranscripts = winnerSample.map((c, i) =>
+    `=== WINNER ${i+1} (${c.intentClassification}, ${c.geo}, ${c.conversationTurns} turns, outcome: ${c.conversationOutcome}) ===\n${c.conversationTranscript}`
+  ).join('\n\n');
+
+  const loserTranscripts = loserSample.map((c, i) =>
+    `=== LOSER ${i+1} (${c.intentClassification}, ${c.geo}, ${c.conversationTurns} turns, outcome: ${c.conversationOutcome}) ===\n${c.conversationTranscript}`
+  ).join('\n\n');
+
+  const hasTranscripts = winnerSample.length > 0 || loserSample.length > 0;
+
   const [conversationResponse, contentResponse] = await Promise.all([
     callGemini({
       max_tokens: 2048,
       messages: [{
         role: "user",
-        content: `You are analyzing website chat conversations for Reflectiz, a B2B cybersecurity company. Analyze the winning and losing conversation patterns provided and return ONLY a valid JSON object with no markdown, no explanation, no code blocks.
+        content: `You are a conversation coach analyzing real B2B chat transcripts for Reflectiz, a web security company. Your job is to find specific, actionable patterns that explain why some conversations converted visitors and others lost them.
 
-Winner patterns: ${JSON.stringify(winnerPatterns, null, 2)}
-Loser patterns: ${JSON.stringify(loserPatterns, null, 2)}
-Total conversations: ${recent.length}
-Winners: ${winners.length}
-Losers: ${losers.length}
+WINNING CONVERSATIONS (${winnerSample.length} total — these ended in conversion or deep engagement):
+${winnerTranscripts || '(none available this week)'}
 
-Return exactly this JSON structure:
+LOSING CONVERSATIONS (${loserSample.length} total — these ended in drop or bounce):
+${loserTranscripts || '(none available this week)'}
+
+AGGREGATE CONTEXT:
+Total conversations this week: ${recent.length}
+Winners: ${winners.length} | Losers: ${losers.length}
+Most common intent: ${winnerPatterns.mostCommonIntent}
+Avg turns (winners): ${winnerPatterns.avgTurns} | Avg turns (losers): ${loserPatterns.avgTurns}
+
+Read the transcripts carefully. Identify SPECIFIC language patterns, question types, pivot moments, and mistakes.
+
+Return ONLY a valid JSON object, no markdown:
 {
-  "successReasons": "paragraph describing top 3 reasons conversations succeeded",
-  "failureReasons": "paragraph describing top 3 reasons conversations failed",
-  "openingMessageChanges": "specific suggested changes to opening messages",
-  "conversationFlowChanges": "specific suggested changes to conversation flow",
-  "geoAndSourceInsights": "patterns by geo referral source or page type",
+  "successReasons": "Specific patterns from the winning transcripts: what exact phrases, pivots, or moments kept visitors engaged. Quote examples if possible.",
+  "failureReasons": "Specific patterns from the losing transcripts: what exact phrases, question sequences, or moments caused drop-off. Quote examples if possible.",
+  "openingMessageChanges": "Specific changes to how the agent should open conversations based on what worked and what did not.",
+  "conversationFlowChanges": "Specific changes to turn 2 and turn 3 flow based on the transcript patterns. Be concrete.",
+  "geoAndSourceInsights": "Patterns by visitor geo or intent type visible in the transcripts.",
   "confidenceScore": 5,
-  "confidenceReason": "one sentence explaining the score"
+  "confidenceReason": "One sentence explaining how confident you are based on sample size and pattern clarity."
 }`
       }],
     }),

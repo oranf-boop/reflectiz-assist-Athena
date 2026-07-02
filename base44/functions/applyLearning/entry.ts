@@ -118,18 +118,18 @@ Deno.serve(async (req) => {
 
   const report = reports.find(r =>
     r.appliedToAgent === false &&
-    (r.confidenceScore || 0) >= 3 &&
-    (r.totalConversations || 0) >= 30 &&
+    (r.confidenceScore || 0) >= 6 &&
+    (r.totalConversations || 0) >= 50 &&
     r.reportDate >= sevenDaysAgo
   );
 
   if (!report) {
-    const anyPending = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 3);
+    const anyPending = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 6);
     if (anyPending) {
       const tooOld = (anyPending.reportDate || "") < sevenDaysAgo;
-      const tooSmall = (anyPending.totalConversations || 0) < 30;
+      const tooSmall = (anyPending.totalConversations || 0) < 50;
       if (tooOld) return Response.json({ message: "Report too old to apply safely. Waiting for a more recent report.", reportDate: anyPending.reportDate });
-      if (tooSmall) return Response.json({ message: `Sample size too small to trust (${anyPending.totalConversations} conversations). Minimum required: 30.`, reportDate: anyPending.reportDate });
+      if (tooSmall) return Response.json({ message: `Sample size too small to trust (${anyPending.totalConversations} conversations). Minimum required: 50.`, reportDate: anyPending.reportDate });
     }
     return Response.json({ message: "No actionable report available yet." });
   }
