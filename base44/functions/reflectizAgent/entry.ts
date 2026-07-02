@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage, hasActiveConversation } = body;
+  const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage, hasActiveConversation, openerText } = body;
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
@@ -484,6 +484,7 @@ Deno.serve(async (req) => {
         base44.asServiceRole.entities.Conversations.update(existing.id, {
           linksClicked: newLinksClicked,
           ...(newOutcome !== currentOutcome && { conversationOutcome: newOutcome }),
+          pagesViewed: [existing.pagesViewed, clickedUrl].filter(Boolean).join(","),
         })
       );
     } else {
@@ -495,9 +496,9 @@ Deno.serve(async (req) => {
           timestamp: new Date().toISOString(),
           geo: geo ?? "",
           referralSource: referralSource ?? "",
-          pagesViewed: currentPageUrl ?? "",
+          pagesViewed: [currentPageUrl, clickedUrl].filter(Boolean).join(","),
           intentClassification: "GENERAL_AWARENESS",
-          conversationTranscript: "",
+          conversationTranscript: openerText ? `Agent: ${openerText}` : "",
           ctaReached: false,
           language: language ?? "en",
           conversationTurns: 0,
