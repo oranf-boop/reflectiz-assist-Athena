@@ -472,10 +472,17 @@ Deno.serve(async (req) => {
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
     const convRecord = existing || {};
     const updatedConv = { ...convRecord, linksClicked: (convRecord.linksClicked || 0) + 1, clickedUrl };
-    fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
+    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
-      body: JSON.stringify({ ...updatedConv, isHighIntentClick: isHighIntent }),
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+      body: JSON.stringify({
+        ...updatedConv,
+        geo: geo ?? "",
+        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+        referralSource: referralSource ?? "",
+        language: language ?? "en",
+        isHighIntentClick: isHighIntent,
+      }),
     }).catch(() => { });
 
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
