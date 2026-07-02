@@ -1,6 +1,9 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
 
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+if (!SLACK_WEBHOOK_URL) {
+  console.error("SLACK_WEBHOOK_URL env var is not set");
+}
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-central1";
@@ -78,7 +81,8 @@ function cleanPagePath(url) {
 
 function formatPageJourney(pagesViewed) {
   if (!pagesViewed) return "—";
-  const pages = pagesViewed.split(",").map(p => cleanPagePath(p.trim())).filter(Boolean);
+  const normalized = Array.isArray(pagesViewed) ? pagesViewed.join(",") : pagesViewed;
+  const pages = normalized.split(",").map(p => cleanPagePath(p.trim())).filter(Boolean);
   if (pages.length === 0) return "—";
   return pages.join(" → ");
 }

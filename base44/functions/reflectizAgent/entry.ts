@@ -435,27 +435,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
-  if (trackingEvent === "widget_opened") {
-    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
-      body: JSON.stringify({
-        geo: geo ?? "",
-        intentClassification: "GENERAL_AWARENESS",
-        conversationTurns: 0,
-        conversationOutcome: "BOUNCED",
-        referralSource: referralSource ?? "",
-        conversationTranscript: "",
-        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
-        linksClicked: 0,
-        ctaReached: false,
-        language: language ?? "en",
-        isWidgetOpen: true,
-      }),
-    }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
-    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
-  }
-
   if (trackingEvent === "link_click") {
     const sessionId = incomingSessionId;
     if (!sessionId) {
@@ -521,7 +500,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         ...updatedConv,
         geo: geo ?? "",
-        pagesViewed: Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed.join(",") : (pagesViewed || currentPageUrl || ""),
+        pagesViewed: [...(Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed : [currentPageUrl || ""]), clickedUrl].filter(Boolean).join(","),
         referralSource: referralSource ?? "",
         language: language ?? "en",
         isHighIntentClick: isHighIntent,
