@@ -953,6 +953,42 @@ Return only valid JSON:
       return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
     }
 
+    // INIT_PAGE2_AFTER_CLICK: visitor clicked the opener link on page 1 without chatting, then navigated here
+    if (message === "INIT_PAGE2_AFTER_CLICK") {
+      if (isFormPage(currentPageUrl)) {
+        return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
+      }
+      const clickedUrl = body.clickedUrl || "";
+      const previousPageUrl = body.previousPageUrl || "";
+      const fallbackReply = "Did that answer what you were looking for, or still piecing things together?";
+      let page2Reply = fallbackReply;
+      try {
+        const page2Prompt = `A visitor on reflectiz.com clicked a recommended link and then navigated to a new page without starting a conversation.
+
+Previous page they were on: ${previousPageUrl}
+Link they clicked and read: ${clickedUrl}
+Page they are now on: ${currentPageUrl}
+
+Write exactly one sentence that:
+- Acknowledges they engaged with the content they clicked without mentioning tracking or clicks
+- Asks if it answered what they were looking for or if they need something more specific
+- Sounds like a knowledgeable peer not a salesperson
+- Never uses em dashes
+- Never starts with the word I
+- Ends with a question mark
+- One sentence only`;
+        const geminiResult = await Promise.race([
+          callGemini({ messages: [{ role: "user", content: page2Prompt }], max_tokens: 150, model: "gemini-2.5-flash-lite" }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]);
+        const raw = (geminiResult?.content?.[0]?.text ?? "").trim().replace(/—/g, ",").replace(/–/g, "-").replace(/--/g, ",");
+        if (raw.length > 10) page2Reply = raw;
+      } catch (e) {
+        console.error("INIT_PAGE2_AFTER_CLICK Gemini failed:", e.message);
+      }
+      return new Response(JSON.stringify({ reply: page2Reply, sessionId }), { headers: CORS_HEADERS });
+    }
+
     // Cache check -- only for non-DIRECT_REGISTRATION pages
     const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
     const cached = cachedResults?.[0];
