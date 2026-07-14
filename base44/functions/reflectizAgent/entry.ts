@@ -1101,6 +1101,15 @@ Write exactly one sentence that:
       selectedAsset = isMultiCandidate ? null : candidates[0];
     }
 
+    // Never recommend the page the visitor is already on
+    if (candidates && candidates.length > 0) {
+      candidates = candidates.filter(c => normalizeUrl(c.url) !== normalizeUrl(currentPageUrl));
+      if (selectedAsset && normalizeUrl(selectedAsset.url) === normalizeUrl(currentPageUrl)) {
+        selectedAsset = candidates.length === 1 ? candidates[0] : null;
+        isMultiCandidate = candidates.length >= 2;
+      }
+    }
+
     // Safety net: if no candidates found at all, return hardcoded registration opener
     if (!candidates || candidates.length === 0) {
       return new Response(JSON.stringify({
@@ -1304,8 +1313,11 @@ Return only valid JSON, nothing else:
     // Validate opener using Gemini's chosen asset
     // Only fall back to candidates[0] if opener already failed
     const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
+    const currentPageStripped = (currentPageUrl || "").replace(/\/$/, "");
     if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset ||
-      !opener.includes(validationAsset.url.replace(/\/$/, ""))) {
+      !opener.includes(validationAsset.url.replace(/\/$/, "")) ||
+      (currentPageStripped && opener.includes(currentPageStripped + ")")) ||
+      (currentPageStripped && opener.includes(currentPageStripped + "/)"))) {
       opener = null;
     }
 
