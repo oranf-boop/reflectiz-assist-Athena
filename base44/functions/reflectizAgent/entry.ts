@@ -413,8 +413,52 @@ Deno.serve(async (req) => {
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
+  // Device type from User-Agent for engagement records
+  const _ua = req.headers.get("user-agent") || "";
+  const deviceType = /ipad|tablet/i.test(_ua) ? "tablet" : /mobile|android|iphone/i.test(_ua) ? "mobile" : "desktop";
+  const pagesArr = Array.isArray(pagesViewed) ? pagesViewed.filter(Boolean) : (pagesViewed ? String(pagesViewed).split(",").filter(Boolean) : []);
+  const landingPage = pagesArr[0] || currentPageUrl || "";
+
   // Handle link click tracking events without calling Claude
   if (trackingEvent === "widget_opened") {
+    // Record the engagement so every widget open has a DB record, not just a Slack alert
+    if (incomingSessionId) {
+      try {
+        const base44 = createClientFromRequest(req);
+        const [existing] = await base44.asServiceRole.entities.Conversations.filter({ sessionId: incomingSessionId });
+        if (existing) {
+          await base44.asServiceRole.entities.Conversations.update(existing.id, {
+            widgetOpened: true,
+            lastPage: currentPageUrl ?? existing.lastPage ?? "",
+            ...(!existing.landingPage && landingPage && { landingPage }),
+            ...(!existing.deviceType && { deviceType }),
+            ...(openerText && !existing.openerText && { openerText }),
+          });
+        } else {
+          await base44.asServiceRole.entities.Conversations.create({
+            sessionId: incomingSessionId,
+            timestamp: new Date().toISOString(),
+            geo: geo ?? "",
+            referralSource: referralSource ?? "",
+            pagesViewed: pagesArr.length > 0 ? pagesArr.join(",") : (currentPageUrl ?? ""),
+            landingPage,
+            lastPage: currentPageUrl ?? "",
+            intentClassification: "GENERAL_AWARENESS",
+            conversationTranscript: openerText ? `Agent: ${openerText}` : "",
+            ctaReached: false,
+            language: language ?? "en",
+            conversationTurns: 0,
+            conversationOutcome: "BOUNCED",
+            linksClicked: 0,
+            widgetOpened: true,
+            openerText: openerText ?? "",
+            deviceType,
+          });
+        }
+      } catch (e) {
+        console.error("widget_opened DB record failed:", e.message);
+      }
+    }
     await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
@@ -464,6 +508,10 @@ Deno.serve(async (req) => {
           linksClicked: newLinksClicked,
           ...(newOutcome !== currentOutcome && { conversationOutcome: newOutcome }),
           pagesViewed: [existing.pagesViewed, clickedUrl].filter(Boolean).join(","),
+          lastPage: clickedUrl ?? existing.lastPage ?? "",
+          ...(!existing.landingPage && landingPage && { landingPage }),
+          ...(!existing.deviceType && { deviceType }),
+          ...(openerText && !existing.openerText && { openerText }),
         })
       );
     } else {
@@ -476,6 +524,8 @@ Deno.serve(async (req) => {
           geo: geo ?? "",
           referralSource: referralSource ?? "",
           pagesViewed: [currentPageUrl, clickedUrl].filter(Boolean).join(","),
+          landingPage,
+          lastPage: clickedUrl ?? "",
           intentClassification: "GENERAL_AWARENESS",
           conversationTranscript: openerText ? `Agent: ${openerText}` : "",
           ctaReached: false,
@@ -484,6 +534,8 @@ Deno.serve(async (req) => {
           lastMessageRole: "none",
           conversationOutcome: "ENGAGED",
           linksClicked: 1,
+          openerText: openerText ?? "",
+          deviceType,
         })
       );
     }
