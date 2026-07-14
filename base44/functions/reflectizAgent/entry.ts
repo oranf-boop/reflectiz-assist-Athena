@@ -197,40 +197,75 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+// Resolve the opener language from visitor geo, with an English-browser override.
+// Phase 1: de, fr, it, es. Everything else (incl. Israel) stays English.
+const GEO_LANGUAGE_MAP = {
+  "italy": "it",
+  "germany": "de", "austria": "de",
+  "france": "fr",
+  "spain": "es", "mexico": "es", "argentina": "es", "colombia": "es", "chile": "es",
+  "peru": "es", "venezuela": "es", "ecuador": "es", "uruguay": "es", "paraguay": "es",
+  "bolivia": "es", "guatemala": "es", "costa rica": "es", "panama": "es", "dominican republic": "es",
+};
+function resolveLanguage(geo, browserLang) {
+  const bl = (browserLang || "").toLowerCase();
+  if (bl.indexOf("en") === 0) return "en"; // English browser always wins
+  return GEO_LANGUAGE_MAP[(geo || "").toLowerCase().trim()] || "en";
+}
+const LANGUAGE_NAMES = { en: "English", de: "German", fr: "French", it: "Italian", es: "Spanish" };
+
+// Hardcoded DIRECT_REGISTRATION openers, localized for Phase 1 languages.
+const PRICING_OPENERS = {
+  en: "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)",
+  de: "Verschaffen Sie sich einen vollstaendigen Ueberblick ueber Ihre Web-Exposition, ohne Installation und ohne Performance-Einbussen. [Kostenlose Analyse starten](https://www.reflectiz.com/registration/)",
+  fr: "Obtenez une vue complete de votre exposition web, sans installation et sans impact sur les performances. [Commencez votre evaluation gratuite](https://www.reflectiz.com/registration/)",
+  it: "Ottenga una visione completa della sua esposizione web, senza installazione e senza impatto sulle prestazioni. [Inizi la valutazione gratuita](https://www.reflectiz.com/registration/)",
+  es: "Obtenga una vision completa de su exposicion web, sin instalacion y sin impacto en el rendimiento. [Comience su evaluacion gratuita](https://www.reflectiz.com/registration/)",
+};
+const COMPARISON_OPENERS = {
+  en: (name) => `Most teams comparing Reflectiz to ${name} care about one thing: which one actually shows what third-party scripts do inside the browser. [See the difference](https://www.reflectiz.com/registration/)`,
+  de: (name) => `Die meisten Teams, die Reflectiz mit ${name} vergleichen, interessieren sich fuer eines: welche Loesung wirklich zeigt, was Drittanbieter-Skripte im Browser tun. [Sehen Sie den Unterschied](https://www.reflectiz.com/registration/)`,
+  fr: (name) => `La plupart des equipes qui comparent Reflectiz a ${name} se soucient d'une chose : laquelle montre reellement ce que les scripts tiers font dans le navigateur. [Voyez la difference](https://www.reflectiz.com/registration/)`,
+  it: (name) => `La maggior parte dei team che confrontano Reflectiz con ${name} si concentra su una cosa: quale mostra davvero cosa fanno gli script di terze parti nel browser. [Veda la differenza](https://www.reflectiz.com/registration/)`,
+  es: (name) => `La mayoria de los equipos que comparan Reflectiz con ${name} se fijan en una cosa: cual muestra realmente lo que hacen los scripts de terceros dentro del navegador. [Vea la diferencia](https://www.reflectiz.com/registration/)`,
+};
+function getHardcodedOpener(competitorName, lang) {
+  if (competitorName) {
+    const fn = COMPARISON_OPENERS[lang] || COMPARISON_OPENERS.en;
+    return fn(competitorName);
+  }
+  return PRICING_OPENERS[lang] || PRICING_OPENERS.en;
+}
+
 // Decorate an opener with a short conversational intro and a CTA lead-in before the link.
 // Variety pools so repeat visitors don't see identical phrasing. Guardrails: short,
 // friendly, professional, no em dashes, no exclamation overload.
-const INTROS_FIRST = [
-  "Hey! ",
-  "Hi there! ",
-  "Hey there! ",
-  "Hi! ",
-  "Hey, quick thought: ",
-];
-const INTROS_SECOND = [
-  "What did you think about this? ",
-  "Did that answer what you were looking for? ",
-  "Hope that was useful. ",
-  "Good, right? ",
-  "Since you are digging into this: ",
-];
-const CTA_LEADINS = [
-  "If you want to learn more, click here:",
-  "Want to dig deeper? Take a look:",
-  "Curious for more? Start here:",
-  "Here is a good next read:",
-  "For the full picture, check this out:",
-];
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-function decorateOpener(opener, message) {
+const INTRO_POOLS = {
+  en: { first: ["Hey! ", "Hi there! ", "Hey there! ", "Hi! ", "Hey, quick thought: "],
+        second: ["What did you think about this? ", "Did that answer what you were looking for? ", "Hope that was useful. ", "Good, right? ", "Since you are digging into this: "],
+        cta: ["If you want to learn more, click here:", "Want to dig deeper? Take a look:", "Curious for more? Start here:", "Here is a good next read:", "For the full picture, check this out:"] },
+  de: { first: ["Hallo! ", "Hi! ", "Hallo zusammen! ", "Kurzer Gedanke: ", "Hey! "],
+        second: ["Was halten Sie davon? ", "Hat das Ihre Frage beantwortet? ", "Hoffentlich war das hilfreich. ", "Gut, oder? ", "Da Sie sich damit beschaeftigen: "],
+        cta: ["Wenn Sie mehr erfahren moechten, klicken Sie hier:", "Moechten Sie tiefer einsteigen? Schauen Sie hier:", "Neugierig auf mehr? Starten Sie hier:", "Hier ist eine gute weiterfuehrende Lektuere:", "Fuer das ganze Bild, schauen Sie hier:"] },
+  fr: { first: ["Bonjour ! ", "Salut ! ", "Bonjour, petite reflexion : ", "Hello ! ", "Bonjour a vous ! "],
+        second: ["Qu'en avez-vous pense ? ", "Cela a-t-il repondu a votre question ? ", "J'espere que c'etait utile. ", "Pas mal, non ? ", "Puisque vous explorez ce sujet : "],
+        cta: ["Pour en savoir plus, cliquez ici :", "Envie d'approfondir ? Jetez un oeil :", "Curieux d'en savoir plus ? Commencez ici :", "Voici une bonne lecture pour la suite :", "Pour une vue complete, consultez ceci :"] },
+  it: { first: ["Ciao! ", "Salve! ", "Ciao, una breve riflessione: ", "Buongiorno! ", "Ehi! "],
+        second: ["Cosa ne pensa? ", "Ha risposto alla sua domanda? ", "Spero sia stato utile. ", "Interessante, vero? ", "Visto che sta approfondendo: "],
+        cta: ["Se vuole saperne di piu, clicchi qui:", "Vuole approfondire? Dia un'occhiata:", "Curioso di saperne di piu? Inizi da qui:", "Ecco una buona lettura successiva:", "Per il quadro completo, guardi qui:"] },
+  es: { first: ["¡Hola! ", "¡Buenas! ", "Hola, una breve reflexion: ", "¡Hey! ", "¡Hola de nuevo! "],
+        second: ["¿Que le parecio? ", "¿Respondio a su pregunta? ", "Espero que haya sido util. ", "Interesante, ¿verdad? ", "Ya que esta profundizando en esto: "],
+        cta: ["Si quiere saber mas, haga clic aqui:", "¿Quiere profundizar? Eche un vistazo:", "¿Curioso por saber mas? Empiece aqui:", "Aqui tiene una buena lectura siguiente:", "Para el panorama completo, vea esto:"] },
+};
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function decorateOpener(opener, message, lang) {
   if (!opener || typeof opener !== "string") return opener;
-  const intro = message === "INIT_PAGE2_AFTER_CLICK" ? pickRandom(INTROS_SECOND) : pickRandom(INTROS_FIRST);
+  const pool = INTRO_POOLS[lang] || INTRO_POOLS.en;
+  const intro = message === "INIT_PAGE2_AFTER_CLICK" ? pickRandom(pool.second) : pickRandom(pool.first);
   let text = opener;
   const linkIdx = text.indexOf("[");
   if (linkIdx > 0 && text.includes("](")) {
-    text = text.slice(0, linkIdx).trimEnd() + "\n" + pickRandom(CTA_LEADINS) + "\n" + text.slice(linkIdx);
+    text = text.slice(0, linkIdx).trimEnd() + "\n" + pickRandom(pool.cta) + "\n" + text.slice(linkIdx);
   }
   return intro + text;
 }
@@ -451,6 +486,9 @@ Deno.serve(async (req) => {
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
+  // Resolve opener language once from geo + browser language (Phase 1: de/fr/it/es, else en)
+  const resolvedLang = resolveLanguage(geo, language);
+
   // Device type from User-Agent for engagement records
   const _ua = req.headers.get("user-agent") || "";
   const deviceType = /ipad|tablet/i.test(_ua) ? "tablet" : /mobile|android|iphone/i.test(_ua) ? "mobile" : "desktop";
@@ -662,7 +700,7 @@ ABSOLUTE RULES:
 - Sound like a peer, not a salesperson
 
 Return only valid JSON, nothing else:
-{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}`;
+{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
 
       const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
       const geminiResult = await Promise.race([
@@ -694,7 +732,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
 
-      return new Response(JSON.stringify({ reply: decorateOpener(opener, message), bubbleText, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
@@ -777,6 +815,7 @@ Return only valid JSON:
           pageUrl: currentPageUrl,
           opener,
           bubbleText,
+          language: resolvedLang,
           generatedAt: new Date().toISOString()
         }).catch(() => {});
       }
@@ -1063,17 +1102,15 @@ Return only valid JSON:
       const competitorName = (currentPageUrl || "").includes("reflectiz-vs-")
         ? (currentPageUrl || "").split("reflectiz-vs-").pop().split("/")[0].replace(/-/g, " ")
         : "";
-      const hardcodedOpener = competitorName
-        ? `Most teams comparing Reflectiz to ${competitorName} care about one thing: which one actually shows what third-party scripts do inside the browser. [See the difference](https://www.reflectiz.com/registration/)`
-        : "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)";
+      const hardcodedOpener = getHardcodedOpener(competitorName, resolvedLang);
       const hardcodedBubble = competitorName
         ? `See how Reflectiz outperforms ${competitorName}`
         : "See your full web exposure now";
-      return new Response(JSON.stringify({ reply: decorateOpener(hardcodedOpener, message), bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(hardcodedOpener, message, resolvedLang), bubbleText: hardcodedBubble, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
     }
 
     // Cache check -- only for non-DIRECT_REGISTRATION pages
-    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl });
+    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl, language: resolvedLang });
     const cached = cachedResults?.[0];
     if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
       const normalizedCurrent = normalizeUrl(currentPageUrl);
@@ -1081,7 +1118,7 @@ Return only valid JSON:
       const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
       if (!linksSamePage) {
         const sanitizeCache = (s) => (s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-");
-        return new Response(JSON.stringify({ reply: decorateOpener(sanitizeCache(cached.opener), message), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ reply: decorateOpener(sanitizeCache(cached.opener), message, resolvedLang), bubbleText: sanitizeCache(cached.bubbleText || ""), lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
       }
     }
 
@@ -1154,8 +1191,9 @@ Return only valid JSON:
     // Safety net: if no candidates found at all, return hardcoded registration opener
     if (!candidates || candidates.length === 0) {
       return new Response(JSON.stringify({
-        reply: decorateOpener("Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)", message),
+        reply: decorateOpener(getHardcodedOpener(null, resolvedLang), message, resolvedLang),
         bubbleText: "See your full web exposure now",
+        lang: resolvedLang,
         sessionId
       }), { headers: CORS_HEADERS });
     }
@@ -1251,7 +1289,7 @@ ABSOLUTE RULES:
 - Sound like a knowledgeable peer, not a salesperson
 
 Return only valid JSON, nothing else:
-{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}`;
+{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
     } else {
       const candidateList = candidateInsights.map((c, i) =>
         `OPTION ${i + 1} [performance score: ${c.performanceScore}/30]:
@@ -1297,7 +1335,7 @@ ABSOLUTE RULES:
 - Pick based on geo, referral source, and journey -- not just the first option
 
 Return only valid JSON, nothing else:
-{"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}`;
+{"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
     }
 
     const geminiResult = await Promise.race([
@@ -1410,11 +1448,12 @@ Return only valid JSON, nothing else:
         pageUrl: currentPageUrl,
         opener,
         bubbleText,
+        language: resolvedLang,
         generatedAt: new Date().toISOString()
       }).catch(() => { });
     }
 
-    return new Response(JSON.stringify({ reply: decorateOpener(opener, message), bubbleText, sessionId }), { headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
   }
 
   // client replaced by callClaude helper
@@ -1467,6 +1506,7 @@ Generate a natural one-sentence opening message that:
   if (agentConfigs && agentConfigs.length > 0 && agentConfigs[0].systemPrompt) {
     systemPrompt = agentConfigs[0].systemPrompt;
   }
+  systemPrompt += `\n\nRespond in the same language the visitor writes in. If their message language is unclear, respond in ${LANGUAGE_NAMES[resolvedLang] || "English"}.`;
 
   // Language detection: Hebrew characters => Hebrew; Israel geo without Hebrew => English; otherwise use browser language
   const containsHebrew = /[\u0590-\u05FF]/.test(message);
