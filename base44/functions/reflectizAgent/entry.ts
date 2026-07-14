@@ -211,7 +211,7 @@ const INTROS_SECOND = [
   "What did you think about this? ",
   "Did that answer what you were looking for? ",
   "Hope that was useful. ",
-  "Good follow-up read, right? ",
+  "Good, right? ",
   "Since you are digging into this: ",
 ];
 const CTA_LEADINS = [
