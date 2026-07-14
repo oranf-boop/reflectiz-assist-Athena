@@ -822,8 +822,15 @@ Return only valid JSON:
         );
         const aged = matches.map(page => {
           const urlYear = (page.pageUrl || "").match(/\b(202[0-3]|201\d)\b/);
-          const year = urlYear ? parseInt(urlYear[1]) : null;
-          const ageTier = (!year || year >= 2025) ? 0 : (year === 2024 ? 1 : 2);
+          let effYear = urlYear ? parseInt(urlYear[1]) : null;
+          if (!effYear) {
+            const textSample = ((page.pageTitle || "") + " " + (page.pageContent || "").slice(0, 3000));
+            const mentioned = textSample.match(/\b20(1\d|2[0-6])\b/g);
+            if (mentioned && mentioned.length > 0) {
+              effYear = Math.max(...mentioned.map(Number));
+            }
+          }
+          const ageTier = (!effYear || effYear >= 2025) ? 0 : (effYear === 2024 ? 1 : 2);
           // performanceScore written by analyzeAndLearn: 0-30, higher = more converting.
           // Default 10 (neutral) for pages with no click data yet.
           const performanceScore = typeof page.performanceScore === "number" ? page.performanceScore : 10;
