@@ -562,16 +562,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
-  // Hardcoded instant openers, no Gemini, no DB, no cost
-  const INSTANT_OPENERS = {
-    INIT_HOMEPAGE_RETURN_SAME_DAY: "You were here earlier. Did something come up, or still thinking it through?",
-    INIT_HOMEPAGE_RETURN_DIFFERENT_DAY: "Something specific bring you back?",
-  };
-
-  if (INSTANT_OPENERS[message]) {
-    return new Response(JSON.stringify({ reply: INSTANT_OPENERS[message], sessionId: incomingSessionId || crypto.randomUUID() }), { headers: CORS_HEADERS });
-  }
-
   // Dynamic page-aware opener for all INIT variants
   if (message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
@@ -859,6 +849,11 @@ Return only valid JSON:
           return filtered.filter(c => c.pageType !== "case-study");
         }
 
+        // Homepage: recommend product/solution/use-case content, never blog posts
+        if (normalizeUrl(currentPageUrl) === "reflectiz.com") {
+          return filtered.filter(c => c.pageType !== "blog");
+        }
+
         return filtered.filter(c => !visitedNormalized.has(normalizeUrl(c.url)));
       } catch (e) {
         console.error("getCandidatesForCategory failed:", e.message);
@@ -993,42 +988,6 @@ Return only valid JSON:
         ? `See how Reflectiz outperforms ${competitorName}`
         : "See your full web exposure now";
       return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
-    }
-
-    // INIT_PAGE2_AFTER_CLICK: visitor clicked the opener link on page 1 without chatting, then navigated here
-    if (message === "INIT_PAGE2_AFTER_CLICK") {
-      if (isFormPage(currentPageUrl)) {
-        return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
-      }
-      const clickedUrl = body.clickedUrl || "";
-      const previousPageUrl = body.previousPageUrl || "";
-      const fallbackReply = "Did that answer what you were looking for, or still piecing things together?";
-      let page2Reply = fallbackReply;
-      try {
-        const page2Prompt = `A visitor on reflectiz.com clicked a recommended link and then navigated to a new page without starting a conversation.
-
-Previous page they were on: ${previousPageUrl}
-Link they clicked and read: ${clickedUrl}
-Page they are now on: ${currentPageUrl}
-
-Write exactly one sentence that:
-- Acknowledges they engaged with the content they clicked without mentioning tracking or clicks
-- Asks if it answered what they were looking for or if they need something more specific
-- Sounds like a knowledgeable peer not a salesperson
-- Never uses em dashes
-- Never starts with the word I
-- Ends with a question mark
-- One sentence only`;
-        const geminiResult = await Promise.race([
-          callGemini({ messages: [{ role: "user", content: page2Prompt }], max_tokens: 150, model: "gemini-2.5-flash-lite" }),
-          new Promise((resolve) => setTimeout(() => resolve(null), 5000)),
-        ]);
-        const raw = (geminiResult?.content?.[0]?.text ?? "").trim().replace(/—/g, ",").replace(/–/g, "-").replace(/--/g, ",");
-        if (raw.length > 10) page2Reply = raw;
-      } catch (e) {
-        console.error("INIT_PAGE2_AFTER_CLICK Gemini failed:", e.message);
-      }
-      return new Response(JSON.stringify({ reply: page2Reply, sessionId }), { headers: CORS_HEADERS });
     }
 
     // Cache check -- only for non-DIRECT_REGISTRATION pages
