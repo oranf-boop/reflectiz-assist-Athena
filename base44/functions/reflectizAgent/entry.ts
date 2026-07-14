@@ -1433,8 +1433,22 @@ Return only valid JSON, nothing else:
     // Fallback if Gemini failed
     if (!opener) {
       const fallbackAsset = selectedAsset || candidates[0];
-      opener = `This page covers one of the most critical areas in web security right now. [${fallbackAsset.label}](${fallbackAsset.url})`;
-      bubbleText = bubbleText || "Web security insight worth reading";
+      const FALLBACK_SENTENCES = {
+        en: "This page covers one of the most critical areas in web security right now.",
+        de: "Diese Seite behandelt einen der derzeit wichtigsten Bereiche der Web-Sicherheit.",
+        fr: "Cette page couvre l'un des domaines les plus critiques de la securite web actuellement.",
+        it: "Questa pagina trata una delle aree piu critiche della sicurezza web di oggi.",
+        es: "Esta pagina cubre una de las areas mas criticas de la seguridad web actual.",
+      };
+      opener = `${FALLBACK_SENTENCES[resolvedLang] || FALLBACK_SENTENCES.en} [${fallbackAsset.label}](${fallbackAsset.url})`;
+      const FALLBACK_BUBBLES = {
+        en: "Web security insight worth reading",
+        de: "Lesenswerte Web-Sicherheits-Einblicke",
+        fr: "Un apercu securite web a lire",
+        it: "Approfondimento di sicurezza web da leggere",
+        es: "Analisis de seguridad web que vale la pena leer",
+      };
+      bubbleText = bubbleText || (FALLBACK_BUBBLES[resolvedLang] || FALLBACK_BUBBLES.en);
     }
 
     // Derive bubble from opener if still empty
