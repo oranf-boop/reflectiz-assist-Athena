@@ -197,6 +197,20 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+// Decorate an opener with a short conversational intro and a CTA lead-in before the link.
+// First engagement gets "Hey!", the page-2-after-click engagement gets a follow-up question.
+// Applied at response time only — never stored in the PageOpeners cache.
+function decorateOpener(opener, message) {
+  if (!opener || typeof opener !== "string") return opener;
+  const intro = message === "INIT_PAGE2_AFTER_CLICK" ? "What did you think about this? " : "Hey! ";
+  let text = opener;
+  const linkIdx = text.indexOf("[");
+  if (linkIdx > 0 && text.includes("](")) {
+    text = text.slice(0, linkIdx).trimEnd() + "\nIf you want to learn more, click here:\n" + text.slice(linkIdx);
+  }
+  return intro + text;
+}
+
 async function searchWebsiteContent(base44, query, currentPageUrl) {
   const stopWords = new Set([
     "what", "this", "that", "with", "from", "have", "does", "your", "their", "about",
@@ -656,7 +670,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
 
-      return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message), bubbleText, sessionId }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
@@ -1031,7 +1045,7 @@ Return only valid JSON:
       const hardcodedBubble = competitorName
         ? `See how Reflectiz outperforms ${competitorName}`
         : "See your full web exposure now";
-      return new Response(JSON.stringify({ reply: hardcodedOpener, bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(hardcodedOpener, message), bubbleText: hardcodedBubble, sessionId }), { headers: CORS_HEADERS });
     }
 
     // Cache check -- only for non-DIRECT_REGISTRATION pages
@@ -1043,7 +1057,7 @@ Return only valid JSON:
       const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
       if (!linksSamePage) {
         const sanitizeCache = (s) => (s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-");
-        return new Response(JSON.stringify({ reply: sanitizeCache(cached.opener), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ reply: decorateOpener(sanitizeCache(cached.opener), message), bubbleText: sanitizeCache(cached.bubbleText || ""), sessionId }), { headers: CORS_HEADERS });
       }
     }
 
@@ -1116,7 +1130,7 @@ Return only valid JSON:
     // Safety net: if no candidates found at all, return hardcoded registration opener
     if (!candidates || candidates.length === 0) {
       return new Response(JSON.stringify({
-        reply: "Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)",
+        reply: decorateOpener("Gain a complete view of your web exposure without any installation or performance impact. [Start your free assessment](https://www.reflectiz.com/registration/)", message),
         bubbleText: "See your full web exposure now",
         sessionId
       }), { headers: CORS_HEADERS });
@@ -1376,7 +1390,7 @@ Return only valid JSON, nothing else:
       }).catch(() => { });
     }
 
-    return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ reply: decorateOpener(opener, message), bubbleText, sessionId }), { headers: CORS_HEADERS });
   }
 
   // client replaced by callClaude helper
