@@ -878,16 +878,6 @@ Return only valid JSON:
         return { category: "panel", reason: "panel-priority" };
       }
 
-      if (hasActiveConversation) return { category: "DIRECT_REGISTRATION", reason: "returning" };
-
-      // Multi-page journey: visitor navigated through 2+ content pages without chatting -- push to registration
-      const HOMEPAGE_URL = "https://www.reflectiz.com";
-      const visitedContentPages = (Array.isArray(pagesViewed) ? pagesViewed : [pagesViewed])
-        .filter(u => u && u.includes("reflectiz.com") && normalizeUrl(u) !== normalizeUrl(HOMEPAGE_URL));
-      if (visitedContentPages.length >= 2) {
-        return { category: "DIRECT_REGISTRATION", reason: "multi-page-journey" };
-      }
-
       const isPaidSearch = ref.includes("gclid") || ref.includes("paid") || ref.includes("cpc");
       if (isPaidSearch) return { category: "DIRECT_REGISTRATION", reason: "high-intent" };
 
