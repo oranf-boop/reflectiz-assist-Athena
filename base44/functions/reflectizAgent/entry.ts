@@ -857,9 +857,24 @@ Return only valid JSON:
           return filtered.filter(c => c.pageType !== "case-study");
         }
 
-        // Homepage: recommend product/solution/use-case content, never blog posts
+        // Homepage: recommend product/solution/use-case content and customer success stories, never blog posts
         if (normalizeUrl(currentPageUrl) === "reflectiz.com") {
-          return filtered.filter(c => c.pageType !== "blog");
+          const nonBlog = filtered.filter(c => c.pageType !== "blog");
+          const caseStudies = allContent
+            .filter(p => p.isActive === true &&
+              p.pageType === "case-study" &&
+              p.pageContent && p.pageContent.length > 400 &&
+              !visitedNormalized.has(normalizeUrl(p.pageUrl)) &&
+              !nonBlog.some(c => normalizeUrl(c.url) === normalizeUrl(p.pageUrl)))
+            .map(p => ({
+              url: p.pageUrl,
+              label: deriveLabel(p.pageTitle, p.pageType),
+              pageContent: p.pageContent,
+              pageType: p.pageType,
+              ageTier: 0,
+              performanceScore: typeof p.performanceScore === "number" ? p.performanceScore : 10,
+            }));
+          return nonBlog.concat(caseStudies);
         }
 
         return filtered.filter(c => !visitedNormalized.has(normalizeUrl(c.url)));
@@ -1191,7 +1206,7 @@ Content: "${c.insight || "No content available, use general knowledge about this
       ).join("\n\n");
 
       openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
-${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Strongly prefer recommending a specific product module or solution page (e.g. PCI Module, Magecart protection, supply chain monitoring) over blog posts or case studies. Homepage visitors need to discover products.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context -- if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator -- a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
+${(currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Prefer recommending a specific product module, solution page, or customer success story (case study). Customer success stories with named brands and concrete results are a strong differentiator. Avoid blog posts. Homepage visitors need to discover what Reflectiz does and proof that it works.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context -- if the content is about retail/e-commerce security threats, frame it in terms of retail brand protection and revenue risk.\n" : ""}${(currentPageUrl || "").includes("/blog/") && routing && routing.category === "pci" ? "\nVISITOR CONTEXT: This visitor is reading educational blog content. Prefer recommending a solution/product page (such as a module page or use-case page) over another blog post or case study, as the visitor needs a clear next action.\n" : (currentPageUrl || "").includes("/blog/") ? "\nPick the most topically similar candidate to this blog article.\n" : ""}${routing && routing.reason === "comparison-pool" ? "\nVISITOR CONTEXT: This visitor is on a competitor comparison page. Pick the candidate that best highlights a concrete Reflectiz differentiator -- a specific technical advantage, a named customer proof point, or a quantified outcome. Lead with the differentiator, not a generic insight.\n" : ""}${routing && routing.reason === "panel-priority" ? "\nVISITOR CONTEXT: This visitor is on a panel/webinar page. Strongly prefer recommending the companion registration or related event page over other content.\n" : ""}${routing && routing.category === "pentest" ? "\nVISITOR CONTEXT: The visitor is reading about penetration testing methodology. Prefer recommending a pentest demo, pentest webinar, or offensive security product page as the next step.\n" : ""}
 PAGE CONTEXT:
 Page title: ${contextTitle}
 Page URL: ${currentPageUrl}
