@@ -198,15 +198,39 @@ const CORS_HEADERS = {
 };
 
 // Decorate an opener with a short conversational intro and a CTA lead-in before the link.
-// First engagement gets "Hey!", the page-2-after-click engagement gets a follow-up question.
-// Applied at response time only — never stored in the PageOpeners cache.
+// Variety pools so repeat visitors don't see identical phrasing. Guardrails: short,
+// friendly, professional, no em dashes, no exclamation overload.
+const INTROS_FIRST = [
+  "Hey! ",
+  "Hi there! ",
+  "Hey there! ",
+  "Hi! ",
+  "Hey, quick thought: ",
+];
+const INTROS_SECOND = [
+  "What did you think about this? ",
+  "Did that answer what you were looking for? ",
+  "Hope that was useful. ",
+  "Good follow-up read, right? ",
+  "Since you are digging into this: ",
+];
+const CTA_LEADINS = [
+  "If you want to learn more, click here:",
+  "Want to dig deeper? Take a look:",
+  "Curious for more? Start here:",
+  "Here is a good next read:",
+  "For the full picture, check this out:",
+];
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 function decorateOpener(opener, message) {
   if (!opener || typeof opener !== "string") return opener;
-  const intro = message === "INIT_PAGE2_AFTER_CLICK" ? "What did you think about this? " : "Hey! ";
+  const intro = message === "INIT_PAGE2_AFTER_CLICK" ? pickRandom(INTROS_SECOND) : pickRandom(INTROS_FIRST);
   let text = opener;
   const linkIdx = text.indexOf("[");
   if (linkIdx > 0 && text.includes("](")) {
-    text = text.slice(0, linkIdx).trimEnd() + "\nIf you want to learn more, click here:\n" + text.slice(linkIdx);
+    text = text.slice(0, linkIdx).trimEnd() + "\n" + pickRandom(CTA_LEADINS) + "\n" + text.slice(linkIdx);
   }
   return intro + text;
 }
