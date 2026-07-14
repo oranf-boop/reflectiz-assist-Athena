@@ -766,7 +766,7 @@ Return only valid JSON:
         "other": "Learn more"
       };
       const base = typeLabels[pageType] || "Learn more";
-      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/[\u2013\u2014|-]/)[0].trim()}` : base;
+      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/\s[\u2013\u2014|-]\s/)[0].trim()}` : base;
     }
 
     const isTaxonomyPage = (url) => {
@@ -814,6 +814,7 @@ Return only valid JSON:
           Array.isArray(page.categories) &&
           page.categories.includes(category) &&
           !visitedNormalized.has(normalizeUrl(page.pageUrl)) &&
+          normalizeUrl(page.pageUrl) !== "reflectiz.com" &&
           page.pageContent && page.pageContent.length > 400 &&
           !isTaxonomyPage(page.pageUrl) &&
           !isHubPage(page.pageUrl) &&
@@ -880,6 +881,10 @@ Return only valid JSON:
       // Route directly to registration -- same logic as paid search traffic.
       const isComparisonPage = url.includes("reflectiz-vs") || url.includes("vs-reflectiz") || url.includes("cside-vs") || url.includes("cside");
       if (isComparisonPage) return { category: "DIRECT_REGISTRATION", reason: "comparison" };
+
+      // Pricing page = active evaluation, same intent level as comparison pages
+      const isPricingPage = url.includes("/plans") || url.includes("/pricing");
+      if (isPricingPage) return { category: "DIRECT_REGISTRATION", reason: "pricing" };
 
       // T11 FIX: DB categories take priority over URL slug heuristics for all non-comparison, non-case-study pages
       const isHomepageUrl = url.replace(/\/$/, "") === "https://www.reflectiz.com";
@@ -1119,7 +1124,7 @@ Return only valid JSON:
       }
 
       const isHomepage = (currentPageUrl || "").replace(/\/$/, "") === "https://www.reflectiz.com";
-      if (isHomepage) candidates = shuffleWithinTiers(candidates);
+      candidates = shuffleWithinTiers(candidates);
 
       candidates = candidates.slice(0, 8);
       candidateInsights = candidates.map(c => ({
