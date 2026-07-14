@@ -1,0 +1,24 @@
+{
+  "name": "WidgetStatusState",
+  "type": "object",
+  "properties": {
+    "lastStatus": {
+      "type": "string",
+      "title": "Last Status",
+      "enum": [
+        "healthy",
+        "unhealthy"
+      ]
+    },
+    "lastCheckedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Last Checked At"
+    },
+    "lastFailureReason": {
+      "type": "string",
+      "title": "Last Failure Reason"
+    }
+  },
+  "required": []
+}

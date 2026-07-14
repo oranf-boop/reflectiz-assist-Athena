@@ -419,6 +419,23 @@ Deno.serve(async (req) => {
   const pagesArr = Array.isArray(pagesViewed) ? pagesViewed.filter(Boolean) : (pagesViewed ? String(pagesViewed).split(",").filter(Boolean) : []);
   const landingPage = pagesArr[0] || currentPageUrl || "";
 
+  // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
+  if (trackingEvent === "opener_shown") {
+    try {
+      const base44 = createClientFromRequest(req);
+      await base44.asServiceRole.entities.OpenerImpressions.create({
+        sessionId: incomingSessionId ?? "",
+        pageUrl: currentPageUrl ?? "",
+        openerText: openerText ?? "",
+        bubbleText: body.bubbleText ?? "",
+        shownAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("opener_shown record failed:", e.message);
+    }
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  }
+
   // Handle link click tracking events without calling Claude
   if (trackingEvent === "widget_opened") {
     // Record the engagement so every widget open has a DB record, not just a Slack alert

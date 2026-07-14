@@ -1,0 +1,29 @@
+{
+  "name": "OpenerImpressions",
+  "type": "object",
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "title": "Session ID"
+    },
+    "pageUrl": {
+      "type": "string",
+      "title": "Page URL"
+    },
+    "openerText": {
+      "type": "string",
+      "title": "Opener Text",
+      "format": "textarea"
+    },
+    "bubbleText": {
+      "type": "string",
+      "title": "Bubble Text"
+    },
+    "shownAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Shown At"
+    }
+  },
+  "required": []
+}
