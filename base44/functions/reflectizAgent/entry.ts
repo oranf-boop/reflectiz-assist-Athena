@@ -700,7 +700,7 @@ ABSOLUTE RULES:
 - Sound like a peer, not a salesperson
 
 Return only valid JSON, nothing else:
-{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
+{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names and standard names like PCI DSS unchanged.` : ""}`;
 
       const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
       const geminiResult = await Promise.race([
@@ -820,7 +820,7 @@ Return only valid JSON:
         }).catch(() => {});
       }
 
-      return new Response(JSON.stringify({ reply: opener, bubbleText, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
     }
 
     // Fetch current page's own DB content for richer opener personalization
@@ -860,7 +860,7 @@ Return only valid JSON:
         "other": "Learn more"
       };
       const base = typeLabels[pageType] || "Learn more";
-      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/\s[\u2013\u2014|-]\s/)[0].trim()}` : base;
+      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/\s[\u2013\u2014|-]\s/)[0].replace(/[\[\]]/g, "").trim()}` : base;
     }
 
     const isTaxonomyPage = (url) => {
@@ -1387,6 +1387,11 @@ Return only valid JSON, nothing else:
         .replace(/&quot;/g, '"')
         .replace(/&#\d+;/g, "")
         .replace(/&[a-z]+;/g, "");
+    }
+
+    // Repair nested brackets inside markdown labels: [text [x] more](url) -> [text x more](url)
+    if (opener) {
+      opener = opener.replace(/\[([^\]]*)\[([^\]]*)\]([^\]]*)\]\(/g, "[$1$2$3](");
     }
 
     // Validate opener using Gemini's chosen asset
