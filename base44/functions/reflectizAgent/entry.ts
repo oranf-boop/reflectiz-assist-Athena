@@ -861,7 +861,8 @@ Return only valid JSON:
         "other": "Learn more"
       };
       const base = typeLabels[pageType] || "Learn more";
-      return pageTitle ? `${base}: ${sanitizeContent(pageTitle).split(/\s[\u2013\u2014|-]\s/)[0].replace(/[\[\]]/g, "").trim()}` : base;
+      const cleanTitle = pageTitle ? sanitizeContent(pageTitle).split(/\s[\u2013\u2014|-]\s/)[0].replace(/[\[\]]/g, "").trim() : "";
+      return cleanTitle || base;
     }
 
     const isTaxonomyPage = (url) => {
