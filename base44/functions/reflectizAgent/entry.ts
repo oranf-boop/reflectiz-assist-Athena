@@ -1457,7 +1457,7 @@ Return only valid JSON, nothing else:
     }
 
     // Cache
-    if (isValidPageUrl && opener && bubbleText && !isMultiCandidate) {
+    if (isValidPageUrl && opener && bubbleText) {
       await base44.asServiceRole.entities.PageOpeners.create({
         pageUrl: currentPageUrl,
         opener,
