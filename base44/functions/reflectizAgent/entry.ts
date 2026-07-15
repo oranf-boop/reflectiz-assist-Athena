@@ -1520,7 +1520,7 @@ Generate a natural one-sentence opening message that:
   if (agentConfigs && agentConfigs.length > 0 && agentConfigs[0].systemPrompt) {
     systemPrompt = agentConfigs[0].systemPrompt;
   }
-  systemPrompt += `\n\nRespond in the same language the visitor writes in. If their message language is unclear, respond in ${LANGUAGE_NAMES[resolvedLang] || "English"}.`;
+  systemPrompt += `\n\nLANGUAGE RULE (CRITICAL, overrides everything else): Detect the language of the visitor's most recent message and reply in EXACTLY that language. The visitor's location or browser settings are irrelevant — if they write in English, answer in English, even if they are in France or Germany. Only if their message has no identifiable language (a URL, a number, one ambiguous word) reply in ${LANGUAGE_NAMES[resolvedLang] || "English"}.`;
 
   // Language detection: Hebrew characters => Hebrew; Israel geo without Hebrew => English; otherwise use browser language
   const containsHebrew = /[\u0590-\u05FF]/.test(message);
