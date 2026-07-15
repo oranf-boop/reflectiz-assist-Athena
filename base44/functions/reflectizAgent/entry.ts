@@ -1531,7 +1531,7 @@ Generate a natural one-sentence opening message that:
 
   const messages = [...conversationHistory];
 
-  const languageLabel = effectiveLanguage === "he" ? "he (Hebrew -- respond in Hebrew)" : effectiveLanguage;
+  const languageLabel = effectiveLanguage === "he" ? "he (Hebrew -- respond in Hebrew)" : "";
   const visitorContext = [
     languageLabel ? `[Visitor language: ${languageLabel}]` : "",
     geo ? `[Visitor geo: ${geo}]` : "",
