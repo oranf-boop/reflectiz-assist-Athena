@@ -276,6 +276,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     "which", "when", "will", "how", "can", "you", "tell", "me", "are", "the", "for",
     "its", "get", "all", "any", "our", "more", "was", "has", "been", "not", "but",
     "they", "them", "use", "used", "using", "see", "let", "just", "also", "into",
+    "sound", "sounds", "very", "interesting", "really", "cool", "nice", "great", "thanks", "thank", "please", "okay", "yes", "wow", "awesome", "sure", "maybe", "want", "would", "could", "should", "know", "think", "good", "well", "much", "some", "something", "anything", "give", "show", "find", "looking", "look", "need", "help",
   ]);
 
   // FIX 1: Translate Hebrew security terms to English before keyword extraction
@@ -333,7 +334,7 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
     const pageUrl = (page.pageUrl || "").toLowerCase();
     const urlBoost = 0; // Current page excluded from RAG candidates, not boosted
     const score = keywords.reduce((acc, kw) => {
-      const matches = (text.match(new RegExp(kw, "g")) || []).length;
+      const matches = (text.match(new RegExp("\\b" + kw + "\\b", "g")) || []).length;
       return acc + matches;
     }, 0);
 
