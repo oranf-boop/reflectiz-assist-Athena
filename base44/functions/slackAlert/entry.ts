@@ -1,4 +1,5 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
 if (!SLACK_WEBHOOK_URL) {
@@ -8,6 +9,8 @@ if (!SLACK_WEBHOOK_URL) {
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-central1";
 const GEMINI_MODEL = "gemini-2.5-flash";
+const DASHBOARD_URL = "https://reflect-web-wise.base44.app/AgentDashboard";
+const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
 
 async function callGemini({ messages, max_tokens }) {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
@@ -79,12 +82,13 @@ function cleanPagePath(url) {
   }
 }
 
-function formatPageJourney(pagesViewed) {
-  if (!pagesViewed) return "—";
-  const normalized = Array.isArray(pagesViewed) ? pagesViewed.join(",") : pagesViewed;
-  const pages = normalized.split(",").map(p => cleanPagePath(p.trim())).filter(Boolean);
-  if (pages.length === 0) return "—";
-  return pages.join(" → ");
+function normalizeUrl(url) {
+  if (!url) return "";
+  return String(url)
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, "")
+    .replace(/\/$/, "")
+    .trim();
 }
 
 Deno.serve(async (req) => {
@@ -94,27 +98,75 @@ Deno.serve(async (req) => {
 
   const body = await req.json();
   const {
-    geo,
-    intentClassification,
-    conversationTurns,
-    conversationOutcome,
-    referralSource,
-    conversationTranscript,
-    pagesViewed,
-    linksClicked,
-    ctaReached,
-    language,
+    sessionId,
+    eventType,
     clickedUrl,
+    triggerUrl,
     isConversion,
     isHighIntentClick,
     isWidgetOpen,
   } = body;
 
+  // Session-aware enrichment: query entities when a sessionId is provided.
+  // Body fields below act as fallbacks so legacy callers keep working.
+  let conv = null;
+  let impressions = [];
+  let clicks = [];
+  if (sessionId) {
+    try {
+      const base44 = createClientFromRequest(req);
+      const [convRows, impRows, clickRows] = await Promise.all([
+        base44.asServiceRole.entities.Conversations.filter({ sessionId }).catch(() => []),
+        base44.asServiceRole.entities.OpenerImpressions.filter({ sessionId }).catch(() => []),
+        base44.asServiceRole.entities.LinkClicks.filter({ sessionId }).catch(() => []),
+      ]);
+      conv = (convRows && convRows[0]) || null;
+      impressions = (impRows || []).slice().sort((a, b) => String(a.shownAt || "").localeCompare(String(b.shownAt || "")));
+      clicks = (clickRows || []).slice().sort((a, b) => String(a.clickedAt || "").localeCompare(String(b.clickedAt || "")));
+    } catch (e) {
+      console.error("Session enrichment failed:", e.message);
+    }
+  }
+
+  const geo = (conv && conv.geo) || body.geo || "";
+  const intentClassification = (conv && conv.intentClassification) || body.intentClassification || "";
+  const conversationTurns = (conv && typeof conv.conversationTurns === "number") ? conv.conversationTurns : (body.conversationTurns ?? 0);
+  const conversationOutcome = (conv && conv.conversationOutcome) || body.conversationOutcome || "";
+  const referralSource = (conv && conv.referralSource) || body.referralSource || "";
+  const conversationTranscript = (conv && conv.conversationTranscript) || body.conversationTranscript || "";
+  const pagesJoined = (conv && conv.pagesViewed) || (Array.isArray(body.pagesViewed) ? body.pagesViewed.join(",") : (body.pagesViewed || ""));
+  const linksClicked = clicks.length > 0 ? clicks.length : ((conv && conv.linksClicked) ?? body.linksClicked ?? 0);
+  const ctaReached = (conv && conv.ctaReached) || body.ctaReached || false;
+  const language = (conv && conv.language) || body.language || "en";
+
   const intentLabel = INTENT_LABELS[intentClassification] || intentClassification || "Unknown";
   const geoLabel = geo || "Unknown";
   const preview = cleanTranscriptPreview(conversationTranscript);
   const domainLabel = cleanDomain(referralSource);
-  const pageJourney = formatPageJourney(pagesViewed);
+
+  const isHotClick = isHighIntentClick || (clickedUrl && HIGH_INTENT_PATHS.some(p => String(clickedUrl).toLowerCase().includes(p)));
+  const isConv = isConversion || eventType === "conversion" || conversationOutcome === "CONVERTED";
+
+  let header;
+  if (eventType === "widget_opened") {
+    header = ":eyes: *Widget Opened*";
+  } else if (eventType === "link_click") {
+    header = isHotClick ? ":fire: *High-Intent Click*" : ":link: *Link Click*";
+  } else if (eventType === "engaged") {
+    header = ":handshake: *Engaged Conversation*";
+  } else if (eventType === "conversion") {
+    header = ":trophy: *Conversion: CTA Reached*";
+  } else if (eventType === "new_conversation") {
+    header = ":speech_balloon: *New Conversation*";
+  } else if (isHotClick) {
+    header = ":fire: *High-Intent Click*";
+  } else if (isConv) {
+    header = ":trophy: *Conversion: CTA Reached*";
+  } else if (isWidgetOpen) {
+    header = ":eyes: *Widget Opened*";
+  } else {
+    header = ":speech_balloon: *New Conversation*";
+  }
 
   const OUTCOME_EMOJI = {
     CONVERTED: ":trophy:",
@@ -131,30 +183,75 @@ Deno.serve(async (req) => {
   const clicksLabel = (linksClicked > 0) ? ` · :link: ${linksClicked} link${linksClicked > 1 ? "s" : ""} clicked` : "";
   const ctaLabel = ctaReached ? " · :dart: CTA reached" : "";
 
-  // Determine notification type
-  const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
-  const isHotClick = isHighIntentClick || (clickedUrl && HIGH_INTENT_PATHS.some(p => (clickedUrl || "").toLowerCase().includes(p)));
-  const isConv = isConversion || conversationOutcome === "CONVERTED";
-
-  let header, summary = "";
-
-  if (isHotClick) {
-    header = `:fire: *High-Intent Click*`;
-  } else if (isConv) {
-    header = `:trophy: *Conversion — CTA Reached*`;
-  } else if (isWidgetOpen) {
-    header = `:eyes: *Widget Opened*`;
-  } else {
-    header = `:speech_balloon: *New Conversation*`;
+  // Page list and Athena attribution.
+  // page[i] is Athena-driven when an unconsumed click made on page[i-1] targets page[i].
+  // Clicks are sorted by clickedAt and each click is consumed once, so a later organic
+  // visit to the same URL does not inherit the marker.
+  const pages = pagesJoined.split(",").map(s => s.trim()).filter(Boolean);
+  const clickConsumed = clicks.map(() => false);
+  const athenaDriven = pages.map(() => false);
+  for (let i = 1; i < pages.length; i++) {
+    const idx = clicks.findIndex((c, ci) => !clickConsumed[ci] &&
+      normalizeUrl(c.clickedUrl) === normalizeUrl(pages[i]) &&
+      normalizeUrl(c.pageUrl) === normalizeUrl(pages[i - 1]));
+    if (idx >= 0) {
+      clickConsumed[idx] = true;
+      athenaDriven[i] = true;
+    }
   }
 
-  if (conversationTranscript && !isHotClick) {
-    const summaryPrompt = `Write one complete sentence summarizing this sales conversation for a sales team. Be specific — mention the exact topic or question the visitor asked about, not just general categories. Minimum 15 words. Example: 'A visitor from Israel asked about protecting e-commerce checkout pages from Magecart attacks and clicked the industries page link.'
+  // Engagement trail: walk the journey in order and attach events to each page.
+  const impressionUsed = impressions.map(() => false);
+  const trailClickUsed = clicks.map(() => false);
+  const chatPage = normalizeUrl(triggerUrl || (conv && conv.lastPage) || "");
+  const chatHappened = !!((conv && conv.widgetOpened) || conversationTurns > 0);
+  let chatLineAdded = false;
+  const trail = [];
+  pages.forEach((p, i) => {
+    const np = normalizeUrl(p);
+    if (athenaDriven[i]) {
+      trail.push(`:arrow_right: Navigated to ${cleanPagePath(p)} via Athena recommendation`);
+    }
+    impressions.forEach((im, ii) => {
+      if (!impressionUsed[ii] && normalizeUrl(im.pageUrl) === np) {
+        impressionUsed[ii] = true;
+        trail.push(`:eye: Saw bubble on ${cleanPagePath(p)}${im.bubbleText ? `: "${im.bubbleText}"` : ""}`);
+      }
+    });
+    clicks.forEach((c, ci) => {
+      if (!trailClickUsed[ci] && (c.turnNumber ?? 0) <= 1 && normalizeUrl(c.pageUrl) === np) {
+        trailClickUsed[ci] = true;
+        trail.push(`:link: Clicked opener link on ${cleanPagePath(p)} to ${cleanPagePath(c.clickedUrl)}`);
+      }
+    });
+    if (chatHappened && !chatLineAdded && np && np === chatPage) {
+      chatLineAdded = true;
+      trail.push(`:speech_balloon: Opened chat on ${cleanPagePath(p)} (page ${i + 1} of journey)`);
+    }
+    clicks.forEach((c, ci) => {
+      if (!trailClickUsed[ci] && (c.turnNumber ?? 0) > 1 && normalizeUrl(c.pageUrl) === np) {
+        trailClickUsed[ci] = true;
+        trail.push(`:dart: Clicked ${cleanPagePath(c.clickedUrl)} from chat on ${cleanPagePath(p)} (turn ${c.turnNumber})`);
+      }
+    });
+  });
+  // Chat page not present in the journey list: still show the line so the event is not lost.
+  if (chatHappened && !chatLineAdded && chatPage) {
+    trail.push(`:speech_balloon: Opened chat on /${chatPage.split("/").slice(1).join("/")}`);
+  }
+
+  const pageJourney = pages.length > 0
+    ? pages.map((p, i) => cleanPagePath(p) + (athenaDriven[i] ? " ←Athena" : "")).join(" → ")
+    : "(none)";
+
+  let summary = "";
+  if (conversationTranscript) {
+    const summaryPrompt = `Write one complete sentence summarizing this sales conversation for a sales team. Be specific, mention the exact topic or question the visitor asked about, not just general categories. Minimum 15 words. Example: 'A visitor from Israel asked about protecting e-commerce checkout pages from Magecart attacks and clicked the industries page link.'
 
 Conversation:
 ${cleanTranscriptPreview(conversationTranscript)}
 
-Page journey: ${pagesViewed}
+Page journey: ${pagesJoined}
 Intent: ${intentClassification}
 Outcome: ${conversationOutcome}
 Links clicked: ${linksClicked ?? 0}
@@ -168,13 +265,17 @@ Return only the one sentence summary.`;
   const referralLine = domainLabel !== "direct" ? `*Referral:* ${domainLabel}` : "";
 
   let clickedUrlLine = "";
-  if (isHotClick && clickedUrl) {
+  if (clickedUrl) {
     clickedUrlLine = `\n*Clicked:* ${clickedUrl}`;
   }
 
-  const transcriptSection = (preview && !isHotClick)
-    ? `\n*Conversation:*\n${preview}`
-    : "";
+  const trailSection = trail.length > 0 ? `\n*Engagement Trail:*\n${trail.join("\n")}` : "";
+
+  const transcriptSection = preview ? `\n*Conversation:*\n${preview}` : "";
+
+  const footer = sessionId
+    ? `<${DASHBOARD_URL}?sessionId=${encodeURIComponent(sessionId)}|View Session>  ·  <${DASHBOARD_URL}|View Dashboard>`
+    : `<${DASHBOARD_URL}|View Dashboard>`;
 
   const text = [
     header,
@@ -182,12 +283,13 @@ Return only the one sentence summary.`;
     metaLine,
     referralLine,
     clickedUrlLine,
+    trailSection,
     "",
     `*Page Journey:*\n${pageJourney}`,
     summary ? `\n*Summary:* ${summary}` : "",
     transcriptSection,
     "",
-    "<https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>",
+    footer,
   ].filter(s => s !== undefined && s !== null).join("\n");
 
   const slackRes = await fetch(SLACK_WEBHOOK_URL, {
