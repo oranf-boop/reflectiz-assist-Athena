@@ -527,7 +527,7 @@ Deno.serve(async (req) => {
     if (trackingEvent) {
       return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
     }
-    return new Response(JSON.stringify({ reply: null, bubbleText: "", blocked: true, sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ reply: null, bubbleText: "", blocked: true, ip: gateClientIp(req), sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
   }
 
   // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
