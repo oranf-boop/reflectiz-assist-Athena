@@ -597,16 +597,13 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
+        sessionId: incomingSessionId ?? "",
+        eventType: "widget_opened",
+        triggerUrl: currentPageUrl ?? "",
         geo: geo ?? "",
-        intentClassification: "GENERAL_AWARENESS",
-        conversationTurns: 0,
-        conversationOutcome: "BOUNCED",
         referralSource: referralSource ?? "",
-        conversationTranscript: "",
-        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
-        linksClicked: 0,
-        ctaReached: false,
         language: language ?? "en",
+        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
         isWidgetOpen: true,
       }),
     }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
@@ -678,17 +675,18 @@ Deno.serve(async (req) => {
 
     const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
-    const convRecord = existing || {};
-    const updatedConv = { ...convRecord, linksClicked: (convRecord.linksClicked || 0) + 1, clickedUrl };
     await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
-        ...updatedConv,
+        sessionId,
+        eventType: "link_click",
+        clickedUrl: clickedUrl ?? "",
+        triggerUrl: currentPageUrl ?? "",
         geo: geo ?? "",
-        pagesViewed: [...(Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed : [currentPageUrl || ""]), clickedUrl].filter(Boolean).join(","),
         referralSource: referralSource ?? "",
         language: language ?? "en",
+        pagesViewed: [...(Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed : [currentPageUrl || ""]), clickedUrl].filter(Boolean).join(","),
         isHighIntentClick: isHighIntent,
       }),
     }).catch((e) => console.error("slackAlert link_click failed:", e.message));
