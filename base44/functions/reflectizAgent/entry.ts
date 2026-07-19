@@ -199,6 +199,30 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+// Soft-launch gate: Athena only activates for these IPs (office + owner).
+// To open Athena to everyone at launch, set SOFT_LAUNCH_GATE = false.
+const SOFT_LAUNCH_GATE = true;
+const GATE_ALLOWED_IPS = [
+  "2001:4860:7:1517::fc",
+  "31.154.67.162",
+  "65.204.38.226",
+  "2001:4860:7:120e::fe",
+  "31.154.39.170",
+  "85.64.227.253",
+  "85.64.231.171",
+];
+function gateClientIp(req) {
+  const h = req.headers;
+  const cand = h.get("cf-connecting-ip") || (h.get("x-forwarded-for") || "").split(",")[0].trim() || h.get("x-real-ip") || "";
+  return cand.trim().toLowerCase().replace(/^::ffff:/, "");
+}
+function gateAllows(req) {
+  if (!SOFT_LAUNCH_GATE) return true;
+  const ip = gateClientIp(req);
+  if (!ip) return false;
+  return GATE_ALLOWED_IPS.some(e => e.toLowerCase() === ip);
+}
+
 // Resolve the opener language from visitor geo, with an English-browser override.
 // Phase 1: de, fr, it, es. Everything else (incl. Israel) stays English.
 const GEO_LANGUAGE_MAP = {
@@ -497,6 +521,14 @@ Deno.serve(async (req) => {
   const deviceType = /ipad|tablet/i.test(_ua) ? "tablet" : /mobile|android|iphone/i.test(_ua) ? "mobile" : "desktop";
   const pagesArr = Array.isArray(pagesViewed) ? pagesViewed.filter(Boolean) : (pagesViewed ? String(pagesViewed).split(",").filter(Boolean) : []);
   const landingPage = pagesArr[0] || currentPageUrl || "";
+
+  // Soft-launch gate: silently no-op for non-allowlisted visitors.
+  if (!gateAllows(req)) {
+    if (trackingEvent) {
+      return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+    }
+    return new Response(JSON.stringify({ reply: null, bubbleText: "", blocked: true, sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
+  }
 
   // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
   if (trackingEvent === "opener_shown") {
