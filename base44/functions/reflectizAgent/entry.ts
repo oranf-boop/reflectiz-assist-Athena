@@ -1655,8 +1655,15 @@ Generate a natural one-sentence opening message that:
   const conversationOutcome = calcOutcome(ctaReached, userMessageCount);
 
   if (existingConversation && existingConversation.length > 0) {
-    // UPDATE existing conversation - no slack alert
-    await base44.asServiceRole.entities.Conversations.update(existingConversation[0].id, {
+    const prevConv = existingConversation[0];
+    const prevCtaReached = prevConv.ctaReached;
+
+    // Decide which single alert (if any) this turn fires. Priority: conversion > first message > engaged.
+    const fireConversionAlert = ctaReached && !prevCtaReached;
+    const fireFirstMessageAlert = !fireConversionAlert && userMessageCount >= 1 && !prevConv.firstMessageAlertSent;
+    const fireEngagedAlert = !fireConversionAlert && !fireFirstMessageAlert && userMessageCount >= 3 && prevConv.firstMessageAlertSent && !prevConv.engagedAlertSent && !prevCtaReached && !ctaReached;
+
+    await base44.asServiceRole.entities.Conversations.update(prevConv.id, {
       conversationTranscript: cleanTranscript,
       intentClassification,
       ctaReached,
@@ -1664,20 +1671,24 @@ Generate a natural one-sentence opening message that:
       lastMessageRole,
       conversationOutcome,
       pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+      ...(fireFirstMessageAlert && { firstMessageAlertSent: true }),
+      ...(fireEngagedAlert && { engagedAlertSent: true }),
+      ...(fireConversionAlert && { firstMessageAlertSent: true, engagedAlertSent: true }),
     });
 
-    const prevCtaReached = existingConversation[0].ctaReached;
-    if (ctaReached && !prevCtaReached) {
+    if (fireConversionAlert) {
       fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
         body: JSON.stringify({
           sessionId,
+          eventType: "conversion",
+          triggerUrl: currentPageUrl ?? "",
           geo: geo ?? "",
           intentClassification,
           conversationTurns: userMessageCount,
           ctaReached: true,
-          linksClicked: existingConversation[0].linksClicked ?? 0,
+          linksClicked: prevConv.linksClicked ?? 0,
           language: language ?? "en",
           referralSource: referralSource ?? "",
           conversationTranscript: cleanTranscript,
@@ -1686,6 +1697,26 @@ Generate a natural one-sentence opening message that:
           isConversion: true,
         }),
       }).catch(err => console.error("slackAlert conversion notification failed:", err.message));
+    } else if (fireFirstMessageAlert || fireEngagedAlert) {
+      fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        body: JSON.stringify({
+          sessionId,
+          eventType: fireEngagedAlert ? "engaged" : "new_conversation",
+          triggerUrl: currentPageUrl ?? "",
+          geo: geo ?? "",
+          intentClassification,
+          conversationTurns: userMessageCount,
+          ctaReached,
+          linksClicked: prevConv.linksClicked ?? 0,
+          language: language ?? "en",
+          referralSource: referralSource ?? "",
+          conversationTranscript: cleanTranscript,
+          pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
+          conversationOutcome,
+        }),
+      }).catch(err => console.error("slackAlert conversation alert failed:", err.message));
     }
   } else {
     // CREATE new conversation - fire slack alert
@@ -1702,13 +1733,16 @@ Generate a natural one-sentence opening message that:
       conversationTurns: userMessageCount,
       lastMessageRole,
       conversationOutcome,
+      firstMessageAlertSent: true,
     });
 
-    fetch(`${req.url.replace(/\/[^/]+$/, "/slackAlert")}`, {
+    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": req.headers.get("Authorization") ?? "" },
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
       body: JSON.stringify({
         sessionId,
+        eventType: "new_conversation",
+        triggerUrl: currentPageUrl ?? "",
         geo: geo ?? "",
         intentClassification,
         conversationTurns: 1,
