@@ -212,6 +212,8 @@ const GATE_ALLOWED_IPS = [
   "85.64.231.171",
   "74.220.48.250",
 ];
+// Proxy egress ranges that rotate per connection — matched by prefix.
+const GATE_ALLOWED_PREFIXES = ["74.220.48."];
 function gateClientIp(req) {
   const h = req.headers;
   const cand = h.get("cf-connecting-ip") || (h.get("x-forwarded-for") || "").split(",")[0].trim() || h.get("x-real-ip") || "";
@@ -221,7 +223,8 @@ function gateAllows(req) {
   if (!SOFT_LAUNCH_GATE) return true;
   const ip = gateClientIp(req);
   if (!ip) return false;
-  return GATE_ALLOWED_IPS.some(e => e.toLowerCase() === ip);
+  if (GATE_ALLOWED_IPS.some(e => e.toLowerCase() === ip)) return true;
+  return GATE_ALLOWED_PREFIXES.some(p => ip.startsWith(p));
 }
 
 // Resolve the opener language from visitor geo, with an English-browser override.
