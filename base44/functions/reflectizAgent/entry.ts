@@ -184,9 +184,11 @@ const FORM_NUDGE_PATH_PREFIX = "/learning-hub/";
 function isFormNudgePage(url) {
   if (!url) return false;
   const u = url.toLowerCase();
-  // Must contain /learning-hub/ but NOT be the hub index itself
-  if (!u.includes("/learning-hub/")) return false;
   const normalized = u.replace(/^https?:\/\/(www\.)?reflectiz\.com/, "").replace(/\/$/, "");
+  // /lp/ landing pages always carry a lead-capture form
+  if (normalized.startsWith("/lp/") && normalized !== "/lp") return true;
+  // Gated learning-hub pages, but not the hub index itself
+  if (!u.includes("/learning-hub/")) return false;
   return normalized !== "/learning-hub";
 }
 
