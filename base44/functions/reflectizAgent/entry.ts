@@ -694,6 +694,35 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
+  // Bubble lifecycle events: record on the session's latest impression for this page.
+  if (trackingEvent === "bubble_dismissed" || trackingEvent === "bubble_expired") {
+    try {
+      if (incomingSessionId) {
+        const base44 = createClientFromRequest(req);
+        const rows = await base44.asServiceRole.entities.OpenerImpressions.filter({ sessionId: incomingSessionId });
+        const samePage = (rows || []).filter(r => (r.pageUrl || "") === (currentPageUrl ?? ""));
+        const pool = samePage.length > 0 ? samePage : (rows || []);
+        const target = pool.sort((a, b) => String(b.shownAt || "").localeCompare(String(a.shownAt || "")))[0];
+        if (target) {
+          await base44.asServiceRole.entities.OpenerImpressions.update(target.id, {
+            ...(trackingEvent === "bubble_dismissed" ? { dismissed: true } : { expired: true }),
+            timeVisibleMs: typeof body.timeVisible === "number" ? body.timeVisible : 0,
+            wasFallback: !!body.isFallback,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("bubble event record failed:", e.message);
+    }
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  }
+
+  // Safety net: swallow any unrecognized tracking event so it can never fall through
+  // to the chat handler and be processed as a visitor message.
+  if (trackingEvent) {
+    return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
+  }
+
   // Dynamic page-aware opener for all INIT variants
   if (message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
