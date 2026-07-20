@@ -301,7 +301,6 @@ async function prewarmPageOpeners(base44, limit) {
       .slice(0, limit);
     result.candidates = candidates.length;
 
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const batchSize = 5;
     for (let i = 0; i < candidates.length; i += batchSize) {
       const batch = candidates.slice(i, i + batchSize);
@@ -309,7 +308,10 @@ async function prewarmPageOpeners(base44, limit) {
         try {
           const cacheUrl = (page.pageUrl || "").split("#")[0].split("?")[0].replace(/\/$/, "") + "/";
           const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: "en" });
-          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20 && r.generatedAt && new Date(r.generatedAt).getTime() > cutoff);
+          // A usable cached opener means the page is already warm. The INIT handler
+          // serves from cache without refreshing generatedAt, so an age-based check
+          // would re-request cached pages every night for nothing.
+          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20);
           if (fresh) { result.skipped_fresh++; return; }
           const res = await fetch("https://base44.app/api/apps/69edc5de1c84c71c086635e0/functions/reflectizAgent", {
             method: "POST",
