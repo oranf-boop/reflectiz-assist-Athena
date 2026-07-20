@@ -285,8 +285,18 @@ async function prewarmPageOpeners(base44, limit) {
   const result = { candidates: 0, warmed: 0, skipped_fresh: 0, failed: 0 };
   try {
     const all = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
-    const candidates = (all || [])
-      .filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl)
+    // Comparison and pricing pages route to DIRECT_REGISTRATION: they serve instant
+    // hardcoded openers and never read or write the PageOpeners cache, so warming
+    // them is a wasted request every night. Exclude them up front.
+    const neverCached = (u) => {
+      const s = (u || "").toLowerCase();
+      return s.includes("reflectiz-vs") || s.includes("vs-reflectiz") || s.includes("cside") || s.includes("/plans") || s.includes("/pricing");
+    };
+    const eligible = (all || [])
+      .filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl);
+    result.skipped_hardcoded = eligible.filter(p => neverCached(p.pageUrl)).length;
+    const candidates = eligible
+      .filter(p => !neverCached(p.pageUrl))
       .sort((a, b) => prewarmPriority(a) - prewarmPriority(b))
       .slice(0, limit);
     result.candidates = candidates.length;
