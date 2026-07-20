@@ -461,6 +461,33 @@ function normalizeUrl(url) {
     .trim();
 }
 
+// Canonical cache key for PageOpeners: no fragment, no query string, trailing slash.
+function canonicalCacheUrl(url) {
+  if (!url) return "";
+  let u = String(url).split("#")[0].split("?")[0].trim();
+  if (u && !u.endsWith("/")) u += "/";
+  return u;
+}
+
+// Upsert a PageOpeners record keyed by pageUrl + language. Updates the newest
+// existing record and deletes any duplicates so the cache stays one row per key.
+async function upsertPageOpener(base44, pageUrl, data) {
+  try {
+    const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl, language: data.language });
+    if (existing && existing.length > 0) {
+      const sorted = existing.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
+      await base44.asServiceRole.entities.PageOpeners.update(sorted[0].id, data);
+      for (const dup of sorted.slice(1)) {
+        await base44.asServiceRole.entities.PageOpeners.delete(dup.id).catch(() => {});
+      }
+    } else {
+      await base44.asServiceRole.entities.PageOpeners.create({ pageUrl, ...data });
+    }
+  } catch (e) {
+    console.error("PageOpeners upsert failed:", e.message);
+  }
+}
+
 async function classifyIntent(messages, currentPageUrl) {
   const cleanMessages = messages
     .map(m => ({
@@ -879,13 +906,13 @@ Return only valid JSON:
 
       // Cache this result
       if (opener && bubbleText) {
-        await base44.asServiceRole.entities.PageOpeners.create({
-          pageUrl: currentPageUrl,
+        await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
           opener,
           bubbleText,
           language: resolvedLang,
-          generatedAt: new Date().toISOString()
-        }).catch(() => {});
+          generatedAt: new Date().toISOString(),
+          isActive: true,
+        });
       }
 
       return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
@@ -1179,9 +1206,18 @@ Return only valid JSON:
     }
 
     // Cache check -- only for non-DIRECT_REGISTRATION pages
-    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: currentPageUrl, language: resolvedLang });
-    const cached = cachedResults?.[0];
-    if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === currentPageUrl) {
+    const cacheUrl = canonicalCacheUrl(currentPageUrl);
+    const cachedResults = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: resolvedLang });
+    let cached = cachedResults?.[0];
+    if (cachedResults && cachedResults.length > 1) {
+      // One-time duplicate cleanup: keep the freshest record, delete the rest.
+      const sorted = cachedResults.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
+      cached = sorted[0];
+      for (const dup of sorted.slice(1)) {
+        await base44.asServiceRole.entities.PageOpeners.delete(dup.id).catch(() => {});
+      }
+    }
+    if (cached && cached.opener && cached.opener.length > 20 && cached.pageUrl === cacheUrl) {
       const normalizedCurrent = normalizeUrl(currentPageUrl);
       const openerText = cached.opener || "";
       const linksSamePage = openerText.includes(normalizedCurrent) || openerText.includes(currentPageUrl.replace(/\/$/, ""));
@@ -1532,13 +1568,13 @@ Return only valid JSON, nothing else:
 
     // Cache
     if (isValidPageUrl && opener && bubbleText) {
-      await base44.asServiceRole.entities.PageOpeners.create({
-        pageUrl: currentPageUrl,
+      await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
         opener,
         bubbleText,
         language: resolvedLang,
-        generatedAt: new Date().toISOString()
-      }).catch(() => { });
+        generatedAt: new Date().toISOString(),
+        isActive: true,
+      });
     }
 
     return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
