@@ -267,10 +267,83 @@ async function processBatch(urls, base44, now, batchSize = 3, delayMs = 600) {
   return { created, updated, failed };
 }
 
+// --- PageOpeners nightly cache pre-warm ---
+
+const PREWARM_HIGH_VALUE_CATS = ["pci", "magecart", "healthcare", "financial"];
+
+function prewarmPriority(page) {
+  const u = (page.pageUrl || "").toLowerCase();
+  if (u.includes("reflectiz-vs")) return 0;
+  if (u.includes("/use-cases/")) return 1;
+  if (u.includes("/industries/")) return 2;
+  const cats = Array.isArray(page.categories) ? page.categories : [];
+  if (u.includes("/blog/") && PREWARM_HIGH_VALUE_CATS.some(c => cats.includes(c))) return 3;
+  return 4;
+}
+
+async function prewarmPageOpeners(base44, limit) {
+  const result = { candidates: 0, warmed: 0, skipped_fresh: 0, failed: 0 };
+  try {
+    const all = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
+    const candidates = (all || [])
+      .filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl)
+      .sort((a, b) => prewarmPriority(a) - prewarmPriority(b))
+      .slice(0, limit);
+    result.candidates = candidates.length;
+
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const batchSize = 5;
+    for (let i = 0; i < candidates.length; i += batchSize) {
+      const batch = candidates.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map(async (page) => {
+        try {
+          const cacheUrl = (page.pageUrl || "").split("#")[0].split("?")[0].replace(/\/$/, "") + "/";
+          const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: "en" });
+          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20 && r.generatedAt && new Date(r.generatedAt).getTime() > cutoff);
+          if (fresh) { result.skipped_fresh++; return; }
+          const res = await fetch("https://base44.app/api/apps/69edc5de1c84c71c086635e0/functions/reflectizAgent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-athena-prewarm": "app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+            body: JSON.stringify({
+              message: "INIT",
+              currentPageUrl: page.pageUrl,
+              geo: "",
+              referralSource: "",
+              pagesViewed: [page.pageUrl],
+              timeOnPage: 30,
+              hasActiveConversation: false,
+              conversationHistory: [],
+              sessionId: "prewarm-" + i + "-" + Math.random().toString(36).slice(2, 8),
+            }),
+            signal: AbortSignal.timeout(20000),
+          });
+          const data = await res.json().catch(() => null);
+          if (res.ok && data && data.reply) result.warmed++;
+          else result.failed++;
+        } catch (e) {
+          console.error("prewarm failed for", page.pageUrl, e.message);
+          result.failed++;
+        }
+      }));
+      if (i + batchSize < candidates.length) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  } catch (e) {
+    console.error("prewarmPageOpeners fatal:", e.message);
+  }
+  console.log("PageOpeners prewarm:", JSON.stringify(result));
+  return result;
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const now = new Date().toISOString().split("T")[0];
+  let options = {};
+  try { options = await req.json(); } catch (_e) { options = {}; }
 
+  let summary = { prewarm_only: true, run_date: now };
+  if (!options.prewarmOnly) {
   // Calculate cutoff: only crawl pages modified in the last 2 days (catch new + recently updated)
   const cutoffDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
@@ -325,7 +398,7 @@ Deno.serve(async (req) => {
   // STEP 3: Crawl all collected URLs
   const { created, updated, failed } = await processBatch(urlsToCrawl, base44, now);
 
-  const summary = {
+  summary = {
     sitemap_total: allEntries.length,
     recent_from_sitemap: recentUrls.length,
     off_sitemap_discovered: offSitemapUrls.length,
@@ -338,5 +411,10 @@ Deno.serve(async (req) => {
   };
 
   console.log("Scheduled crawl complete:", JSON.stringify(summary));
+  }
+
+  // STEP 4: PageOpeners cache pre-warm. Runs strictly after the crawl above has completed.
+  summary.prewarm = await prewarmPageOpeners(base44, options.prewarmLimit || 100);
+  console.log("Crawl + prewarm run finished:", JSON.stringify(summary));
   return Response.json(summary);
 });
