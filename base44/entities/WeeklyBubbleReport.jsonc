@@ -1,0 +1,30 @@
+{
+  "name": "WeeklyBubbleReport",
+  "type": "object",
+  "properties": {
+    "weekOf": {
+      "type": "string",
+      "format": "date",
+      "title": "Week Of"
+    },
+    "report": {
+      "type": "string",
+      "title": "Report (JSON)",
+      "format": "textarea"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Generated At"
+    },
+    "impressionCount": {
+      "type": "number",
+      "title": "Impression Count"
+    },
+    "openCount": {
+      "type": "number",
+      "title": "Open Count"
+    }
+  },
+  "required": []
+}

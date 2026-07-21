@@ -126,6 +126,177 @@ function analyzeClickData(clicks, conversations) {
   return { topUrls, urlByOutcome, topTurns, topContentTypes, topSegments, totalClicks: clicks.length };
 }
 
+// ── BUBBLE ENGAGEMENT ANALYSIS ──────────────────────────────────────────────
+// Observation and reporting only. Never writes to AgentConfig, PendingConfigChanges,
+// PageOpeners, or any other live prompt or cache. Featurizes impressions into
+// attributes instead of comparing raw bubble text, since bubble copy changes every
+// run and per-text sample sizes are too small to compare directly.
+const KNOWN_BRAND_NAMES = ["dazn", "kaiser", "shein", "disney", "paypal", "castore", "apexx", "broadway", "leeds", "healthline", "verizon", "stripe", "shai-hulud"];
+
+function bubblePageCategory(url) {
+  const u = (url || "").toLowerCase();
+  if (u.includes("reflectiz-vs") || u.includes("vs-reflectiz")) return "comparison";
+  if (u.includes("/use-cases/")) return "use-case";
+  if (u.includes("/industries/")) return "industry";
+  if (u.includes("/learning-hub/")) return "learning-hub";
+  if (u.includes("/platform/")) return "platform";
+  if (u.includes("/blog/")) return "blog";
+  return "other";
+}
+
+function bubbleHasNumber(text) {
+  return /\d/.test(text || "");
+}
+
+function bubbleHasCompanyName(text) {
+  const t = (text || "").toLowerCase();
+  return KNOWN_BRAND_NAMES.some(name => t.includes(name));
+}
+
+function bubbleEngagementScore(imp, opened) {
+  if (opened) return 3;
+  if (imp.abandoned) return 0;
+  const t = typeof imp.timeVisibleMs === "number" ? imp.timeVisibleMs : 0;
+  // Dismissed and expired are both terminal not-opened states; timeVisibleMs
+  // carries the same meaning for either, so the same thresholds apply to both.
+  if (imp.dismissed || imp.expired) {
+    if (t > 25000) return 2;
+    if (t >= 5000) return 1;
+    return 0;
+  }
+  return 0;
+}
+
+async function runBubbleEngagementAnalysis(base44, weekConversations) {
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const allImpressions = await base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", 5000);
+  const impressions = allImpressions.filter(i => i.shownAt && i.shownAt >= sevenDaysAgoIso);
+
+  if (impressions.length < 50) {
+    const note = `Bubble analysis skipped: only ${impressions.length} impressions this week, below the 50 minimum for meaningful analysis.`;
+    console.log(note);
+    return { skipped: true, impressionCount: impressions.length, note };
+  }
+
+  const convBySession = {};
+  for (const c of weekConversations) convBySession[c.sessionId] = c;
+
+  const featurized = impressions.map(imp => {
+    const conv = convBySession[imp.sessionId];
+    const opened = !!(conv && (conv.conversationTurns || 0) > 0);
+    return {
+      pageCategory: bubblePageCategory(imp.pageUrl),
+      hasNumber: bubbleHasNumber(imp.bubbleText),
+      hasCompanyName: bubbleHasCompanyName(imp.bubbleText),
+      wasFallback: !!imp.wasFallback,
+      geo: imp.geo || "Unknown",
+      hourOfDay: imp.shownAt ? new Date(imp.shownAt).getUTCHours() : null,
+      opened,
+      score: bubbleEngagementScore(imp, opened),
+    };
+  });
+
+  const groups = {};
+  for (const f of featurized) {
+    const key = `${f.pageCategory} | number:${f.hasNumber} | brand:${f.hasCompanyName} | fallback:${f.wasFallback}`;
+    if (!groups[key]) groups[key] = { attributeGroup: key, n: 0, totalScore: 0, opens: 0 };
+    groups[key].n++;
+    groups[key].totalScore += f.score;
+    if (f.opened) groups[key].opens++;
+  }
+  const groupList = Object.values(groups)
+    .filter(g => g.n >= 10)
+    .map(g => ({
+      attributeGroup: g.attributeGroup,
+      n: g.n,
+      avgEngagementScore: Math.round((g.totalScore / g.n) * 100) / 100,
+      openRate: Math.round((g.opens / g.n) * 1000) / 10,
+    }))
+    .sort((a, b) => b.avgEngagementScore - a.avgEngagementScore);
+
+  const topPerformingAttributes = groupList.slice(0, 5);
+  const weakPerformingAttributes = groupList.slice(-5).reverse();
+
+  const geoBreakdown = {};
+  for (const f of featurized) {
+    if (!geoBreakdown[f.geo]) geoBreakdown[f.geo] = { impressions: 0, opens: 0 };
+    geoBreakdown[f.geo].impressions++;
+    if (f.opened) geoBreakdown[f.geo].opens++;
+  }
+
+  const hourlyPattern = {};
+  for (const f of featurized) {
+    const h = f.hourOfDay === null ? "unknown" : String(f.hourOfDay).padStart(2, "0");
+    hourlyPattern[h] = (hourlyPattern[h] || 0) + 1;
+  }
+
+  const totalOpened = featurized.filter(f => f.opened).length;
+  const totalFallback = featurized.filter(f => f.wasFallback).length;
+  const openRate = Math.round((totalOpened / impressions.length) * 1000) / 10;
+  const fallbackRate = Math.round((totalFallback / impressions.length) * 1000) / 10;
+
+  const recommendations = [];
+  if (topPerformingAttributes.length > 0) {
+    const top = topPerformingAttributes[0];
+    recommendations.push(`Attribute group "${top.attributeGroup}" shows the highest average engagement (${top.avgEngagementScore}/3, ${top.openRate}% open rate over ${top.n} impressions). Worth a manual look at what this group has in common.`);
+  }
+  if (weakPerformingAttributes.length > 0) {
+    const weak = weakPerformingAttributes[0];
+    recommendations.push(`Attribute group "${weak.attributeGroup}" shows the lowest average engagement (${weak.avgEngagementScore}/3, ${weak.openRate}% open rate over ${weak.n} impressions). Worth a manual copy review.`);
+  }
+  if (fallbackRate > 20) {
+    recommendations.push(`Fallback rate is ${fallbackRate}% this week. This points to a cache or latency issue, not a copy quality issue.`);
+  }
+  if (groupList.length === 0) {
+    recommendations.push("No attribute group reached the 10-impression minimum this week. Volume is too spread out across categories for a group-level comparison yet.");
+  }
+
+  const dataQualityNote = totalOpened < 20
+    ? `Only ${totalOpened} opens this week. Results are directional only at this volume and should not be acted on without more data.`
+    : `${totalOpened} opens this week provides a reasonable base for directional conclusions.`;
+
+  const weekOf = new Date().toISOString().split("T")[0];
+  const reportObject = {
+    weekOf,
+    totalImpressions: impressions.length,
+    totalOpened,
+    openRate,
+    fallbackRate,
+    topPerformingAttributes,
+    weakPerformingAttributes,
+    geoBreakdown,
+    hourlyPattern,
+    recommendations,
+    dataQualityNote,
+  };
+
+  // Observation only: this writes a report row and nothing else. No AgentConfig,
+  // PendingConfigChanges, or PageOpeners write happens anywhere in this function.
+  await base44.asServiceRole.entities.WeeklyBubbleReport.create({
+    weekOf,
+    report: JSON.stringify(reportObject),
+    generatedAt: new Date().toISOString(),
+    impressionCount: impressions.length,
+    openCount: totalOpened,
+  });
+
+  const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+  if (SLACK_WEBHOOK_URL) {
+    const fmt = (g) => `  - ${g.attributeGroup} : avg score ${g.avgEngagementScore}/3, ${g.openRate}% open rate (n=${g.n})`;
+    const topLines = topPerformingAttributes.slice(0, 3).map(fmt).join("\n") || "  (no group reached the 10-impression minimum)";
+    const bottomLines = weakPerformingAttributes.slice(0, 3).map(fmt).join("\n") || "  (no group reached the 10-impression minimum)";
+    const qualityLine = totalOpened < 20 ? `\n:warning: ${dataQualityNote}` : "";
+    const slackText = `:bar_chart: *Weekly Bubble Engagement Report* (week of ${weekOf})\n\nImpressions: ${impressions.length} | Opens: ${totalOpened} (${openRate}%) | Fallback rate: ${fallbackRate}%\n\n*Top performing attribute groups:*\n${topLines}\n\n*Weakest performing attribute groups:*\n${bottomLines}${qualityLine}\n\nThis is observation only. No bubble copy or system prompt was changed automatically. <https://reflect-web-wise.base44.app/AgentDashboard|View Dashboard>`;
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: slackText }),
+    }).catch(err => console.error("Slack bubble report failed:", err.message));
+  }
+
+  return { skipped: false, ...reportObject };
+}
+
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me().catch(() => null);
@@ -375,6 +546,15 @@ Return exactly this JSON structure:
     contentPerformance,
   });
 
+  // Bubble engagement analysis runs after everything above has completed. It only
+  // reads OpenerImpressions and the conversations already fetched this run, and
+  // only writes a WeeklyBubbleReport row plus a Slack summary. It never touches
+  // AgentConfig, PendingConfigChanges, or PageOpeners.
+  const bubbleAnalysis = await runBubbleEngagementAnalysis(base44, recent).catch(e => {
+    console.error("Bubble engagement analysis failed:", e.message);
+    return { skipped: true, error: e.message };
+  });
+
   return Response.json({
     report,
     fullAnalysis: { analysis: parsedAnalysis, contentAnalysis: parsedContent },
@@ -383,5 +563,6 @@ Return exactly this JSON structure:
     clickData,
     invalidatedOpeners: urlsToInvalidate.length,
     performanceScoresUpdated: performanceUpdates.length,
+    bubbleAnalysis,
   });
 });
