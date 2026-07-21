@@ -575,6 +575,7 @@ Deno.serve(async (req) => {
         openerText: openerText ?? "",
         bubbleText: body.bubbleText ?? "",
         shownAt: new Date().toISOString(),
+        geo: geo ?? "",
       });
     } catch (e) {
       console.error("opener_shown record failed:", e.message);
@@ -724,7 +725,7 @@ Deno.serve(async (req) => {
   }
 
   // Bubble lifecycle events: record on the session's latest impression for this page.
-  if (trackingEvent === "bubble_dismissed" || trackingEvent === "bubble_expired") {
+  if (trackingEvent === "bubble_dismissed" || trackingEvent === "bubble_expired" || trackingEvent === "bubble_abandoned") {
     try {
       if (incomingSessionId) {
         const base44 = createClientFromRequest(req);
@@ -733,8 +734,9 @@ Deno.serve(async (req) => {
         const pool = samePage.length > 0 ? samePage : (rows || []);
         const target = pool.sort((a, b) => String(b.shownAt || "").localeCompare(String(a.shownAt || "")))[0];
         if (target) {
+          const terminalField = trackingEvent === "bubble_dismissed" ? "dismissed" : trackingEvent === "bubble_abandoned" ? "abandoned" : "expired";
           await base44.asServiceRole.entities.OpenerImpressions.update(target.id, {
-            ...(trackingEvent === "bubble_dismissed" ? { dismissed: true } : { expired: true }),
+            [terminalField]: true,
             timeVisibleMs: typeof body.timeVisible === "number" ? body.timeVisible : 0,
             wasFallback: !!body.isFallback,
           });
