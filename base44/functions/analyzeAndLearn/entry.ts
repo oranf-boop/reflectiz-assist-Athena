@@ -167,10 +167,27 @@ function bubbleEngagementScore(imp, opened) {
   return 0;
 }
 
+// Paginates through OpenerImpressions instead of a single capped list() call, so a
+// week with high volume is never silently truncated. Stops once a page's oldest
+// record falls before the cutoff, since results are sorted newest first.
+async function fetchImpressionsSince(base44, sinceIso) {
+  const PAGE_SIZE = 500;
+  let all = [];
+  let skip = 0;
+  while (true) {
+    const page = await base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", PAGE_SIZE, skip);
+    if (!page || page.length === 0) break;
+    all = all.concat(page);
+    const oldest = page[page.length - 1];
+    if (page.length < PAGE_SIZE || !oldest.shownAt || oldest.shownAt < sinceIso) break;
+    skip += PAGE_SIZE;
+  }
+  return all.filter(i => i.shownAt && i.shownAt >= sinceIso);
+}
+
 async function runBubbleEngagementAnalysis(base44, weekConversations) {
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const allImpressions = await base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", 5000);
-  const impressions = allImpressions.filter(i => i.shownAt && i.shownAt >= sevenDaysAgoIso);
+  const impressions = await fetchImpressionsSince(base44, sevenDaysAgoIso);
 
   if (impressions.length < 50) {
     const note = `Bubble analysis skipped: only ${impressions.length} impressions this week, below the 50 minimum for meaningful analysis.`;
