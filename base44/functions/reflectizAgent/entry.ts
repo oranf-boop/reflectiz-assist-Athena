@@ -463,10 +463,10 @@ function normalizeUrl(url) {
     .trim();
 }
 
-// Canonical cache key for PageOpeners: no fragment, no query string, trailing slash.
+// Canonical cache key for PageOpeners: no fragment, no query string, lowercase, trailing slash.
 function canonicalCacheUrl(url) {
   if (!url) return "";
-  let u = String(url).split("#")[0].split("?")[0].trim();
+  let u = String(url).split("#")[0].split("?")[0].trim().toLowerCase();
   if (u && !u.endsWith("/")) u += "/";
   return u;
 }
