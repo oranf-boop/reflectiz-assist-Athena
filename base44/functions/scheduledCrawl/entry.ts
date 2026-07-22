@@ -334,6 +334,11 @@ function prewarmIsNeverCached(pageUrl) {
 function prewarmPriority(page) {
   const u = (page.pageUrl || "").toLowerCase();
   const cats = Array.isArray(page.categories) ? page.categories : [];
+  // The homepage has no dedicated tier in the original priority list and would
+  // otherwise compete with every low-value blog post in tier 5 with no
+  // deterministic ordering, risking it falling outside a 100-page nightly limit.
+  // It is the single highest-value cacheable page, so it always warms first.
+  if (u.replace(/\/$/, "") === "https://www.reflectiz.com") return 0;
   if (u.includes("/use-cases/")) return 1;
   if (u.includes("/blog/") && PREWARM_HIGH_VALUE_CATS.some(c => cats.includes(c))) return 2;
   if (u.includes("/learning-hub/")) return 3;
