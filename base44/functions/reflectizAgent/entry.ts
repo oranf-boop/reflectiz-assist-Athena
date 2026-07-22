@@ -1383,7 +1383,11 @@ URL: ${selectedAsset.url}
 
 WRITE TWO THINGS:
 
-1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
+1. bubbleText: This is the thought bubble a visitor sees before they open the chat. It must feel like a person talking, not a headline. Write it the way a colleague would say it out loud.
+Prefer a question over a statement when the page topic naturally invites one. Example: "Is your checkout actually secure?" beats "Checkout security risks revealed".
+Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
+Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
+Never use marketing words like revealed, unveiled, insights, discover, explore, or learn.
 
 2. opener: Exactly 2 sentences.
 REQUIRED: Your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Do not use vague openers.
@@ -1429,7 +1433,12 @@ WRITE THREE THINGS:
 
 1. selectedUrl: The exact URL of the option you picked from above. Must be one of the URLs listed.
 
-2. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
+2. bubbleText: This is the thought bubble a visitor sees before they open the chat. It must feel like a person talking, not a headline. Write it the way a colleague would say it out loud.
+Prefer a question over a statement when the page topic naturally invites one. Example: "Is your checkout actually secure?" beats "Checkout security risks revealed".
+Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
+Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
+Never use marketing words like revealed, unveiled, insights, discover, explore, or learn.
+If the page is a competitor comparison page, the bubble must name the competitor. Example: "How does Reflectiz actually beat c/side?" not "Web security comparison insights".
 
 3. opener: Exactly 2 sentences.
 Sentence 1: Write one sharp specific insight based on the content of the option you picked. Extract the single most compelling stat, result, or risk and rewrite it naturally.
