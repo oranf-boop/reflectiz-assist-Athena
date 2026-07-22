@@ -268,87 +268,452 @@ async function processBatch(urls, base44, now, batchSize = 3, delayMs = 600) {
 }
 
 // --- PageOpeners nightly cache pre-warm ---
+// Generates and caches openers in-process (reusing the same candidate-selection and
+// Gemini-prompt pattern as reflectizAgent's INIT flow) instead of making an HTTP call
+// to reflectizAgent. No shared module exists between the two Base44 functions, so the
+// pipeline is ported here rather than imported.
 
-const PREWARM_HIGH_VALUE_CATS = ["pci", "magecart", "healthcare", "financial"];
+const PREWARM_HIGH_VALUE_CATS = ["pci", "magecart", "healthcare", "financial", "pentest"];
+const PREWARM_MAX_MS = 4 * 60 * 1000;
+const PREWARM_BATCH_SIZE = 5;
+const PREWARM_BATCH_DELAY_MS = 2000;
+const PREWARM_LANG = "en";
+
+// Blog URLs with a learning-hub companion take reflectizAgent's hub-companion branch,
+// which generates a fresh opener via Gemini on every call and never reads the
+// PageOpeners cache first. Warming these would write rows nobody ever serves from.
+const PREWARM_BLOG_TO_HUB_KEYS = new Set([
+  "https://www.reflectiz.com/blog/web-exposure-2026-article/",
+  "https://www.reflectiz.com/blog/javascript-injection-playbook/",
+  "https://www.reflectiz.com/blog/secure-vibe-coding/",
+  "https://www.reflectiz.com/blog/tiktok-pixel-privacy-case-study/",
+  "https://www.reflectiz.com/blog/evil-twin-checkout-case-study/",
+  "https://www.reflectiz.com/blog/chatbots-risk-exposure/",
+  "https://www.reflectiz.com/blog/pci-dss-solution-assessment-integrity360/",
+  "https://www.reflectiz.com/blog/ai-typosquatting-guide/",
+  "https://www.reflectiz.com/blog/iframe-security-guide/",
+  "https://www.reflectiz.com/blog/ctem-guide-expert-ciso/",
+  "https://www.reflectiz.com/blog/ctem-divide-market-research-article/",
+  "https://www.reflectiz.com/blog/malicious-comment-case-study/",
+  "https://www.reflectiz.com/blog/ai-supply-chain/",
+  "https://www.reflectiz.com/blog/proactive-web-security/",
+  "https://www.reflectiz.com/blog/web-exposure-management/",
+  "https://www.reflectiz.com/blog/web-privacy-validation-guide/",
+  "https://www.reflectiz.com/blog/cookie-privacy-case-study/",
+]);
+
+function prewarmNormalizeUrl(url) {
+  if (!url) return "";
+  return url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "").trim();
+}
+
+function prewarmCacheUrl(url) {
+  if (!url) return "";
+  let u = String(url).split("#")[0].split("?")[0].trim().toLowerCase();
+  if (u && !u.endsWith("/")) u += "/";
+  return u;
+}
+
+// Pages that never read the PageOpeners cache on the live INIT path:
+//   - DIRECT_REGISTRATION pages (comparison, plans, pricing) return a hardcoded
+//     opener before the cache is even checked.
+//   - Form-nudge pages (/learning-hub/ subpages other than the index, /lp/ pages)
+//     always generate fresh via Gemini and never consult the cache first.
+//   - Blog pages in PREWARM_BLOG_TO_HUB_KEYS take the hub-companion branch, which
+//     also generates fresh every call.
+function prewarmIsNeverCached(pageUrl) {
+  const s = (pageUrl || "").toLowerCase();
+  if (s.includes("reflectiz-vs") || s.includes("vs-reflectiz") || s.includes("cside") || s.includes("/plans") || s.includes("/pricing")) return true;
+  const normalized = s.replace(/^https?:\/\/(www\.)?reflectiz\.com/, "").replace(/\/$/, "");
+  if (normalized.startsWith("/lp/") && normalized !== "/lp") return true;
+  if (s.includes("/learning-hub/") && normalized !== "/learning-hub") return true;
+  if (PREWARM_BLOG_TO_HUB_KEYS.has(prewarmCacheUrl(pageUrl))) return true;
+  return false;
+}
 
 function prewarmPriority(page) {
   const u = (page.pageUrl || "").toLowerCase();
-  if (u.includes("reflectiz-vs")) return 0;
-  if (u.includes("/use-cases/")) return 1;
-  if (u.includes("/industries/")) return 2;
   const cats = Array.isArray(page.categories) ? page.categories : [];
-  if (u.includes("/blog/") && PREWARM_HIGH_VALUE_CATS.some(c => cats.includes(c))) return 3;
-  return 4;
+  if (u.includes("/use-cases/")) return 1;
+  if (u.includes("/blog/") && PREWARM_HIGH_VALUE_CATS.some(c => cats.includes(c))) return 2;
+  if (u.includes("/learning-hub/")) return 3;
+  if (u.includes("/platform/")) return 4;
+  return 5;
+}
+
+async function prewarmUpsertOpener(base44, pageUrl, data) {
+  try {
+    const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl, language: data.language });
+    if (existing && existing.length > 0) {
+      const sorted = existing.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
+      await base44.asServiceRole.entities.PageOpeners.update(sorted[0].id, data);
+      for (const dup of sorted.slice(1)) {
+        await base44.asServiceRole.entities.PageOpeners.delete(dup.id).catch(() => {});
+      }
+    } else {
+      await base44.asServiceRole.entities.PageOpeners.create({ pageUrl, ...data });
+    }
+  } catch (e) {
+    console.error("prewarm upsert failed:", e.message);
+  }
+}
+
+function prewarmSanitizeContent(text) {
+  return (text || "").replace(/&#\d+;/g, " ").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function prewarmDeriveLabel(pageTitle, pageType) {
+  const typeLabels = {
+    "case-study": "Read the case study", "use-case": "See the use case", "blog": "Read the article",
+    "webinar": "Watch the webinar", "event": "Register for the event", "product": "Learn more",
+    "comparison": "See the comparison", "homepage": "Visit the homepage", "other": "Learn more",
+  };
+  const base = typeLabels[pageType] || "Learn more";
+  const cleanTitle = pageTitle ? prewarmSanitizeContent(pageTitle).split(/\s[–—|-]\s/)[0].replace(/[\[\]]/g, "").trim() : "";
+  return cleanTitle || base;
+}
+
+function prewarmIsTaxonomyPage(url) {
+  const u = (url || "").toLowerCase();
+  return u.includes("/category/") || u.includes("/tag/") || u.includes("/author/") || u.includes("/page/") || u.includes("/event-locations/");
+}
+
+function prewarmIsHubPage(url) {
+  const normalized = (url || "").replace(/\/$/, "") + "/";
+  const exactHubs = [
+    "https://www.reflectiz.com/blog/", "https://www.reflectiz.com/learning-hub/", "https://www.reflectiz.com/industries/",
+    "https://www.reflectiz.com/events/", "https://www.reflectiz.com/customers/", "https://www.reflectiz.com/use-cases/",
+    "https://www.reflectiz.com/security-hub/", "https://www.reflectiz.com/privacy-hub/", "https://www.reflectiz.com/offensive-hub/",
+  ];
+  if (exactHubs.includes(normalized)) return true;
+  if ((url || "").toLowerCase().includes("/learninghub/")) return true;
+  if ((url || "").toLowerCase().includes("/events/")) return true;
+  return false;
+}
+
+function prewarmIsPRPage(url) {
+  const u = (url || "").toLowerCase();
+  return u.includes("/media/") || u.includes("/about/") || u.includes("/partners/");
+}
+
+const PREWARM_CATEGORY_PRIORITY = ["pci", "magecart", "supply-chain", "consent", "privacy", "ai-threats", "retail", "financial", "healthcare", "pentest", "comparison", "low-context"];
+
+// Mirrors reflectizAgent's determineRouting for the content-driven branches only.
+// A synthetic pre-warm visitor has no referral source or journey, so the
+// paid-search and comparison-page DIRECT_REGISTRATION branches never apply here
+// (those pages are excluded earlier by prewarmIsNeverCached anyway).
+function prewarmDetermineCategory(page) {
+  const url = (page.pageUrl || "").toLowerCase();
+  const cats = Array.isArray(page.categories) ? page.categories : [];
+  const isHomepageUrl = url.replace(/\/$/, "") === "https://www.reflectiz.com";
+
+  if (!isHomepageUrl && cats.length > 0) {
+    const matched = PREWARM_CATEGORY_PRIORITY.find(c => cats.includes(c));
+    if (matched) return matched;
+  }
+  if (url.includes("/customers/")) return cats[0] || "low-context";
+  if (url.includes("healthcare") || url.includes("hipaa")) return "healthcare";
+  if (url.includes("pci") || url.includes("compliance") || url.includes("dss")) return "pci";
+  if (url.includes("magecart") || url.includes("skimming")) return "magecart";
+  if (url.includes("supply-chain") || url.includes("supply_chain") || url.includes("security-hub")) return "supply-chain";
+  if (url.includes("consent") || url.includes("cookie-banner") || url.includes("shein") || url.includes("ccpa")) return "consent";
+  if (url.includes("privacy") || url.includes("gdpr")) return "privacy";
+  if (url.includes("ai-supply") || url.includes("ai-attack") || url.includes("ai-retail")) return "ai-threats";
+  if (url.includes("ecommerce") || url.includes("retail") || url.includes("shopify")) return "retail";
+  if (url.includes("financial") || url.includes("finance") || url.includes("banking") || url.includes("dora")) return "financial";
+  if (url.includes("/platform/") || url.includes("/product/") || url.includes("remote-monitoring") || url.includes("how-it-works")) return "low-context";
+  if (url.includes("/blog/") || url.includes("/learning-hub/")) return cats[0] || "low-context";
+  if (url.includes("offensive-hub") || url.includes("pentest") || url.includes("offensive")) return "pentest";
+  return "low-context";
+}
+
+// Mirrors reflectizAgent's getCandidatesForCategory.
+function prewarmGetCandidates(category, currentPageUrl, allContent) {
+  const currentNormalized = prewarmNormalizeUrl(currentPageUrl);
+  const matches = allContent.filter(page =>
+    page.isActive === true &&
+    Array.isArray(page.categories) &&
+    page.categories.includes(category) &&
+    prewarmNormalizeUrl(page.pageUrl) !== currentNormalized &&
+    prewarmNormalizeUrl(page.pageUrl) !== "reflectiz.com" &&
+    page.pageContent && page.pageContent.length > 400 &&
+    !prewarmIsTaxonomyPage(page.pageUrl) && !prewarmIsHubPage(page.pageUrl) && !prewarmIsPRPage(page.pageUrl)
+  );
+  const aged = matches.map(page => {
+    const urlYear = (page.pageUrl || "").match(/\b(202[0-3]|201\d)\b/);
+    let effYear = urlYear ? parseInt(urlYear[1]) : null;
+    if (!effYear) {
+      const textSample = ((page.pageTitle || "") + " " + (page.pageContent || "").slice(0, 3000));
+      const mentioned = textSample.match(/\b20(1\d|2[0-6])\b/g);
+      if (mentioned && mentioned.length > 0) effYear = Math.max(...mentioned.map(Number));
+    }
+    const ageTier = (!effYear || effYear >= 2025) ? 0 : (effYear === 2024 ? 1 : 2);
+    const performanceScore = typeof page.performanceScore === "number" ? page.performanceScore : 10;
+    return { url: page.pageUrl, label: prewarmDeriveLabel(page.pageTitle, page.pageType), pageContent: page.pageContent, pageType: page.pageType, ageTier, performanceScore };
+  });
+  aged.sort((a, b) => a.ageTier !== b.ageTier ? a.ageTier - b.ageTier : b.performanceScore - a.performanceScore);
+
+  if ((currentPageUrl || "").includes("/customers/")) return aged.filter(c => c.pageType !== "case-study");
+
+  if (currentNormalized === "reflectiz.com") {
+    const nonBlog = aged.filter(c => c.pageType !== "blog");
+    const caseStudies = allContent
+      .filter(p => p.isActive === true && p.pageType === "case-study" && p.pageContent && p.pageContent.length > 400 &&
+        prewarmNormalizeUrl(p.pageUrl) !== currentNormalized &&
+        !nonBlog.some(c => prewarmNormalizeUrl(c.url) === prewarmNormalizeUrl(p.pageUrl)))
+      .map(p => ({ url: p.pageUrl, label: prewarmDeriveLabel(p.pageTitle, p.pageType), pageContent: p.pageContent, pageType: p.pageType, ageTier: 0, performanceScore: typeof p.performanceScore === "number" ? p.performanceScore : 10 }));
+    return nonBlog.concat(caseStudies);
+  }
+  return aged;
+}
+
+function prewarmExtractStatDenseSegment(raw) {
+  const cleaned = prewarmSanitizeContent(raw);
+  const paras = cleaned.split(/\n+/).filter(p => p.trim().length >= 80);
+  return paras.length > 0 ? paras.slice(0, 6).join(" ").slice(0, 1500) : cleaned.slice(0, 1500);
+}
+
+function prewarmShuffleWithinTiers(arr) {
+  const tiers = {};
+  arr.forEach(c => { const t = c.ageTier || 0; if (!tiers[t]) tiers[t] = []; tiers[t].push(c); });
+  return Object.keys(tiers).sort().reduce((acc, t) => acc.concat(tiers[t].sort(() => Math.random() - 0.5)), []);
+}
+
+async function callGeminiForPrewarm(prompt) {
+  const token = await getGeminiToken();
+  const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/dashboarderv0/locations/us-central1/publishers/google/models/gemini-2.5-flash-lite:generateContent`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 1024 } }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+const PREWARM_FALLBACK_SENTENCE_EN = "This page covers one of the most critical areas in web security right now.";
+const PREWARM_FALLBACK_BUBBLE_EN = "Web security insight worth reading";
+
+// Mirrors reflectizAgent's INIT opener pipeline: candidate selection, Gemini prompt,
+// JSON parse, validation, fallback. Returns null when there is truly nothing to
+// recommend, matching the live path, which also never writes to cache in that case.
+async function prewarmGenerateOpener(page, allContent) {
+  const currentPageUrl = page.pageUrl;
+  const category = prewarmDetermineCategory(page);
+  let candidates = prewarmGetCandidates(category, currentPageUrl, allContent);
+  if (candidates.length === 0) candidates = prewarmGetCandidates("low-context", currentPageUrl, allContent);
+  candidates = candidates.filter(c => prewarmNormalizeUrl(c.url) !== prewarmNormalizeUrl(currentPageUrl));
+  if (candidates.length === 0) return null;
+
+  const isMultiCandidate = candidates.length >= 2;
+  let selectedAsset = isMultiCandidate ? null : candidates[0];
+  const contextTitle = page.pageTitle || currentPageUrl;
+  const currentPageContent = (page.pageContent || "").replace(/\s+/g, " ").trim().slice(0, 700);
+
+  let openerPrompt;
+  if (!isMultiCandidate) {
+    const assetInsight = prewarmExtractStatDenseSegment(selectedAsset.pageContent || "");
+    openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
+
+PAGE CONTEXT:
+Page title: ${contextTitle}
+Page URL: ${currentPageUrl}
+Current page content: "${currentPageContent || "(not in DB yet)"}"
+
+CHOSEN NEXT STEP (use this exact link in your response):
+Label: ${selectedAsset.label}
+URL: ${selectedAsset.url}
+
+WRITE TWO THINGS:
+
+1. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark. No generic phrases like "your site" or "exposure".
+
+2. opener: Exactly 2 sentences.
+REQUIRED: Your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Do not use vague openers.
+Sentence 1: Write one sharp specific insight that makes the visitor want to click the link in sentence 2. ${assetInsight ? `Base it on this real content from the recommended page, extract the single most compelling stat, result, or risk and rewrite it naturally: "${assetInsight.slice(0, 1000)}"` : "Use a specific fact or risk relevant to this page topic. Not generic."}
+Sentence 2: Must be exactly this markdown link with no extra words before it: [${selectedAsset.label}](${selectedAsset.url})
+
+ABSOLUTE RULES:
+- Never mention how the visitor arrived, their search terms, or referral source
+- Never use em dashes or double hyphens
+- Never use greeting words like Hi or Hello
+- Sentence 2 must use the exact label and URL provided above, no variations
+- Sound like a knowledgeable peer, not a salesperson
+
+Return only valid JSON, nothing else:
+{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}`;
+  } else {
+    candidates = prewarmShuffleWithinTiers(candidates).slice(0, 8);
+    const candidateInsights = candidates.map(c => ({ url: c.url, label: c.label, insight: prewarmSanitizeContent(c.pageContent).slice(0, 600), performanceScore: c.performanceScore ?? 10 }));
+    const candidateList = candidateInsights.map((c, i) =>
+      `OPTION ${i + 1} [performance score: ${c.performanceScore}/30]:\nLabel: ${c.label}\nURL: ${c.url}\nContent: "${c.insight || "No content available, use general knowledge about this topic."}"`
+    ).join("\n\n");
+
+    openerPrompt = `You are Athena, a web security expert for Reflectiz. Write a chat opening message for a website visitor.
+${currentPageUrl.replace(/\/$/, "") === "https://www.reflectiz.com" ? "\nVISITOR CONTEXT: This visitor is on the homepage. Prefer recommending a specific product module, solution page, or customer success story (case study). Avoid blog posts.\n" : ""}${(currentPageUrl || "").includes("/customers/") ? "\nVISITOR CONTEXT: This visitor is reading a customer success story. Connect the recommendation to their context.\n" : ""}
+
+PAGE CONTEXT:
+Page title: ${contextTitle}
+Page URL: ${currentPageUrl}
+Current page content: "${currentPageContent || "(not in DB yet)"}"
+
+**SENTENCE 1 RULE: REQUIRED, your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Never start with vague phrases like "Many organizations", "Most teams", or "Understanding". If you cannot produce an opener meeting this requirement from the chosen candidate content, pick a DIFFERENT selectedUrl from the list that has more specific facts.**
+
+CANDIDATE NEXT STEPS (pick the ONE best fit for this page's topic):
+${candidateList}
+
+WRITE THREE THINGS:
+
+1. selectedUrl: The exact URL of the option you picked from above. Must be one of the URLs listed.
+
+2. bubbleText: 5-6 words. Specific to the page topic. Creates curiosity. No question mark.
+
+3. opener: Exactly 2 sentences.
+Sentence 1: Write one sharp specific insight based on the content of the option you picked.
+Sentence 2: Must be exactly the markdown link for the option you picked, with no extra words before it: [label](url)
+
+ABSOLUTE RULES:
+- Never use em dashes or double hyphens
+- Never use greeting words like Hi or Hello
+- Sentence 2 must use the exact label and URL of the option you selected, no variations
+- Sound like a knowledgeable peer, not a salesperson
+
+Return only valid JSON, nothing else:
+{"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}`;
+  }
+
+  let opener = null;
+  let bubbleText = null;
+  try {
+    const rawText = await callGeminiForPrewarm(openerPrompt);
+    const cleaned = rawText.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    opener = parsed.opener || null;
+    bubbleText = parsed.bubbleText || null;
+    if (isMultiCandidate && parsed.selectedUrl) {
+      const matched = candidates.find(c => c.url === parsed.selectedUrl || c.url.replace(/\/$/, "") === String(parsed.selectedUrl).replace(/\/$/, ""));
+      if (matched) selectedAsset = matched;
+    }
+  } catch (e) {
+    console.error("prewarm Gemini call or parse failed for", currentPageUrl, e.message);
+  }
+
+  if (opener) {
+    opener = opener.replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-").replace(/&/g, "&").replace(/"/g, '"').replace(/</g, "<").replace(/>/g, ">").replace(/&#\d+;/g, "").replace(/&[a-z]+;/g, "");
+    opener = opener.replace(/\[([^\]]*)\[([^\]]*)\]([^\]]*)\]\(/g, "[$1$2$3](");
+  }
+  if (bubbleText) {
+    bubbleText = bubbleText.replace(/&#039;/g, "'").replace(/&#8211;/g, "-").replace(/&#8212;/g, "-").replace(/&/g, "&").replace(/"/g, '"').replace(/&#\d+;/g, "").replace(/&[a-z]+;/g, "");
+  }
+
+  const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
+  const currentPageStripped = (currentPageUrl || "").replace(/\/$/, "");
+  if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset ||
+    !opener.includes(validationAsset.url.replace(/\/$/, "")) ||
+    (currentPageStripped && opener.includes(currentPageStripped + ")")) ||
+    (currentPageStripped && opener.includes(currentPageStripped + "/)"))) {
+    opener = null;
+  }
+  if (isMultiCandidate && !selectedAsset) selectedAsset = candidates[0];
+
+  const privacyViolations = ["direct traffic", "you came from", "you searched", "you landed", "after searching", "via google", "organic search", "indicates a strong", "your search", "coming from", "traffic to"];
+  if (opener && privacyViolations.some(p => opener.toLowerCase().includes(p))) opener = null;
+
+  if (opener) {
+    opener = opener.replace(/—/g, ",").replace(/–/g, "-").replace(/--/g, ",");
+    opener = opener.replace(/([^.!?])\s*\[/g, "$1. [").replace(/([.!?])\s*\.\s*\[/g, "$1 [");
+    const linkMatch = opener.match(/\[.*?\]\(.*?\)/);
+    const prose = opener.replace(/\[.*?\]\(.*?\)/g, "").trim();
+    const sentences = prose.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    if (sentences.length > 1) opener = sentences[0].trim() + (linkMatch ? " " + linkMatch[0] : "");
+  }
+
+  if (!opener) {
+    const fallbackAsset = selectedAsset || candidates[0];
+    opener = `${PREWARM_FALLBACK_SENTENCE_EN} [${fallbackAsset.label}](${fallbackAsset.url})`;
+    bubbleText = bubbleText || PREWARM_FALLBACK_BUBBLE_EN;
+  }
+  if (!bubbleText) bubbleText = opener.split(" ").slice(0, 6).join(" ");
+
+  return { opener, bubbleText };
 }
 
 async function prewarmPageOpeners(base44, limit) {
-  const result = { candidates: 0, warmed: 0, skipped_fresh: 0, failed: 0 };
+  const jobStart = Date.now();
+  const result = { candidates: 0, warmed: 0, skipped_fresh: 0, skipped_never_cached: 0, no_candidates: 0, failed: 0, timed_out: false, elapsedMs: 0 };
   try {
-    const all = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
-    // Comparison and pricing pages route to DIRECT_REGISTRATION: they serve instant
-    // hardcoded openers and never read or write the PageOpeners cache, so warming
-    // them is a wasted request every night. Exclude them up front.
-    const neverCached = (u) => {
-      const s = (u || "").toLowerCase();
-      return s.includes("reflectiz-vs") || s.includes("vs-reflectiz") || s.includes("cside") || s.includes("/plans") || s.includes("/pricing");
-    };
-    const eligible = (all || [])
-      .filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl);
-    result.skipped_hardcoded = eligible.filter(p => neverCached(p.pageUrl)).length;
+    const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
+    const eligible = (allContent || []).filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl);
+    result.skipped_never_cached = eligible.filter(p => prewarmIsNeverCached(p.pageUrl)).length;
+
     const candidates = eligible
-      .filter(p => !neverCached(p.pageUrl))
+      .filter(p => !prewarmIsNeverCached(p.pageUrl))
       .sort((a, b) => prewarmPriority(a) - prewarmPriority(b))
       .slice(0, limit);
     result.candidates = candidates.length;
 
-    const batchSize = 5;
-    for (let i = 0; i < candidates.length; i += batchSize) {
-      const batch = candidates.slice(i, i + batchSize);
+    const freshCutoff = Date.now() - 23 * 60 * 60 * 1000;
+
+    for (let i = 0; i < candidates.length; i += PREWARM_BATCH_SIZE) {
+      if (Date.now() - jobStart > PREWARM_MAX_MS) {
+        result.timed_out = true;
+        console.log(`Pre-warm timeout safety triggered after ${i} of ${candidates.length} pages`);
+        break;
+      }
+      const batch = candidates.slice(i, i + PREWARM_BATCH_SIZE);
       await Promise.allSettled(batch.map(async (page) => {
         try {
-          const cacheUrl = (page.pageUrl || "").split("#")[0].split("?")[0].replace(/\/$/, "") + "/";
-          const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: "en" });
-          // A usable cached opener means the page is already warm. The INIT handler
-          // serves from cache without refreshing generatedAt, so an age-based check
-          // would re-request cached pages every night for nothing.
-          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20);
+          const cacheUrl = prewarmCacheUrl(page.pageUrl);
+          const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: PREWARM_LANG });
+          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20 && r.generatedAt && new Date(r.generatedAt).getTime() > freshCutoff);
           if (fresh) { result.skipped_fresh++; return; }
-          const res = await fetch("https://base44.app/api/apps/69edc5de1c84c71c086635e0/functions/reflectizAgent", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-athena-prewarm": "app-key-AQMEVGjibXJE55B9QiqZnjCH" },
-            body: JSON.stringify({
-              message: "INIT",
-              currentPageUrl: page.pageUrl,
-              geo: "",
-              referralSource: "",
-              pagesViewed: [page.pageUrl],
-              timeOnPage: 30,
-              hasActiveConversation: false,
-              conversationHistory: [],
-              sessionId: "prewarm-" + i + "-" + Math.random().toString(36).slice(2, 8),
-            }),
-            signal: AbortSignal.timeout(20000),
+
+          const generated = await prewarmGenerateOpener(page, allContent);
+          if (!generated) { result.no_candidates++; return; }
+
+          await prewarmUpsertOpener(base44, cacheUrl, {
+            opener: generated.opener,
+            bubbleText: generated.bubbleText,
+            language: PREWARM_LANG,
+            generatedAt: new Date().toISOString(),
+            isActive: true,
           });
-          const data = await res.json().catch(() => null);
-          if (res.ok && data && data.reply) result.warmed++;
-          else result.failed++;
+          result.warmed++;
         } catch (e) {
           console.error("prewarm failed for", page.pageUrl, e.message);
           result.failed++;
         }
       }));
-      if (i + batchSize < candidates.length) {
-        await new Promise(r => setTimeout(r, 2000));
+      if (i + PREWARM_BATCH_SIZE < candidates.length) {
+        await new Promise(r => setTimeout(r, PREWARM_BATCH_DELAY_MS));
       }
     }
   } catch (e) {
     console.error("prewarmPageOpeners fatal:", e.message);
   }
-  console.log("PageOpeners prewarm:", JSON.stringify(result));
-  return result;
-}
 
-Deno.serve(async (req) => {
+  result.elapsedMs = Date.now() - jobStart;
+  console.log("PageOpeners prewarm:", JSON.stringify(result));
+
+  const attempted = result.warmed + result.failed;
+  if (attempted > 0 && result.failed / attempted > 0.2) {
+    const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+    if (SLACK_WEBHOOK_URL) {
+      const text = `:warning: Pre-warm job completed with high failure rate: ${result.failed} of ${attempted} pages failed. Check Gemini quota.`;
+      await fetch(SLACK_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      }).catch(err => console.error("Slack prewarm failure alert failed:", err.message));
+    }
+  }
+
+  return result;
+  }
+
+  Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   const now = new Date().toISOString().split("T")[0];
   let options = {};
