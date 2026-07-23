@@ -1606,6 +1606,9 @@ Return only valid JSON, nothing else:
       bubbleText = opener.split(" ").slice(0, 6).join(" ");
     }
 
+    // Curated bubble overrides generated one -- opener stays Gemini-generated
+    if (curatedBubble) bubbleText = curatedBubble;
+
     // Cache
     if (isValidPageUrl && opener && bubbleText) {
       await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
