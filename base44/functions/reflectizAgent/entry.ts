@@ -931,6 +931,7 @@ Return only valid JSON:
         opener = `This topic goes deeper than most articles cover. [${hubLabel}](${hubCompanionUrl})`;
       }
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
+      if (curatedBubble) bubbleText = curatedBubble;
 
       // Cache this result
       if (opener && bubbleText) {
