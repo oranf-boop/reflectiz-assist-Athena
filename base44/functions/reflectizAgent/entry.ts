@@ -843,6 +843,17 @@ Return only valid JSON, nothing else:
 
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
+      if (curatedBubble) bubbleText = curatedBubble;
+      if (curatedBubble && opener && bubbleText) {
+        await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
+          opener,
+          bubbleText,
+          language: resolvedLang,
+          generatedAt: new Date().toISOString(),
+          isActive: true,
+          isCurated: true,
+        });
+      }
 
       return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
     }
