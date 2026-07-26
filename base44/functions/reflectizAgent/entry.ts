@@ -831,6 +831,16 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "El 64 % de sus proveedores acceden a datos sensibles sin justificacion.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo el 16 % de los lideres de seguridad gestionan bien la exposicion web. Es usted uno?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx logro cero hallazgos en su auditoria PCI. Asi es como lo lograron.",
+    "https://www.reflectiz.com/blog/trust-wallet-hack/": "Las extensiones del navegador son el nuevo vector de ataque. Esta vigilada la suya?",
+    "https://www.reflectiz.com/blog/what-is-ctem/": "La mayoria de los programas CTEM ignoran por completo la capa web. El suyo tambien?",
+    "https://www.reflectiz.com/learning-hub/pentest-agent-webinar/": "El pentesting tradicional no detecta apps web dinamicas. Hay una forma mejor.",
+    "https://www.reflectiz.com/learning-hub/ciso-guide-web-privacy-validation/": "Healthline pago 1,55 M$ por ignorar la privacidad del lado del cliente. Esta usted expuesto?",
+    "https://www.reflectiz.com/use-cases/website-privacy-compliance/": "Healthline pago 1,55 M$ por ignorar estos riesgos del lado del cliente. Esta su sitio expuesto?",
+    "https://www.reflectiz.com/blog/paypal-breach-2026/": "La brecha de PayPal expuso millones de registros de pago. Sera su caja la siguiente?",
+    "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA exige supervision continua del riesgo digital de terceros. Estan cubiertas sus brechas?",
+    "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "El pentesting tradicional no sigue el ritmo de las apps web modernas. Se prueba la suya de forma continua?",
+    "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/": "Un QSA independiente confirmo que Reflectiz cumple los requisitos PCI DSS v4.0.1 6.4.3 y 11.6.1.",
+    "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "La multa CCPA de Disney (2,75 M$) muestra que los riesgos de tracking del lado del cliente son reales. Esta protegido su sitio?",
   };
   const CURATED_BUBBLES_IT: Record<string, string> = {
     "https://www.reflectiz.com/": "Il 64% degli script di terze parti accede ai tuoi dati senza giustificazione -- anche i tuoi?",
