@@ -463,6 +463,12 @@ function normalizeUrl(url) {
     .trim();
 }
 
+// Force the first letter of a bubbleText string to uppercase (skips leading punctuation like ¿ or quotes).
+function capitalizeFirstLetter(s) {
+  if (!s) return s;
+  return s.replace(/^([^a-zA-ZÀ-ſ]*)([a-zA-ZÀ-ſ])/, (m, pre, letter) => pre + letter.toUpperCase());
+}
+
 // Canonical cache key for PageOpeners: no fragment, no query string, lowercase, trailing slash.
 function canonicalCacheUrl(url) {
   if (!url) return "";
