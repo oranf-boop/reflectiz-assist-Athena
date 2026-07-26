@@ -799,7 +799,7 @@ Page content: "${pageContent.slice(0, 800)}"
 
 WRITE TWO THINGS:
 
-1. bubbleText: 5-6 words. Specific to what they get by filling the form. Start with an action verb. Example: "Get the CISO guide free" or "Watch the webinar — 2 min"
+1. bubbleText: 5-6 words. Specific to what they get by filling the form. Start with an action verb. Example: "Get the CISO guide free" or "Watch the webinar - 2 min"
 
 2. opener: Exactly 2 sentences.
 Sentence 1: One sharp specific insight about the topic of this page. Must include at least one of: a specific stat, a named company, a named threat or attack, or a dollar/regulatory figure. Never start vague.
