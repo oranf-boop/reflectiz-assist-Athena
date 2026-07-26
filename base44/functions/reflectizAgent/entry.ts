@@ -800,7 +800,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart si e nascosto in Google Tag Manager per mesi. Controlla il tuo?",
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "Il 64% dei tuoi fornitori terzi accede a dati sensibili senza giustificazione.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo il 16% dei responsabili sicurezza gestisce maturamente l'esposizione web. Sei tra loro?",
-    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx ha ottenuto zero rilievi nell'audit PCI. Scopri come.",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx ha ottenuto zero rilievi nell'audit PCI. Ecco come ci sono riusciti.",
   };
   function getCuratedBubble(pageUrl: string, lang: string): string | null {
     const url = canonicalCacheUrl(pageUrl);
