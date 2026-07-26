@@ -1671,8 +1671,8 @@ Return only valid JSON, nothing else:
     // Curated bubble overrides generated one -- opener stays Gemini-generated
     if (curatedBubble) bubbleText = curatedBubble;
 
-    // Ensure bubbleText starts with a capital letter
-    if (bubbleText) bubbleText = bubbleText.charAt(0).toUpperCase() + bubbleText.slice(1);
+    // Ensure bubbleText starts with a capital letter (skips leading punctuation like ¿)
+    if (bubbleText) bubbleText = capitalizeFirstLetter(bubbleText);
 
     // Strip any Unicode en/em dashes from bubbleText
     if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
