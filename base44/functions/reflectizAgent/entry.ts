@@ -463,10 +463,19 @@ function normalizeUrl(url) {
     .trim();
 }
 
-// Force the first letter of a bubbleText string to uppercase (skips leading punctuation like ¿ or quotes).
+// Force the true start of a sentence to be capitalized. Only skips a leading
+// Spanish inverted punctuation mark (¿/¡); never hunts past digits, %, or other
+// characters -- doing so would wrongly capitalize mid-string words in strings
+// like "64% of third-party scripts..." (turning "of" into "Of").
 function capitalizeFirstLetter(s) {
   if (!s) return s;
-  return s.replace(/^([^a-zA-ZÀ-ſ]*)([a-zA-ZÀ-ſ])/, (m, pre, letter) => pre + letter.toUpperCase());
+  if (/^[¿¡]/.test(s)) {
+    return s.length > 1 ? s.charAt(0) + s.charAt(1).toUpperCase() + s.slice(2) : s;
+  }
+  if (/^[a-zA-ZÀ-ſ]/.test(s)) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  return s;
 }
 
 // Canonical cache key for PageOpeners: no fragment, no query string, lowercase, trailing slash.
