@@ -849,6 +849,16 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "Il 64% dei tuoi fornitori terzi accede a dati sensibili senza giustificazione.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo il 16% dei responsabili sicurezza gestisce maturamente l'esposizione web. Sei tra loro?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx ha ottenuto zero rilievi nell'audit PCI. Ecco come ci sono riusciti.",
+    "https://www.reflectiz.com/blog/trust-wallet-hack/": "Le estensioni del browser sono il nuovo vettore di attacco. La tua e monitorata?",
+    "https://www.reflectiz.com/blog/what-is-ctem/": "La maggior parte dei programmi CTEM ignora completamente il livello web. Anche il tuo?",
+    "https://www.reflectiz.com/learning-hub/pentest-agent-webinar/": "Il pentesting tradizionale non rileva le web app dinamiche. C'e un modo migliore.",
+    "https://www.reflectiz.com/learning-hub/ciso-guide-web-privacy-validation/": "Healthline ha pagato 1,55 milioni di $ per aver ignorato la privacy lato client. Sei esposto?",
+    "https://www.reflectiz.com/use-cases/website-privacy-compliance/": "Healthline ha pagato 1,55 milioni di $ per questi rischi lato client. Il tuo sito e esposto?",
+    "https://www.reflectiz.com/blog/paypal-breach-2026/": "La violazione di PayPal ha esposto milioni di dati di pagamento. Il tuo checkout e il prossimo?",
+    "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA richiede il controllo continuo del rischio digitale di terze parti. Le tue lacune sono coperte?",
+    "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "Il pentesting tradizionale non tiene il passo con le web app moderne. La tua viene testata di continuo?",
+    "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/": "Un QSA indipendente ha confermato che Reflectiz soddisfa i requisiti PCI DSS v4.0.1 6.4.3 e 11.6.1.",
+    "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "La multa CCPA di Disney (2,75 milioni di $) dimostra che i rischi di tracciamento lato client sono reali. Il tuo sito e protetto?",
   };
   function getCuratedBubble(pageUrl: string, lang: string): string | null {
     const url = canonicalCacheUrl(pageUrl);
