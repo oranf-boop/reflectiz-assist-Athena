@@ -1610,6 +1610,12 @@ Return only valid JSON, nothing else:
     // Curated bubble overrides generated one -- opener stays Gemini-generated
     if (curatedBubble) bubbleText = curatedBubble;
 
+    // Ensure bubbleText starts with a capital letter
+    if (bubbleText) bubbleText = bubbleText.charAt(0).toUpperCase() + bubbleText.slice(1);
+
+    // Strip any Unicode en/em dashes from bubbleText
+    if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
+
     // Cache
     if (isValidPageUrl && opener && bubbleText) {
       await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
