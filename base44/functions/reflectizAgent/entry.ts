@@ -788,6 +788,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % de vos fournisseurs tiers accedent a des donnees sensibles sans justification.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Seulement 16 % des responsables securite gerent maturite l'exposition web. Et vous?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx a obtenu zero constat lors de son audit PCI. Decouvrez comment.",
+    "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "L'amende CCPA de Disney ($2,75M) montre que les risques de tracking cote client sont bien reels. Votre site est-il protege?",
   };
   const CURATED_BUBBLES_ES: Record<string, string> = {
     "https://www.reflectiz.com/": "El 64 % de sus scripts de terceros acceden a sus datos sin justificacion -- incluidos los suyos?",
