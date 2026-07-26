@@ -941,6 +941,7 @@ Return only valid JSON:
           language: resolvedLang,
           generatedAt: new Date().toISOString(),
           isActive: true,
+          isCurated: !!curatedBubble,
         });
       }
 
@@ -1617,6 +1618,7 @@ Return only valid JSON, nothing else:
         language: resolvedLang,
         generatedAt: new Date().toISOString(),
         isActive: true,
+        isCurated: !!curatedBubble,
       });
     }
 
