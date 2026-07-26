@@ -771,6 +771,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA mandates continuous oversight of third-party digital risk. Are your gaps covered?",
     "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "Traditional pentesting can't keep up with modern web apps. Is yours being tested continuously?",
     "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/": "An independent QSA confirmed Reflectiz meets PCI DSS v4.0.1 requirements 6.4.3 and 11.6.1.",
+    "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "Disney's $2.75M CCPA fine shows client-side tracking risks are very real. Is yours covered?",
   };
   const CURATED_BUBBLES_DE: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % Ihrer Drittanbieter-Skripte greifen unbefugt auf Daten zu -- auch Ihre?",
