@@ -877,9 +877,10 @@ ABSOLUTE RULES:
 - Sound like a peer, not a salesperson
 - bubbleText must start with a capital letter
 - Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra)
+- Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP), never lowercase a brand name
 
 Return only valid JSON, nothing else:
-{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names and standard names like PCI DSS unchanged.` : ""}`;
+{"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names and standard names like PCI DSS unchanged.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
 
       const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
       const geminiResult = await Promise.race([
@@ -971,9 +972,10 @@ ABSOLUTE RULES:
 - Sound like a peer, not a salesperson
 - bubbleText must start with a capital letter
 - Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra)
+- Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP), never lowercase a brand name
 
 Return only valid JSON:
-{"bubbleText": "5-6 words here", "opener": "Insight sentence. [${hubLabel}](${hubCompanionUrl})"}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response (bubbleText and opener sentence 1) must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names, standard names like PCI DSS, and the exact markdown link in sentence 2 unchanged.` : ""}`;
+{"bubbleText": "5-6 words here", "opener": "Insight sentence. [${hubLabel}](${hubCompanionUrl})"}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response (bubbleText and opener sentence 1) must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names, standard names like PCI DSS, and the exact markdown link in sentence 2 unchanged.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
 
       const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
       const geminiResult = await Promise.race([
