@@ -1508,7 +1508,7 @@ ABSOLUTE RULES:
 - Sound like a knowledgeable peer, not a salesperson
 
 Return only valid JSON, nothing else:
-{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
+{"bubbleText": "5-6 words here", "opener": "Sentence one. [${selectedAsset.label}](${selectedAsset.url})"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
     } else {
       const candidateList = candidateInsights.map((c, i) =>
         `OPTION ${i + 1} [performance score: ${c.performanceScore}/30]:
@@ -1563,7 +1563,7 @@ ABSOLUTE RULES:
 - Pick based on geo, referral source, and journey -- not just the first option
 
 Return only valid JSON, nothing else:
-{"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.` : ""}`;
+{"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
     }
 
     const geminiResult = await Promise.race([
