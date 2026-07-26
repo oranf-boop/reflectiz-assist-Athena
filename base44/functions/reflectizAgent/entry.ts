@@ -1490,6 +1490,8 @@ Prefer a question over a statement when the page topic naturally invites one. Ex
 Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
+Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, GM, Jscrambler), even mid-sentence -- never lowercase a brand name.
+When the page title or content names a specific company, product, or incident, reference it by name instead of writing a generic sentence.
 
 2. opener: Exactly 2 sentences.
 REQUIRED: Your opener MUST include at least one of: (a) a specific percentage or number, (b) a named company or brand, (c) a named attack or threat vector, (d) a specific dollar or regulatory figure. Do not use vague openers.
@@ -1542,6 +1544,8 @@ Prefer a question over a statement when the page topic naturally invites one. Ex
 Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
+Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, GM, Jscrambler), even mid-sentence -- never lowercase a brand name.
+When the page title or content names a specific company, product, or incident, reference it by name instead of writing a generic sentence.
 If the page is a competitor comparison page, the bubble must name the competitor. Example: "How does Reflectiz actually beat c/side?" not "Web security comparison insights".
 
 3. opener: Exactly 2 sentences.
