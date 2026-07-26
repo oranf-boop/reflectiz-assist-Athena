@@ -900,6 +900,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
       if (curatedBubble) bubbleText = curatedBubble;
+      if (bubbleText) bubbleText = capitalizeFirstLetter(bubbleText);
       if (curatedBubble && opener && bubbleText) {
         await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
           opener,
@@ -988,6 +989,7 @@ Return only valid JSON:
       }
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
       if (curatedBubble) bubbleText = curatedBubble;
+      if (bubbleText) bubbleText = capitalizeFirstLetter(bubbleText);
 
       // Cache this result
       if (opener && bubbleText) {
