@@ -1226,7 +1226,7 @@ Return only valid JSON:
     // DIRECT_REGISTRATION: return hardcoded opener immediately, never hit cache
     if (routing.category === "DIRECT_REGISTRATION") {
       const competitorName = (currentPageUrl || "").includes("reflectiz-vs-")
-        ? (currentPageUrl || "").split("reflectiz-vs-").pop().split("/")[0].replace(/-/g, " ")
+        ? (currentPageUrl || "").split("reflectiz-vs-").pop().split("/")[0].replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
         : "";
       const hardcodedOpener = getHardcodedOpener(competitorName, resolvedLang);
       const hardcodedBubble = competitorName
