@@ -769,6 +769,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/website-privacy-compliance/": "Healthline paid $1.55M for ignoring client-side privacy risks. Is your site exposed?",
     "https://www.reflectiz.com/blog/paypal-breach-2026/": "PayPal's breach exposed millions of payment records. Is your checkout next?",
     "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA mandates continuous oversight of third-party digital risk. Are your gaps covered?",
+    "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "Traditional pentesting can't keep up with modern web apps. Is yours being tested continuously?",
   };
   const CURATED_BUBBLES_DE: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % Ihrer Drittanbieter-Skripte greifen unbefugt auf Daten zu -- auch Ihre?",
