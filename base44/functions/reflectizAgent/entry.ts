@@ -767,9 +767,52 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Only 16% of security leaders have mature web exposure management. Are you one?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx achieved zero PCI audit findings. Here is how they did it.",
   };
+  const CURATED_BUBBLES_DE: Record<string, string> = {
+    "https://www.reflectiz.com/": "64 % Ihrer Drittanbieter-Skripte greifen unbefugt auf Daten zu -- auch Ihre?",
+    "https://www.reflectiz.com/use-cases/pci-compliance/": "PCI-Anforderungen 6.4.3 und 11.6.1 -- sind Sie vorbereitet?",
+    "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart versteckte sich monatelang im Google Tag Manager. Pruefen Sie Ihres?",
+    "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % Ihrer Drittanbieter greifen ohne Berechtigung auf sensible Daten zu.",
+    "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Nur 16 % der Sicherheitsverantwortlichen managen Web-Exposition reif. Gehoeren Sie dazu?",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx erzielte null PCI-Auditbefunde. Hier erfahren Sie wie.",
+  };
+  const CURATED_BUBBLES_FR: Record<string, string> = {
+    "https://www.reflectiz.com/": "64 % de vos scripts tiers accedent a vos donnees sans justification -- les votres aussi?",
+    "https://www.reflectiz.com/use-cases/pci-compliance/": "Les exigences PCI 6.4.3 et 11.6.1 prennent les equipes de court. Etes-vous pret?",
+    "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart s'est cache dans Google Tag Manager pendant des mois. Verifiez le votre?",
+    "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % de vos fournisseurs tiers accedent a des donnees sensibles sans justification.",
+    "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Seulement 16 % des responsables securite gerent maturite l'exposition web. Et vous?",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx a obtenu zero constat lors de son audit PCI. Decouvrez comment.",
+  };
+  const CURATED_BUBBLES_ES: Record<string, string> = {
+    "https://www.reflectiz.com/": "El 64 % de sus scripts de terceros acceden a sus datos sin justificacion -- incluidos los suyos?",
+    "https://www.reflectiz.com/use-cases/pci-compliance/": "Los requisitos PCI 6.4.3 y 11.6.1 toman por sorpresa a los equipos. Esta listo?",
+    "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart se escondia en Google Tag Manager durante meses. Compruebe el suyo?",
+    "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "El 64 % de sus proveedores acceden a datos sensibles sin justificacion.",
+    "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo el 16 % de los lideres de seguridad gestionan bien la exposicion web. Es usted uno?",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx logro cero hallazgos en su auditoria PCI. Descubra como.",
+  };
+  const CURATED_BUBBLES_IT: Record<string, string> = {
+    "https://www.reflectiz.com/": "Il 64% degli script di terze parti accede ai tuoi dati senza giustificazione -- anche i tuoi?",
+    "https://www.reflectiz.com/use-cases/pci-compliance/": "I requisiti PCI 6.4.3 e 11.6.1 colgono di sorpresa i team. Sei pronto?",
+    "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart si e nascosto in Google Tag Manager per mesi. Controlla il tuo?",
+    "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "Il 64% dei tuoi fornitori terzi accede a dati sensibili senza giustificazione.",
+    "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo il 16% dei responsabili sicurezza gestisce maturamente l'esposizione web. Sei tra loro?",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx ha ottenuto zero rilievi nell'audit PCI. Scopri come.",
+  };
+  function getCuratedBubble(pageUrl: string, lang: string): string | null {
+    const url = canonicalCacheUrl(pageUrl);
+    const map: Record<string, string> =
+      lang === "de" ? CURATED_BUBBLES_DE :
+      lang === "fr" ? CURATED_BUBBLES_FR :
+      lang === "es" ? CURATED_BUBBLES_ES :
+      lang === "it" ? CURATED_BUBBLES_IT :
+      CURATED_BUBBLES_EN;
+    return map[url] || CURATED_BUBBLES_EN[url] || null;
+  }
   if (message.startsWith("INIT") && message !== "INIT_RETURNING_VISITOR") {
     const sessionId = incomingSessionId || crypto.randomUUID();
-    const curatedBubble = CURATED_BUBBLES[canonicalCacheUrl(currentPageUrl)] || null;
+    const resolvedLangEarly = (language || "").split("-")[0].toLowerCase();
+    const curatedBubble = getCuratedBubble(currentPageUrl, resolvedLangEarly) || null;
 
     if (isFormPage(currentPageUrl)) {
       return new Response(JSON.stringify({ reply: null, sessionId }), { headers: CORS_HEADERS });
