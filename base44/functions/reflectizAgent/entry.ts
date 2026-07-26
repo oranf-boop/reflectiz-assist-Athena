@@ -785,7 +785,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart versteckte sich monatelang im Google Tag Manager. Pruefen Sie Ihres?",
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % Ihrer Drittanbieter greifen ohne Berechtigung auf sensible Daten zu.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Nur 16 % der Sicherheitsverantwortlichen managen Web-Exposition reif. Gehoeren Sie dazu?",
-    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx erzielte null PCI-Auditbefunde. Hier erfahren Sie wie.",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx erzielte null PCI-Auditbefunde. So haben sie es geschafft.",
   };
   const CURATED_BUBBLES_FR: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % de vos scripts tiers accedent a vos donnees sans justification -- les votres aussi?",
@@ -793,7 +793,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart s'est cache dans Google Tag Manager pendant des mois. Verifiez le votre?",
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % de vos fournisseurs tiers accedent a des donnees sensibles sans justification.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Seulement 16 % des responsables securite gerent maturite l'exposition web. Et vous?",
-    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx a obtenu zero constat lors de son audit PCI. Decouvrez comment.",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx a obtenu zero constat lors de son audit PCI. Voici comment ils y sont parvenus.",
     "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "L'amende CCPA de Disney ($2,75M) montre que les risques de tracking cote client sont bien reels. Votre site est-il protege?",
   };
   const CURATED_BUBBLES_ES: Record<string, string> = {
@@ -802,7 +802,7 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/magecart-web-skimming/": "Magecart se escondia en Google Tag Manager durante meses. Compruebe el suyo?",
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "El 64 % de sus proveedores acceden a datos sensibles sin justificacion.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Solo el 16 % de los lideres de seguridad gestionan bien la exposicion web. Es usted uno?",
-    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx logro cero hallazgos en su auditoria PCI. Descubra como.",
+    "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx logro cero hallazgos en su auditoria PCI. Asi es como lo lograron.",
   };
   const CURATED_BUBBLES_IT: Record<string, string> = {
     "https://www.reflectiz.com/": "Il 64% degli script di terze parti accede ai tuoi dati senza giustificazione -- anche i tuoi?",
