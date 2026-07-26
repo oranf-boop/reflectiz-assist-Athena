@@ -1280,7 +1280,7 @@ Return only valid JSON:
         de: competitorName ? `So schlaegt Reflectiz ${competitorName}` : "Sehen Sie Ihre volle Web-Exposition",
         fr: competitorName ? `Voyez comment Reflectiz surpasse ${competitorName}` : "Voyez votre exposition web complete",
         es: competitorName ? `Vea como Reflectiz supera a ${competitorName}` : "Vea su exposicion web completa",
-        it: competitorName ? `Scopri come Reflectiz supera ${competitorName}` : "Scopri la tua esposizione web completa",
+        it: competitorName ? `Ecco come Reflectiz batte ${competitorName}` : "Vedi la tua esposizione web completa",
       };
       const hardcodedBubble = COMPETITOR_BUBBLE[resolvedLang] || COMPETITOR_BUBBLE.en;
       return new Response(JSON.stringify({ reply: decorateOpener(hardcodedOpener, message, resolvedLang), bubbleText: hardcodedBubble, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
