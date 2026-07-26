@@ -755,7 +755,7 @@ Deno.serve(async (req) => {
   }
 
   // Dynamic page-aware opener for all INIT variants
-  const CURATED_BUBBLES = {
+  const CURATED_BUBBLES_EN = {
     "https://www.reflectiz.com/": "64% of third-party scripts access your data without justification -- is yours one of them?",
     "https://www.reflectiz.com/blog/trust-wallet-hack/": "Browser extensions are the new attack vector. Is yours monitored?",
     "https://www.reflectiz.com/blog/what-is-ctem/": "Most CTEM programs miss the web layer entirely. Does yours?",
