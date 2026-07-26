@@ -814,6 +814,15 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Seulement 16 % des responsables securite gerent maturite l'exposition web. Et vous?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx a obtenu zero constat lors de son audit PCI. Voici comment ils y sont parvenus.",
     "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "L'amende CCPA de Disney ($2,75M) montre que les risques de tracking cote client sont bien reels. Votre site est-il protege?",
+    "https://www.reflectiz.com/blog/trust-wallet-hack/": "Les extensions de navigateur sont le nouveau vecteur d'attaque. La votre est-elle surveillee?",
+    "https://www.reflectiz.com/blog/what-is-ctem/": "La plupart des programmes CTEM ignorent completement la couche web. Le votre aussi?",
+    "https://www.reflectiz.com/learning-hub/pentest-agent-webinar/": "Les pentests traditionnels ratent les applications web dynamiques. Il existe une meilleure facon.",
+    "https://www.reflectiz.com/learning-hub/ciso-guide-web-privacy-validation/": "Healthline a paye 1,55 M$ pour avoir ignore la confidentialite cote client. Etes-vous expose?",
+    "https://www.reflectiz.com/use-cases/website-privacy-compliance/": "Healthline a paye 1,55 M$ pour avoir ignore ces risques cote client. Votre site est-il expose?",
+    "https://www.reflectiz.com/blog/paypal-breach-2026/": "La faille de PayPal a expose des millions de paiements. Votre caisse est-elle la prochaine?",
+    "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA exige une surveillance continue des risques tiers. Vos lacunes sont-elles couvertes?",
+    "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "Les pentests traditionnels ne suivent plus les applications web modernes. Le votre est-il teste en continu?",
+    "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/": "Un QSA independant a confirme que Reflectiz respecte les exigences PCI DSS v4.0.1 6.4.3 et 11.6.1.",
   };
   const CURATED_BUBBLES_ES: Record<string, string> = {
     "https://www.reflectiz.com/": "El 64 % de sus scripts de terceros acceden a sus datos sin justificacion -- incluidos los suyos?",
