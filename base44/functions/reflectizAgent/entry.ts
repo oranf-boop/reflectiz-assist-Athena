@@ -795,6 +795,16 @@ Deno.serve(async (req) => {
     "https://www.reflectiz.com/use-cases/web-supply-chain-risks/": "64 % Ihrer Drittanbieter greifen ohne Berechtigung auf sensible Daten zu.",
     "https://www.reflectiz.com/learning-hub/web-exposure-2026-research/": "Nur 16 % der Sicherheitsverantwortlichen managen Web-Exposition reif. Gehoeren Sie dazu?",
     "https://www.reflectiz.com/customers/apexx-pci-dss-success/": "Apexx erzielte null PCI-Auditbefunde. So haben sie es geschafft.",
+    "https://www.reflectiz.com/blog/trust-wallet-hack/": "Browser-Erweiterungen sind der neue Angriffsvektor. Ist Ihre ueberwacht?",
+    "https://www.reflectiz.com/blog/what-is-ctem/": "Die meisten CTEM-Programme uebersehen die Web-Ebene komplett. Ihres auch?",
+    "https://www.reflectiz.com/learning-hub/pentest-agent-webinar/": "Klassische Pentests uebersehen dynamische Web-Apps. Es gibt einen besseren Weg.",
+    "https://www.reflectiz.com/learning-hub/ciso-guide-web-privacy-validation/": "Healthline zahlte 1,55 Mio. $ wegen ignorierter Client-seitiger Privatsphaere. Sind Sie exponiert?",
+    "https://www.reflectiz.com/use-cases/website-privacy-compliance/": "Healthline zahlte 1,55 Mio. $ fuer ignorierte Client-seitige Risiken. Ist Ihre Seite exponiert?",
+    "https://www.reflectiz.com/blog/paypal-breach-2026/": "PayPals Datenleck legte Millionen Zahlungsdaten offen. Ist Ihre Kasse als naechstes dran?",
+    "https://www.reflectiz.com/blog/dora-compliance-checklist/": "DORA verlangt laufende Kontrolle von Drittanbieter-Risiken. Sind Ihre Luecken geschlossen?",
+    "https://www.reflectiz.com/blog/agentic-pentest-webinar/": "Klassische Pentests halten mit modernen Web-Apps nicht mit. Wird Ihre laufend getestet?",
+    "https://www.reflectiz.com/learning-hub/pci-dss-solution-assessment-integrity360/": "Ein unabhaengiger QSA bestaetigte, dass Reflectiz die PCI DSS v4.0.1 Anforderungen 6.4.3 und 11.6.1 erfuellt.",
+    "https://www.reflectiz.com/blog/disney-ccpa-fine-biggest-so-far/": "Disneys 2,75-Mio.-$-CCPA-Strafe zeigt, wie real Client-seitige Tracking-Risiken sind. Ist Ihre Seite geschuetzt?",
   };
   const CURATED_BUBBLES_FR: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % de vos scripts tiers accedent a vos donnees sans justification -- les votres aussi?",
