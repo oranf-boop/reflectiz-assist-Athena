@@ -1029,7 +1029,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = fixBrandCapitalization(capitalizeFirstLetter(bubbleText));
+      if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
       if (curatedBubble && opener && bubbleText) {
         await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
           opener,
@@ -1121,7 +1121,7 @@ Return only valid JSON:
       }
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = fixBrandCapitalization(capitalizeFirstLetter(bubbleText));
+      if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
 
       // Cache this result
       if (opener && bubbleText) {
@@ -1809,8 +1809,8 @@ Return only valid JSON, nothing else:
     // Curated bubble overrides generated one -- opener stays Gemini-generated
     if (curatedBubble) bubbleText = curatedBubble;
 
-    // Ensure bubbleText starts with a capital letter (skips leading punctuation like ¿) and known brand names are capitalized correctly
-    if (bubbleText) bubbleText = fixBrandCapitalization(capitalizeFirstLetter(bubbleText));
+    // Ensure bubbleText starts with a capital letter (skips leading punctuation like ¿), known brand names are capitalized correctly, and no banned marketing words slipped through
+    if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
 
     // Strip any Unicode en/em dashes from bubbleText
     if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
