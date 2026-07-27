@@ -478,6 +478,58 @@ function capitalizeFirstLetter(s) {
   return s;
 }
 
+// Deterministic fix for a recurring Gemini bug: brand/product/acronym names
+// get lowercased mid-sentence (e.g. "google tag manager", "jscrambler",
+// "kaiser permanente") despite the prompt instruction to capitalize them.
+// Prompt wording only reduces this probabilistically; this forces known
+// names to their canonical form regardless of what case Gemini produced.
+const BRAND_CAPITALIZATION_MAP = [
+  ["google tag manager", "Google Tag Manager"],
+  ["kaiser permanente", "Kaiser Permanente"],
+  ["baby bunting", "Baby Bunting"],
+  ["broadway gaming", "Broadway Gaming"],
+  ["leeds united", "Leeds United"],
+  ["shai-hulud", "Shai-Hulud"],
+  ["jscrambler", "Jscrambler"],
+  ["paypal", "PayPal"],
+  ["stripe", "Stripe"],
+  ["dazn", "DAZN"],
+  ["apexx", "Apexx"],
+  ["akamai", "Akamai"],
+  ["healthline", "Healthline"],
+  ["disney", "Disney"],
+  ["magecart", "Magecart"],
+  ["atmzow", "ATMZOW"],
+  ["reflectiz", "Reflectiz"],
+  ["sessionreaper", "SessionReaper"],
+  ["cosmicsting", "CosmicSting"],
+  ["shopify", "Shopify"],
+  ["appsflyer", "AppsFlyer"],
+  ["trivy", "Trivy"],
+  ["tealium", "Tealium"],
+  ["shein", "Shein"],
+  ["elfsight", "Elfsight"],
+  ["javascript", "JavaScript"],
+  ["owasp", "OWASP"],
+  ["hipaa", "HIPAA"],
+  ["dora", "DORA"],
+  ["ccpa", "CCPA"],
+  ["qsa", "QSA"],
+  ["xss", "XSS"],
+  ["csrf", "CSRF"],
+  ["gtm", "GTM"],
+  ["gm", "GM"],
+];
+function fixBrandCapitalization(s) {
+  if (!s) return s;
+  let out = s;
+  for (const [lower, correct] of BRAND_CAPITALIZATION_MAP) {
+    const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp("\\b" + escaped + "\\b", "gi"), correct);
+  }
+  return out;
+}
+
 // Canonical cache key for PageOpeners: no fragment, no query string, lowercase, trailing slash.
 function canonicalCacheUrl(url) {
   if (!url) return "";
