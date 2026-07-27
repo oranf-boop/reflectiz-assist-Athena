@@ -546,13 +546,29 @@ const BANNED_WORD_REPLACEMENTS = [
   ["explore", "review"],
   ["learn", "see"],
 ];
-function stripBannedMarketingWords(s) {
+function stripBannedMarketingWords(s, lang) {
   if (!s) return s;
+  // English-only: some banned words (e.g. "explore") are also valid conjugated words in
+  // other languages (French explorer: j'explore/il explore), so this must not run blind
+  // across languages -- it would splice English words into otherwise-correct translations.
+  if (lang && lang !== "en") return s;
   let out = s;
   for (const [banned, safe] of BANNED_WORD_REPLACEMENTS) {
     const re = new RegExp("\\b" + banned + "\\b", "gi");
     out = out.replace(re, (match) => (match[0] === match[0].toUpperCase() ? safe.charAt(0).toUpperCase() + safe.slice(1) : safe));
   }
+  return out;
+}
+
+// Contextual (not blind) fixes for French words whose unaccented form is also a distinct,
+// separately-correct word depending on grammatical role -- a plain dictionary swap would
+// turn valid present-tense verbs or the finance sense of "cote" into a different, wrong word.
+function fixFrenchContextualAccents(s) {
+  if (!s) return s;
+  let out = s;
+  out = out.replace(/\b(a|est(?:-(?:il|elle))?)\s+expose\b/gi, (m, aux) => `${aux} exposé`);
+  out = out.replace(/\b(a|est(?:-(?:il|elle))?)\s+protege\b/gi, (m, aux) => `${aux} protégé`);
+  out = out.replace(/\bcote\s+(client|serveur)\b/gi, (m, noun) => `côté ${noun}`);
   return out;
 }
 
@@ -563,10 +579,7 @@ const ACCENT_FIXES_FR = [
   ["apercu", "aperçu"],
   ["securite", "sécurité"],
   ["reflexion", "réflexion"],
-  ["protege", "protégé"],
   ["reels", "réels"],
-  ["expose", "exposé"],
-  ["cote", "côté"],
   ["pret", "prêt"],
   ["etes-vous", "êtes-vous"],
 ];
@@ -585,12 +598,14 @@ const ACCENT_FIXES_IT = [
 function fixDiacritics(s, lang) {
   if (!s) return s;
   const map = lang === "fr" ? ACCENT_FIXES_FR : lang === "es" ? ACCENT_FIXES_ES : lang === "it" ? ACCENT_FIXES_IT : null;
-  if (!map) return s;
   let out = s;
-  for (const [wrong, right] of map) {
-    const escaped = wrong.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    out = out.replace(new RegExp("\\b" + escaped + "\\b", "gi"), (match) => (match[0] === match[0].toUpperCase() ? right.charAt(0).toUpperCase() + right.slice(1) : right));
+  if (map) {
+    for (const [wrong, right] of map) {
+      const escaped = wrong.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = out.replace(new RegExp("\\b" + escaped + "\\b", "gi"), (match) => (match[0] === match[0].toUpperCase() ? right.charAt(0).toUpperCase() + right.slice(1) : right));
+    }
   }
+  if (lang === "fr") out = fixFrenchContextualAccents(out);
   return out;
 }
 
@@ -1067,7 +1082,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
+      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)), resolvedLang), resolvedLang);
       if (curatedBubble && opener && bubbleText) {
         await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
           opener,
@@ -1159,7 +1174,7 @@ Return only valid JSON:
       }
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
+      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)), resolvedLang), resolvedLang);
 
       // Cache this result
       if (opener && bubbleText) {
@@ -1848,7 +1863,7 @@ Return only valid JSON, nothing else:
     if (curatedBubble) bubbleText = curatedBubble;
 
     // Ensure bubbleText starts with a capital letter (skips leading punctuation like ¿), known brand names are capitalized correctly, and no banned marketing words slipped through
-    if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
+    if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)), resolvedLang), resolvedLang);
 
     // Strip any Unicode en/em dashes from bubbleText
     if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
