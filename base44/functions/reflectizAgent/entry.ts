@@ -556,6 +556,44 @@ function stripBannedMarketingWords(s) {
   return out;
 }
 
+const ACCENT_FIXES_FR = [
+  ["donnees", "données"],
+  ["accedent", "accèdent"],
+  ["equipes", "équipes"],
+  ["apercu", "aperçu"],
+  ["securite", "sécurité"],
+  ["reflexion", "réflexion"],
+  ["protege", "protégé"],
+  ["reels", "réels"],
+  ["expose", "exposé"],
+  ["cote", "côté"],
+  ["pret", "prêt"],
+  ["etes-vous", "êtes-vous"],
+];
+const ACCENT_FIXES_ES = [
+  ["justificacion", "justificación"],
+  ["lideres", "líderes"],
+  ["exposicion", "exposición"],
+  ["aqui", "aquí"],
+  ["analisis", "análisis"],
+  ["pagina", "página"],
+];
+const ACCENT_FIXES_IT = [
+  ["piu", "più"],
+  ["trata", "tratta"],
+];
+function fixDiacritics(s, lang) {
+  if (!s) return s;
+  const map = lang === "fr" ? ACCENT_FIXES_FR : lang === "es" ? ACCENT_FIXES_ES : lang === "it" ? ACCENT_FIXES_IT : null;
+  if (!map) return s;
+  let out = s;
+  for (const [wrong, right] of map) {
+    const escaped = wrong.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp("\\b" + escaped + "\\b", "gi"), (match) => (match[0] === match[0].toUpperCase() ? right.charAt(0).toUpperCase() + right.slice(1) : right));
+  }
+  return out;
+}
+
 // Canonical cache key for PageOpeners: no fragment, no query string, lowercase, trailing slash.
 function canonicalCacheUrl(url) {
   if (!url) return "";
@@ -1029,7 +1067,7 @@ Return only valid JSON, nothing else:
       if (!opener) opener = "This topic is one of the fastest-moving areas in web security right now. Fill out the form above to get access.";
       if (!bubbleText) bubbleText = "Fill the form to get access";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
+      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
       if (curatedBubble && opener && bubbleText) {
         await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
           opener,
@@ -1121,7 +1159,7 @@ Return only valid JSON:
       }
       if (!bubbleText) bubbleText = "There's a deeper resource on this";
       if (curatedBubble) bubbleText = curatedBubble;
-      if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
+      if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
 
       // Cache this result
       if (opener && bubbleText) {
@@ -1421,9 +1459,9 @@ Return only valid JSON:
       const hardcodedOpener = getHardcodedOpener(competitorName, resolvedLang);
       const COMPETITOR_BUBBLE: Record<string, string> = {
         en: competitorName ? `See how Reflectiz outperforms ${competitorName}` : "See your full web exposure now",
-        de: competitorName ? `So schlaegt Reflectiz ${competitorName}` : "Sehen Sie Ihre volle Web-Exposition",
-        fr: competitorName ? `Voyez comment Reflectiz surpasse ${competitorName}` : "Voyez votre exposition web complete",
-        es: competitorName ? `Vea como Reflectiz supera a ${competitorName}` : "Vea su exposicion web completa",
+        de: competitorName ? `So schlägt Reflectiz ${competitorName}` : "Sehen Sie Ihre volle Web-Exposition",
+        fr: competitorName ? `Voyez comment Reflectiz surpasse ${competitorName}` : "Voyez votre exposition web complète",
+        es: competitorName ? `Vea cómo Reflectiz supera a ${competitorName}` : "Vea su exposición web completa",
         it: competitorName ? `Ecco come Reflectiz batte ${competitorName}` : "Vedi la tua esposizione web completa",
       };
       const hardcodedBubble = COMPETITOR_BUBBLE[resolvedLang] || COMPETITOR_BUBBLE.en;
@@ -1609,7 +1647,7 @@ Prefer a question over a statement when the page topic naturally invites one. Ex
 Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
-Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, GM, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
+Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
 When the page title or content names a specific company, product, or incident, reference it by name instead of writing a generic sentence.
 
 2. opener: Exactly 2 sentences.
@@ -1663,7 +1701,7 @@ Prefer a question over a statement when the page topic naturally invites one. Ex
 Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
-Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, GM, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
+Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
 When the page title or content names a specific company, product, or incident, reference it by name instead of writing a generic sentence.
 If the page is a competitor comparison page, the bubble must name the competitor. Example: "How does Reflectiz actually beat c/side?" not "Web security comparison insights".
 
@@ -1786,17 +1824,17 @@ Return only valid JSON, nothing else:
       const FALLBACK_SENTENCES = {
         en: "This page covers one of the most critical areas in web security right now.",
         de: "Diese Seite behandelt einen der derzeit wichtigsten Bereiche der Web-Sicherheit.",
-        fr: "Cette page couvre l'un des domaines les plus critiques de la securite web actuellement.",
-        it: "Questa pagina trata una delle aree piu critiche della sicurezza web di oggi.",
-        es: "Esta pagina cubre una de las areas mas criticas de la seguridad web actual.",
+        fr: "Cette page couvre l'un des domaines les plus critiques de la sécurité web actuellement.",
+        it: "Questa pagina tratta una delle aree più critiche della sicurezza web di oggi.",
+        es: "Esta página cubre una de las áreas más críticas de la seguridad web actual.",
       };
       opener = `${FALLBACK_SENTENCES[resolvedLang] || FALLBACK_SENTENCES.en} [${fallbackAsset.label}](${fallbackAsset.url})`;
       const FALLBACK_BUBBLES = {
         en: "Web security insight worth reading",
         de: "Lesenswerte Web-Sicherheits-Einblicke",
-        fr: "Un apercu securite web a lire",
+        fr: "Un aperçu sécurité web à lire",
         it: "Approfondimento di sicurezza web da leggere",
-        es: "Analisis de seguridad web que vale la pena leer",
+        es: "Análisis de seguridad web que vale la pena leer",
       };
       bubbleText = bubbleText || (FALLBACK_BUBBLES[resolvedLang] || FALLBACK_BUBBLES.en);
     }
@@ -1810,7 +1848,7 @@ Return only valid JSON, nothing else:
     if (curatedBubble) bubbleText = curatedBubble;
 
     // Ensure bubbleText starts with a capital letter (skips leading punctuation like ¿), known brand names are capitalized correctly, and no banned marketing words slipped through
-    if (bubbleText) bubbleText = stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText)));
+    if (bubbleText) bubbleText = fixDiacritics(stripBannedMarketingWords(fixBrandCapitalization(capitalizeFirstLetter(bubbleText))), resolvedLang);
 
     // Strip any Unicode en/em dashes from bubbleText
     if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
