@@ -519,6 +519,8 @@ const BRAND_CAPITALIZATION_MAP = [
   ["csrf", "CSRF"],
   ["gtm", "GTM"],
   ["gm", "GM"],
+  ["blue shield", "Blue Shield"],
+  ["google", "Google"],
 ];
 function fixBrandCapitalization(s) {
   if (!s) return s;
@@ -526,6 +528,30 @@ function fixBrandCapitalization(s) {
   for (const [lower, correct] of BRAND_CAPITALIZATION_MAP) {
     const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     out = out.replace(new RegExp("\\b" + escaped + "\\b", "gi"), correct);
+  }
+  return out;
+}
+
+// Deterministic safety net: the prompt bans these marketing words, but Gemini
+// occasionally uses one anyway. Rather than reject the whole bubble, swap in a
+// same-part-of-speech synonym so the sentence stays grammatical. This only
+// fires when the primary prompt instruction already failed.
+const BANNED_WORD_REPLACEMENTS = [
+  ["revealed", "exposed"],
+  ["unveiled", "exposed"],
+  ["insights", "risks"],
+  ["insight", "risk"],
+  ["discovers", "checks"],
+  ["discover", "check"],
+  ["explore", "review"],
+  ["learn", "see"],
+];
+function stripBannedMarketingWords(s) {
+  if (!s) return s;
+  let out = s;
+  for (const [banned, safe] of BANNED_WORD_REPLACEMENTS) {
+    const re = new RegExp("\\b" + banned + "\\b", "gi");
+    out = out.replace(re, (match) => (match[0] === match[0].toUpperCase() ? safe.charAt(0).toUpperCase() + safe.slice(1) : safe));
   }
   return out;
 }
