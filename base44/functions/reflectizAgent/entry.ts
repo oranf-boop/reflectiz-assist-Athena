@@ -755,20 +755,29 @@ Deno.serve(async (req) => {
 
   // Handle link click tracking events without calling Claude
   if (trackingEvent === "widget_opened") {
-    // Record the engagement so every widget open has a DB record, not just a Slack alert
+    // Record the engagement so every widget open has a DB record, not just a Slack alert.
+    // Consolidated alerts (Option B): only the first widget_opened for a session posts to
+    // Slack. Repeated opens for the same session (closing and reopening the panel) stay
+    // silent. firstMessageAlertSent doubles as the "opening announcement already sent"
+    // flag shared with the chat handler below, so whichever event happens first (open or
+    // first message) claims the single opening slot and the other does not duplicate it.
+    let shouldAlert = false;
     if (incomingSessionId) {
       try {
         const base44 = createClientFromRequest(req);
         const [existing] = await base44.asServiceRole.entities.Conversations.filter({ sessionId: incomingSessionId });
         if (existing) {
+          shouldAlert = existing.widgetOpened !== true;
           await base44.asServiceRole.entities.Conversations.update(existing.id, {
             widgetOpened: true,
             lastPage: currentPageUrl ?? existing.lastPage ?? "",
             ...(!existing.landingPage && landingPage && { landingPage }),
             ...(!existing.deviceType && { deviceType }),
             ...(openerText && !existing.openerText && { openerText }),
+            ...(!existing.firstMessageAlertSent && { firstMessageAlertSent: true }),
           });
         } else {
+          shouldAlert = true;
           await base44.asServiceRole.entities.Conversations.create({
             sessionId: incomingSessionId,
             timestamp: new Date().toISOString(),
@@ -787,26 +796,29 @@ Deno.serve(async (req) => {
             widgetOpened: true,
             openerText: openerText ?? "",
             deviceType,
+            firstMessageAlertSent: true,
           });
         }
       } catch (e) {
         console.error("widget_opened DB record failed:", e.message);
       }
     }
-    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
-      body: JSON.stringify({
-        sessionId: incomingSessionId ?? "",
-        eventType: "widget_opened",
-        triggerUrl: currentPageUrl ?? "",
-        geo: geo ?? "",
-        referralSource: referralSource ?? "",
-        language: language ?? "en",
-        pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
-        isWidgetOpen: true,
-      }),
-    }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
+    if (shouldAlert) {
+      await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        body: JSON.stringify({
+          sessionId: incomingSessionId ?? "",
+          eventType: "widget_opened",
+          triggerUrl: currentPageUrl ?? "",
+          geo: geo ?? "",
+          referralSource: referralSource ?? "",
+          language: language ?? "en",
+          pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? currentPageUrl ?? ""),
+          isWidgetOpen: true,
+        }),
+      }).catch((e) => console.error("slackAlert widget_opened failed:", e.message));
+    }
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
@@ -875,21 +887,25 @@ Deno.serve(async (req) => {
 
     const HIGH_INTENT_PATHS = ["/registration", "/free-trial", "/plans", "/pricing", "/contact"];
     const isHighIntent = HIGH_INTENT_PATHS.some(p => (clickedUrl ?? "").toLowerCase().includes(p));
-    await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
-      body: JSON.stringify({
-        sessionId,
-        eventType: "link_click",
-        clickedUrl: clickedUrl ?? "",
-        triggerUrl: currentPageUrl ?? "",
-        geo: geo ?? "",
-        referralSource: referralSource ?? "",
-        language: language ?? "en",
-        pagesViewed: [...(Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed : [currentPageUrl || ""]), clickedUrl].filter(Boolean).join(","),
-        isHighIntentClick: isHighIntent,
-      }),
-    }).catch((e) => console.error("slackAlert link_click failed:", e.message));
+    // Consolidated alerts (Option B): only high-intent link clicks post to Slack.
+    // Ordinary content clicks stay silent so one visitor does not generate several messages.
+    if (isHighIntent) {
+      await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        body: JSON.stringify({
+          sessionId,
+          eventType: "link_click",
+          clickedUrl: clickedUrl ?? "",
+          triggerUrl: currentPageUrl ?? "",
+          geo: geo ?? "",
+          referralSource: referralSource ?? "",
+          language: language ?? "en",
+          pagesViewed: [...(Array.isArray(pagesViewed) && pagesViewed.length > 0 ? pagesViewed : [currentPageUrl || ""]), clickedUrl].filter(Boolean).join(","),
+          isHighIntentClick: isHighIntent,
+        }),
+      }).catch((e) => console.error("slackAlert link_click failed:", e.message));
+    }
 
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
@@ -2030,7 +2046,7 @@ Generate a natural one-sentence opening message that:
 
   const intentClassification = await classifyIntent(messages, currentPageUrl);
 
-  const ctaReached = /meeting|trial|contact/i.test(reply);
+  const ctaReached = /meeting|trial|contact|assessment|registration|sign up|demo/i.test(reply);
 
   function isCleanMessage(m) {
     const c = m.content || "";
@@ -2059,10 +2075,12 @@ Generate a natural one-sentence opening message that:
     const prevConv = existingConversation[0];
     const prevCtaReached = prevConv.ctaReached;
 
-    // Decide which single alert (if any) this turn fires. Priority: conversion > first message > engaged.
+    // Consolidated alerts (Option B): only two transitions post a new Slack message here,
+    // conversion (CTA reached) and the first-message fallback (used only when no
+    // widget_opened event claimed the opening slot first). The former "engaged" milestone
+    // at 3+ turns no longer posts anything -- ordinary mid-conversation turns stay silent.
     const fireConversionAlert = ctaReached && !prevCtaReached;
     const fireFirstMessageAlert = !fireConversionAlert && userMessageCount >= 1 && !prevConv.firstMessageAlertSent;
-    const fireEngagedAlert = !fireConversionAlert && !fireFirstMessageAlert && userMessageCount >= 3 && prevConv.firstMessageAlertSent && !prevConv.engagedAlertSent && !prevCtaReached && !ctaReached;
 
     await base44.asServiceRole.entities.Conversations.update(prevConv.id, {
       conversationTranscript: cleanTranscript,
@@ -2073,8 +2091,7 @@ Generate a natural one-sentence opening message that:
       conversationOutcome,
       pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
       ...(fireFirstMessageAlert && { firstMessageAlertSent: true }),
-      ...(fireEngagedAlert && { engagedAlertSent: true }),
-      ...(fireConversionAlert && { firstMessageAlertSent: true, engagedAlertSent: true }),
+      ...(fireConversionAlert && { firstMessageAlertSent: true }),
     });
 
     if (fireConversionAlert) {
@@ -2098,13 +2115,13 @@ Generate a natural one-sentence opening message that:
           isConversion: true,
         }),
       }).catch(err => console.error("slackAlert conversion notification failed:", err.message));
-    } else if (fireFirstMessageAlert || fireEngagedAlert) {
+    } else if (fireFirstMessageAlert) {
       fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
         body: JSON.stringify({
           sessionId,
-          eventType: fireEngagedAlert ? "engaged" : "new_conversation",
+          eventType: "new_conversation",
           triggerUrl: currentPageUrl ?? "",
           geo: geo ?? "",
           intentClassification,
