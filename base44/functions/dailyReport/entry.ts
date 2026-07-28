@@ -38,14 +38,17 @@ function pagePath(url) {
 
 async function postToSlack(text) {
   if (!SLACK_WEBHOOK_URL) {
-    console.error("SLACK_WEBHOOK_URL env var is not set, cannot post daily report");
-    return;
+    throw new Error("SLACK_WEBHOOK_URL env var is not set");
   }
-  await fetch(SLACK_WEBHOOK_URL, {
+  const res = await fetch(SLACK_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Slack returned ${res.status}: ${errText}`);
+  }
 }
 
 Deno.serve(async (req) => {
