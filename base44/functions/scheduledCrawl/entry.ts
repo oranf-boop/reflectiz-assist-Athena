@@ -724,6 +724,25 @@ async function prewarmPageOpeners(base44, limit) {
   let options = {};
   try { options = await req.json(); } catch (_e) { options = {}; }
 
+  // Daily report: fire once per day around 08:00 Israel time (UTC+3, so 05:00 UTC).
+  // scheduledCrawl had no existing time-based routing, so this is a simple hour/minute
+  // check. dailyReport is idempotent per reportDate (it checks its own DailyReport
+  // entity before generating), so calling it on every scheduledCrawl invocation inside
+  // the 05:00-05:29 UTC window is safe even if scheduledCrawl fires more than once in it.
+  const nowHour = new Date().getUTCHours();
+  const nowMinute = new Date().getUTCMinutes();
+  if (nowHour === 5 && nowMinute < 30) {
+    try {
+      await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/dailyReport", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        body: JSON.stringify({}),
+      });
+    } catch (e) {
+      console.error("dailyReport invocation failed:", e.message);
+    }
+  }
+
   let summary = { prewarm_only: true, run_date: now };
   if (!options.prewarmOnly) {
   // Calculate cutoff: only crawl pages modified in the last 2 days (catch new + recently updated)
