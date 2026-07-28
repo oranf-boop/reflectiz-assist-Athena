@@ -735,6 +735,13 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(gateResp), { headers: CORS_HEADERS });
   }
 
+  // Suppress entirely on WordPress admin/login pages: internal employees editing content
+  // should never see the widget, generate impression data, or show up in Slack alerts.
+  // Runs before any DB query so it costs nothing on every admin page view.
+  if ((currentPageUrl || "").includes("/wp-admin/") || (currentPageUrl || "").includes("/wp-login/")) {
+    return new Response(JSON.stringify({ reply: null, sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
+  }
+
   // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
   if (trackingEvent === "opener_shown") {
     try {
