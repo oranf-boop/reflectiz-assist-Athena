@@ -65,16 +65,31 @@ Deno.serve(async (req) => {
     // Report window: the full previous UTC calendar day, midnight to midnight.
     // A run at 05:00 UTC on day D covers day D-1 in full. This is unconditional,
     // so the very first run also covers a complete 24 hours regardless of launch date.
+    // options.testMode covers today's 08:00 Israel time (05:00 UTC) until now instead,
+    // for ad-hoc test runs. Test runs never write a DailyReport row and never trigger
+    // the idempotency skip, so they cannot block or be blocked by the real daily run.
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const reportDate = yesterday.toISOString().split("T")[0];
-    const windowStart = `${reportDate}T00:00:00.000Z`;
-    const windowEnd = `${reportDate}T23:59:59.999Z`;
+    const isTestMode = options.testMode === true;
+    let reportDate, windowStart, windowEnd, subtitle;
+    if (isTestMode) {
+      const todayUTC = now.toISOString().split("T")[0];
+      reportDate = todayUTC;
+      windowStart = `${todayUTC}T05:00:00.000Z`;
+      windowEnd = now.toISOString();
+      subtitle = "_Today 08:00 Israel time until now, test run_";
+    } else {
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      reportDate = yesterday.toISOString().split("T")[0];
+      windowStart = `${reportDate}T00:00:00.000Z`;
+      windowEnd = `${reportDate}T23:59:59.999Z`;
+      subtitle = "_Last 24 hours_";
+    }
 
     // Idempotency: only one report per reportDate, even if the caller (scheduledCrawl)
     // fires its 05:00 UTC check more than once inside the same run window.
-    // options.force bypasses this for manual reruns/testing.
-    if (!options.force) {
+    // options.force bypasses this for manual reruns/testing. Test-mode runs skip it
+    // entirely since they never write a DailyReport row.
+    if (!options.force && !isTestMode) {
       const existingReports = await base44.asServiceRole.entities.DailyReport.filter({ reportDate });
       if (existingReports && existingReports.length > 0) {
         return Response.json({ success: true, skipped: true, reason: `already generated for ${reportDate}` });
@@ -195,8 +210,8 @@ Deno.serve(async (req) => {
 
     // --- Build the Slack message ---
     const lines = [];
-    lines.push(`:bar_chart: *Athena Daily Report -- ${reportDate}*`);
-    lines.push(`_Last 24 hours_`);
+    lines.push(`:bar_chart: *Athena Daily Report -- ${reportDate}${isTestMode ? " (TEST)" : ""}*`);
+    lines.push(subtitle);
     lines.push(``);
     lines.push(`*:eye: Bubble Impressions*`);
     lines.push(`${totalImpressions} total · ${aiGenerated} AI-generated · ${fallbackCount} fallback (${fallbackRate}%)`);
@@ -248,17 +263,22 @@ Deno.serve(async (req) => {
     const text = lines.join("\n");
     await postToSlack(text);
 
-    await base44.asServiceRole.entities.DailyReport.create({
-      reportDate,
-      impressions: totalImpressions,
-      conversations: startedCount,
-      openRate,
-      ctaRate,
-      generatedAt: new Date().toISOString(),
-    });
+    if (!isTestMode) {
+      await base44.asServiceRole.entities.DailyReport.create({
+        reportDate,
+        impressions: totalImpressions,
+        conversations: startedCount,
+        openRate,
+        ctaRate,
+        generatedAt: new Date().toISOString(),
+      });
+    }
 
     return Response.json({
       success: true,
+      testMode: isTestMode,
+      windowStart,
+      windowEnd,
       reportDate,
       impressions: totalImpressions,
       aiGenerated,
