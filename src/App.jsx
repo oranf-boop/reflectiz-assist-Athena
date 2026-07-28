@@ -12,6 +12,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route path="/" element={<AgentDashboard />} />
       <Route path="/agent-dashboard" element={<AgentDashboard />} />
+      <Route path="/AgentDashboard" element={<AgentDashboard />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
