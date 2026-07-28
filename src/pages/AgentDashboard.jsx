@@ -34,6 +34,12 @@ export default function AgentDashboard() {
   const [learningCycleRunning, setLearningCycleRunning] = useState(false);
   const [rollbackConfirm, setRollbackConfirm] = useState(false);
   const [rollbackRunning, setRollbackRunning] = useState(false);
+  const [sessionIdParam, setSessionIdParam] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSessionIdParam(params.get("sessionId"));
+  }, []);
 
   async function handleRollback() {
     setRollbackRunning(true);
@@ -96,6 +102,12 @@ export default function AgentDashboard() {
   }
 
   const filteredConversations = useMemo(() => {
+    // Direct session link: show only that session, ignoring the usual internal-source
+    // and date-range filters, so a Slack "View Session" link always resolves to the
+    // session it points to.
+    if (sessionIdParam) {
+      return conversations.filter(c => c.sessionId === sessionIdParam);
+    }
     return conversations.filter(c => {
       if (isInternalSession(c)) return false;
       if (!includeTraining && c.isTrainingData) return false;
@@ -103,10 +115,16 @@ export default function AgentDashboard() {
       if (dateRange.to && (!c.timestamp || parseISO(c.timestamp) > dateRange.to)) return false;
       return true;
     });
-  }, [conversations, dateRange, includeTraining]);
+  }, [conversations, dateRange, includeTraining, sessionIdParam]);
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {sessionIdParam && (
+        <div className="bg-blue-50 border-b border-blue-100 px-8 py-2 text-xs text-blue-700 flex items-center justify-between">
+          <span>Showing single session: {sessionIdParam}</span>
+          <a href="/AgentDashboard" className="underline font-medium">View full dashboard</a>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-slate-100 px-8 py-5 flex items-center justify-between">
         <div>
