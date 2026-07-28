@@ -1,0 +1,33 @@
+{
+  "name": "DailyReport",
+  "type": "object",
+  "properties": {
+    "reportDate": {
+      "type": "string",
+      "format": "date",
+      "title": "Report Date"
+    },
+    "impressions": {
+      "type": "number",
+      "title": "Impressions"
+    },
+    "conversations": {
+      "type": "number",
+      "title": "Conversations"
+    },
+    "openRate": {
+      "type": "number",
+      "title": "Open Rate (%)"
+    },
+    "ctaRate": {
+      "type": "number",
+      "title": "CTA Rate (%)"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Generated At"
+    }
+  },
+  "required": []
+}
