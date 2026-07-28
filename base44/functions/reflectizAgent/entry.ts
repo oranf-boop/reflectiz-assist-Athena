@@ -1469,6 +1469,16 @@ Return only valid JSON:
 
     // DIRECT_REGISTRATION: return hardcoded opener immediately, never hit cache
     if (routing.category === "DIRECT_REGISTRATION") {
+      if ((currentPageUrl || "").includes("/plans/")) {
+        const plansBubble = "Which platform are you securing: Shopify, WooCommerce, or Magento?";
+        const plansOpener = "Most teams on the plans page already have a platform and a compliance driver in mind -- like PCI DSS for a WooCommerce or Shopify store. Tell us yours and we will show you exactly what is covered: [Start your free assessment](https://www.reflectiz.com/registration/)";
+        return new Response(JSON.stringify({
+          reply: decorateOpener(plansOpener, message, resolvedLang),
+          bubbleText: plansBubble,
+          lang: resolvedLang,
+          sessionId
+        }), { headers: CORS_HEADERS });
+      }
       const competitorName = (currentPageUrl || "").includes("reflectiz-vs-")
         ? (currentPageUrl || "").split("reflectiz-vs-").pop().split("/")[0].replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
         : "";
