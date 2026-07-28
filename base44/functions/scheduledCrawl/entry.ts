@@ -745,7 +745,9 @@ async function prewarmPageOpeners(base44, limit) {
     !u.includes("/security-hub/") &&
     !u.includes("/offensive-hub/") &&
     !u.includes("/privacy-hub/") &&
-    !u.includes("/lp/")
+    !u.includes("/lp/") &&
+    !u.includes("/wp-admin/") &&
+    !u.includes("/wp-login/")
   );
 
   console.log(`Sitemap total: ${allEntries.length}, recent (last 2 days): ${recentUrls.length}`);
@@ -771,7 +773,12 @@ async function prewarmPageOpeners(base44, limit) {
 
   // Combine: recent sitemap URLs + hub-discovered URLs not already in sitemap
   const sitemapUrlSet = new Set(allEntries.map(e => e.url));
-  const offSitemapUrls = [...hubUrls].filter(u => !sitemapUrlSet.has(u) && !/\/page\/\d+\/?$/.test(u));
+  const offSitemapUrls = [...hubUrls].filter(u =>
+    !sitemapUrlSet.has(u) &&
+    !/\/page\/\d+\/?$/.test(u) &&
+    !u.includes("/wp-admin/") &&
+    !u.includes("/wp-login/")
+  );
   console.log(`Off-sitemap URLs discovered from hubs: ${offSitemapUrls.length}`);
 
   const urlsToCrawl = [...new Set([...recentUrls, ...offSitemapUrls])];
