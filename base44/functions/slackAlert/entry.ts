@@ -1,6 +1,13 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
+// This integration uses a Slack Incoming Webhook only, no bot token. Webhooks can only
+// post new messages, they cannot update or delete a previous one and never return a
+// message ts, so chat.update is not available here. Consolidation to one message per
+// session (Option B) is therefore implemented entirely in the caller (reflectizAgent):
+// this function stays a plain post-whatever-it-is-given endpoint, and reflectizAgent
+// only calls it for the approved trigger events (first widget open, first message
+// fallback, CTA reached, high-intent link click).
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
 if (!SLACK_WEBHOOK_URL) {
   console.error("SLACK_WEBHOOK_URL env var is not set");
