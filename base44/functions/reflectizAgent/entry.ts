@@ -636,6 +636,25 @@ async function upsertPageOpener(base44, pageUrl, data) {
   }
 }
 
+// Deterministic keyword pre-check for intent classification. Runs before any LLM call.
+// The LLM classifier can miss near-literal keyword matches (observed: a visitor writing
+// "for PCI compliance" and "payment page" verbatim still got classified GENERAL_AWARENESS),
+// so unambiguous cases are decided directly from the visitor's own words instead.
+const INTENT_KEYWORDS_PCI = ["pci", "pci dss", "6.4.3", "11.6.1", "payment page", "pci compliance", "cardholder", "saq", "audit findings"];
+const INTENT_KEYWORDS_PRIVACY = ["gdpr", "ccpa", "hipaa", "dora", "data protection", "consent management", "cookie compliance"];
+const INTENT_KEYWORDS_TOOL_EVAL = ["woocommerce", "shopify", "magento", "compared to", "vs ", "difference between", "does your", "do you provide", "do you support", "alternative to", "better than"];
+
+function keywordPreCheckIntent(cleanMessages) {
+  const userText = cleanMessages
+    .filter(m => m.role === "user")
+    .map(m => (m.content || "").toLowerCase())
+    .join(" ");
+  if (INTENT_KEYWORDS_PCI.some(kw => userText.includes(kw))) return "PCI_COMPLIANCE";
+  if (INTENT_KEYWORDS_PRIVACY.some(kw => userText.includes(kw))) return "PRIVACY_GDPR";
+  if (INTENT_KEYWORDS_TOOL_EVAL.some(kw => userText.includes(kw))) return "TOOL_EVALUATION";
+  return null;
+}
+
 async function classifyIntent(messages, currentPageUrl) {
   const cleanMessages = messages
     .map(m => ({
@@ -647,6 +666,11 @@ async function classifyIntent(messages, currentPageUrl) {
         .trim()
     }))
     .filter(m => m.content.length > 0);
+
+  // Deterministic pre-check runs before any LLM call. Only falls through to Gemini
+  // when no keyword match is found.
+  const preCheckedIntent = keywordPreCheckIntent(cleanMessages);
+  if (preCheckedIntent) return preCheckedIntent;
 
   const pageContext = currentPageUrl ? `Current page: ${currentPageUrl}\n\n` : "";
 
