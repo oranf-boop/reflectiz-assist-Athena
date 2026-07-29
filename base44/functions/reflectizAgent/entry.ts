@@ -931,7 +931,7 @@ Deno.serve(async (req) => {
           const terminalField = trackingEvent === "bubble_dismissed" ? "dismissed" : trackingEvent === "bubble_abandoned" ? "abandoned" : "expired";
           await base44.asServiceRole.entities.OpenerImpressions.update(target.id, {
             [terminalField]: true,
-            timeVisibleMs: typeof body.timeVisible === "number" ? body.timeVisible : 0,
+            timeVisibleMs: typeof body.timeVisibleMs === "number" ? body.timeVisibleMs : 0,
             wasFallback: !!body.isFallback,
           });
         }
