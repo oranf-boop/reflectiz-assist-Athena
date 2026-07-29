@@ -805,5 +805,44 @@ async function prewarmPageOpeners(base44, limit) {
   // STEP 4: PageOpeners cache pre-warm. Runs strictly after the crawl above has completed.
   summary.prewarm = await prewarmPageOpeners(base44, options.prewarmLimit || 100);
   console.log("Crawl + prewarm run finished:", JSON.stringify(summary));
+
+  // STEP 5: Daily report trigger, 08:00 Israel time = 05:00 UTC. Runs last, after crawl
+  // and prewarm have completed, and is guarded by a DailyReport dedup check so it only
+  // fires once per reportDate even if scheduledCrawl runs more than once in the window.
+  const nowUTC = new Date();
+  const nowHour = nowUTC.getUTCHours();
+  const nowMinute = nowUTC.getUTCMinutes();
+  if (nowHour === 5 && nowMinute < 30) {
+    try {
+      const yesterday = new Date(Date.UTC(
+        nowUTC.getUTCFullYear(),
+        nowUTC.getUTCMonth(),
+        nowUTC.getUTCDate() - 1
+      ));
+      const reportDateStr = yesterday.toISOString().split("T")[0];
+      const existingReport = await base44
+        .asServiceRole.entities.DailyReport
+        .filter({ reportDate: reportDateStr });
+      if (!existingReport || existingReport.length === 0) {
+        await fetch(
+          "https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/dailyReport",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH"
+            },
+            body: JSON.stringify({}),
+          }
+        );
+        console.log("Daily report triggered for", reportDateStr);
+      } else {
+        console.log("Daily report already sent for", reportDateStr);
+      }
+    } catch (e) {
+      console.error("dailyReport invocation failed:", e.message);
+    }
+  }
+
   return Response.json(summary);
 });
