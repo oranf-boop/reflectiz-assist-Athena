@@ -642,7 +642,7 @@ async function upsertPageOpener(base44, pageUrl, data) {
 // so unambiguous cases are decided directly from the visitor's own words instead.
 const INTENT_KEYWORDS_PCI = ["pci", "pci dss", "6.4.3", "11.6.1", "payment page", "pci compliance", "cardholder", "saq", "audit findings"];
 const INTENT_KEYWORDS_PRIVACY = ["gdpr", "ccpa", "hipaa", "dora", "data protection", "consent management", "cookie compliance"];
-const INTENT_KEYWORDS_TOOL_EVAL = ["woocommerce", "shopify", "magento", "compared to", "vs ", "difference between", "does your", "do you provide", "do you support", "alternative to", "better than"];
+const INTENT_KEYWORDS_TOOL_EVAL = ["woocommerce", "shopify", "magento", "compared to", "vs ", "difference between", "does your", "do you provide", "do you support", "alternative to", "better than", "talk to a human", "talk to someone", "speak to a human", "speak to someone", "human rep", "sales rep", "talk to sales", "speak to sales", "contact sales", "get in touch with sales", "call me", "have someone call"];
 
 function keywordPreCheckIntent(cleanMessages) {
   const userText = cleanMessages
