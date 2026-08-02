@@ -171,9 +171,8 @@ Deno.serve(async (req) => {
     // its volume (950 to 1500+ rows per day) already exceeds the platform's hard 5000
     // per-call cap within the 8-day window the backfill loop below needs (reportDate
     // plus 7 more days), which is exactly why July 27 and July 28 were reporting
-    // impressions: 0 once later days pushed them past a single page. Conversations and
-    // LinkClicks stay on a single list() call: neither has shown this problem, their
-    // volume is far below 5000 within the same lookback window.
+    // impressions: 0 once later days pushed them past a single page.
+    //
     // Conversations and LinkClicks stay on a single list() call, fetch-all-then-filter-
     // in-memory by date string, same pattern as OpenerImpressions. Their volume is far
     // below the 5000 per-call cap within the lookback window today, so a single call is
