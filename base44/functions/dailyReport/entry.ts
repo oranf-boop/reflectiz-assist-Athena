@@ -314,35 +314,53 @@ Deno.serve(async (req) => {
 
     let backfilledDates = [];
     if (!isTestMode) {
-      await base44.asServiceRole.entities.DailyReport.create({
+      // Always query before writing, in both this main path and the backfill loop
+      // below. Update the existing row if reportDate already has one, otherwise
+      // create it. This is what actually prevents duplicates: relying on the
+      // idempotency skip-check further up is not enough, since options.force
+      // deliberately bypasses that check and would otherwise reach an unconditional
+      // create() here every time it is used.
+      const existingForReportDate = await base44.asServiceRole.entities.DailyReport.filter({ reportDate });
+      const reportPayload = {
         reportDate,
         impressions: totalImpressions,
         conversations: totalEngagedCount,
         openRate,
         ctaRate,
         generatedAt: new Date().toISOString(),
-      });
+      };
+      if (existingForReportDate && existingForReportDate.length > 0) {
+        await base44.asServiceRole.entities.DailyReport.update(existingForReportDate[0].id, reportPayload);
+      } else {
+        await base44.asServiceRole.entities.DailyReport.create(reportPayload);
+      }
 
       // Backfill: opportunistically fill any missing DailyReport rows from the last 7
       // days so a gap (for example from the cron trigger not firing on a given day)
       // self-heals on the next real run. Backfilled days are stored but never posted
-      // to Slack, only the reportDate above is ever posted.
+      // to Slack, only the reportDate above is ever posted. Existing rows for a day
+      // are updated in place (same query-then-update-or-create rule as above) rather
+      // than skipped, so an older row computed before a metric fix gets corrected too.
       try {
         for (let i = 1; i <= 7; i++) {
           const backfillDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
           if (backfillDate === reportDate) continue;
           const existingForDay = await base44.asServiceRole.entities.DailyReport.filter({ reportDate: backfillDate });
-          if (existingForDay && existingForDay.length > 0) continue;
           const metrics = computeCoreMetricsForDate(backfillDate, allImpressions, allConversations, allClicks);
-          await base44.asServiceRole.entities.DailyReport.create({
+          const backfillPayload = {
             reportDate: backfillDate,
             impressions: metrics.totalImpressions,
             conversations: metrics.totalEngagedCount,
             openRate: metrics.openRate,
             ctaRate: metrics.ctaRate,
             generatedAt: new Date().toISOString(),
-          });
-          backfilledDates.push(backfillDate);
+          };
+          if (existingForDay && existingForDay.length > 0) {
+            await base44.asServiceRole.entities.DailyReport.update(existingForDay[0].id, backfillPayload);
+          } else {
+            await base44.asServiceRole.entities.DailyReport.create(backfillPayload);
+            backfilledDates.push(backfillDate);
+          }
         }
         if (backfilledDates.length > 0) {
           console.log("Backfilled missing DailyReport rows for:", backfilledDates.join(", "));
