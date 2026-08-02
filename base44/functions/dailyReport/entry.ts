@@ -71,6 +71,30 @@ function computeCoreMetricsForDate(dateStr, allImpressions, allConversations, al
   return { totalImpressions, totalEngagedCount, openRate, ctaRate };
 }
 
+// Base44's list() endpoint hard-caps at 5000 records per call no matter what limit
+// is requested (confirmed empirically: requesting limit 20000 against OpenerImpressions
+// still only ever returned 5000). Paginates with the skip parameter until either a page
+// comes back short (genuinely no more data) or the oldest record already fetched is
+// older than oldestNeededIso, so this adapts automatically as daily volume grows
+// instead of silently dropping older dates out of the fetch once volume passes 5000
+// records within the lookback window. This is what was cutting July 27 and July 28 out
+// of the report: 07-28 through 08-01 alone already totalled more than 5000 impressions.
+async function fetchAllSince(entityHandle, sortField, dateField, oldestNeededIso) {
+  const PAGE_SIZE = 5000;
+  let all = [];
+  let skip = 0;
+  while (true) {
+    const page = await entityHandle.list(sortField, PAGE_SIZE, skip);
+    if (!page || page.length === 0) break;
+    all = all.concat(page);
+    const oldestInPage = page[page.length - 1][dateField];
+    if (page.length < PAGE_SIZE) break;
+    if (oldestInPage && oldestInPage <= oldestNeededIso) break;
+    skip += PAGE_SIZE;
+  }
+  return all;
+}
+
 async function postToSlack(text) {
   if (!SLACK_WEBHOOK_URL) {
     throw new Error("SLACK_WEBHOOK_URL env var is not set");
