@@ -30,6 +30,14 @@ function pctPrecise(part, whole) {
   return Math.round((safeNum(part) / whole) * 1000) / 10;
 }
 
+// Impression rows whose pageUrl matches any of these are internal, dev, or malformed
+// traffic, not real visitors, and are excluded from every impressions-derived metric.
+const EXCLUDED_IMPRESSION_URL_PATTERNS = ["/wp-admin/", "/book-a-meeting/", "reflectiz.test", "localhost", "/wp-login/", "blog%7c"];
+function isExcludedImpressionUrl(pageUrl) {
+  const u = (pageUrl || "").toLowerCase();
+  return EXCLUDED_IMPRESSION_URL_PATTERNS.some(p => u.includes(p));
+}
+
 // Strip query string and fragment, then return the path only, no domain, e.g.
 // "https://www.reflectiz.com/blog/foo/?utm_source=x" -> "/blog/foo/"
 function pagePath(url) {
