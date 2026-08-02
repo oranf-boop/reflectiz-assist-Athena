@@ -125,8 +125,13 @@ Deno.serve(async (req) => {
     const sessionsWithConvo = new Set(
       conversations.filter(c => safeNum(c.conversationTurns) >= 1).map(c => c.sessionId).filter(Boolean)
     );
-    const openedCount = impressions.filter(i => i.sessionId && sessionsWithConvo.has(i.sessionId)).length;
-    const openRate = pct(openedCount, totalImpressions);
+    // openRate is a session-level rate, not an impression-row-level rate: a single
+    // session can generate several impressions across pages before it opens a chat
+    // (or never opens one), which would otherwise inflate or deflate both sides of
+    // the ratio depending on how many bubbles that one session happened to see.
+    const impressionSessionIds = new Set(impressions.map(i => i.sessionId).filter(Boolean));
+    const openedCount = [...impressionSessionIds].filter(sid => sessionsWithConvo.has(sid)).length;
+    const openRate = pct(openedCount, impressionSessionIds.size);
 
     // --- Metric 3: Opener clicks ---
     const openerClicks = clicks.filter(c => safeNum(c.turnNumber) === 1);
