@@ -134,8 +134,16 @@ Deno.serve(async (req) => {
     // Fetch a generous window of recent records and filter in-memory to the exact
     // 24h window. Mirrors this codebase's established pattern elsewhere (list broadly,
     // filter in JS) rather than relying on server-side date-range queries.
+    //
+    // OpenerImpressions volume alone was already running 950 to 1500+ rows per day,
+    // and the backfill loop below looks back 8 days total (reportDate plus 7 more).
+    // A list("-shownAt", 5000) cap silently drops older rows out of allImpressions
+    // once that many days of more-recent impressions exist, which is exactly why
+    // July 27 and July 28 started reporting impressions: 0 once later days pushed
+    // them past the most-recent-5000 boundary. Raised to comfortably cover the 8-day
+    // lookback with headroom as traffic grows further.
     const [allImpressions, allConversations, allClicks] = await Promise.all([
-      base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", 5000),
+      base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", 20000),
       base44.asServiceRole.entities.Conversations.list("-timestamp", 3000),
       base44.asServiceRole.entities.LinkClicks.list("-clickedAt", 5000),
     ]);
