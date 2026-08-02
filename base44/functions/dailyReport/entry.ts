@@ -364,6 +364,7 @@ Deno.serve(async (req) => {
       fallbackRate,
       openedCount,
       openRate,
+      uniqueImpressionSessions: impressionSessionIds.size,
       openerClickCount,
       uniqueOpenerClickSessions,
       totalDismissed,
