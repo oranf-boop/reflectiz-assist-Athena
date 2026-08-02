@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
     lines.push(`${totalDismissed} dismissed · ${totalExpired} expired · ${totalAbandoned} abandoned`);
     lines.push(``);
     lines.push(`*:dart: Conversations*`);
-    lines.push(`${startedCount} started · ${ctaReachedCount} CTA reached (${ctaRate}%) · ${convertedCount} converted`);
+    lines.push(`${totalEngagedCount} total · ${startedCount} typed something · ${ctaReachedCount} CTA reached (${ctaRate}%) · ${convertedCount} converted`);
     lines.push(`Intent mix: ${intentCounts.PCI_COMPLIANCE} PCI · ${intentCounts.TOOL_EVALUATION} Tool Eval · ${intentCounts.PRIVACY_GDPR} Privacy · ${intentCounts.GENERAL_AWARENESS} General`);
     lines.push(``);
     lines.push(`*:link: Top 5 destinations Athena recommended*`);
