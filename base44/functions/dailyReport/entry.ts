@@ -159,15 +159,16 @@ Deno.serve(async (req) => {
     // 24h window. Mirrors this codebase's established pattern elsewhere (list broadly,
     // filter in JS) rather than relying on server-side date-range queries.
     //
-    // OpenerImpressions volume alone was already running 950 to 1500+ rows per day,
-    // and the backfill loop below looks back 8 days total (reportDate plus 7 more).
-    // A list("-shownAt", 5000) cap silently drops older rows out of allImpressions
-    // once that many days of more-recent impressions exist, which is exactly why
-    // July 27 and July 28 started reporting impressions: 0 once later days pushed
-    // them past the most-recent-5000 boundary. Raised to comfortably cover the 8-day
-    // lookback with headroom as traffic grows further.
+    // OpenerImpressions is paginated via fetchAllSince rather than a single list() call:
+    // its volume (950 to 1500+ rows per day) already exceeds the platform's hard 5000
+    // per-call cap within the 8-day window the backfill loop below needs (reportDate
+    // plus 7 more days), which is exactly why July 27 and July 28 were reporting
+    // impressions: 0 once later days pushed them past a single page. Conversations and
+    // LinkClicks stay on a single list() call: neither has shown this problem, their
+    // volume is far below 5000 within the same lookback window.
+    const oldestNeededIso = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString();
     const [allImpressions, allConversations, allClicks] = await Promise.all([
-      base44.asServiceRole.entities.OpenerImpressions.list("-shownAt", 20000),
+      fetchAllSince(base44.asServiceRole.entities.OpenerImpressions, "-shownAt", "shownAt", oldestNeededIso),
       base44.asServiceRole.entities.Conversations.list("-timestamp", 3000),
       base44.asServiceRole.entities.LinkClicks.list("-clickedAt", 5000),
     ]);
