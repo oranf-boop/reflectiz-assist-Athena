@@ -174,10 +174,16 @@ Deno.serve(async (req) => {
     // impressions: 0 once later days pushed them past a single page. Conversations and
     // LinkClicks stay on a single list() call: neither has shown this problem, their
     // volume is far below 5000 within the same lookback window.
+    // Conversations and LinkClicks stay on a single list() call, fetch-all-then-filter-
+    // in-memory by date string, same pattern as OpenerImpressions. Their volume is far
+    // below the 5000 per-call cap within the lookback window today, so a single call is
+    // enough for now. If Athena's traffic grows enough to push either past 5000 rows
+    // within an 8-day window, they will need the same fetchAllSince pagination that
+    // OpenerImpressions already uses below.
     const oldestNeededIso = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString();
     const [allImpressions, allConversations, allClicks] = await Promise.all([
       fetchAllSince(base44.asServiceRole.entities.OpenerImpressions, "-shownAt", "shownAt", oldestNeededIso),
-      base44.asServiceRole.entities.Conversations.list("-timestamp", 3000),
+      base44.asServiceRole.entities.Conversations.list("-timestamp", 5000),
       base44.asServiceRole.entities.LinkClicks.list("-clickedAt", 5000),
     ]);
 
