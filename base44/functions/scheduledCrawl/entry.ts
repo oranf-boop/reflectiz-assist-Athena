@@ -806,13 +806,20 @@ async function prewarmPageOpeners(base44, limit) {
   summary.prewarm = await prewarmPageOpeners(base44, options.prewarmLimit || 100);
   console.log("Crawl + prewarm run finished:", JSON.stringify(summary));
 
-  // STEP 5: Daily report trigger, 08:00 Israel time = 05:00 UTC. Runs last, after crawl
-  // and prewarm have completed, and is guarded by a DailyReport dedup check so it only
-  // fires once per reportDate even if scheduledCrawl runs more than once in the window.
+  // STEP 5: Daily report trigger. The "Daily Website Crawl" automation actually runs
+  // scheduledCrawl at 03:00 UTC (confirmed via the automation's cron config and via
+  // WebsiteContent updated_date timestamps landing at 03:00:xx UTC on days it ran), not
+  // 05:00 UTC as originally assumed here, so the window is corrected to match the real
+  // cron time. options.force bypasses the time check entirely for manual runs, so this
+  // can be exercised on demand without waiting for the cron window. Runs last, after
+  // crawl and prewarm have completed, and is guarded by a DailyReport dedup check so it
+  // only fires once per reportDate even if scheduledCrawl runs more than once in the
+  // window or force is passed repeatedly.
   const nowUTC = new Date();
   const nowHour = nowUTC.getUTCHours();
   const nowMinute = nowUTC.getUTCMinutes();
-  if (nowHour === 5 && nowMinute < 30) {
+  const inReportWindow = nowHour === 3 && nowMinute < 30;
+  if (options.force === true || inReportWindow) {
     try {
       const yesterday = new Date(Date.UTC(
         nowUTC.getUTCFullYear(),
