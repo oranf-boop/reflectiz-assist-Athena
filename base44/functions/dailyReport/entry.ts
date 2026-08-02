@@ -143,6 +143,11 @@ Deno.serve(async (req) => {
     const uniqueOpenerClickSessions = new Set(openerClicks.map(c => c.sessionId).filter(Boolean)).size;
 
     // --- Metric 4: Conversations ---
+    // totalEngagedCount is every Conversations record in the report window, regardless
+    // of conversationTurns -- this counts anyone who engaged with Athena at all, including
+    // sessions where the widget was opened but nothing was typed. startedCount is the
+    // narrower, separately reported "typed something" count (conversationTurns >= 1).
+    const totalEngagedCount = conversations.length;
     const startedConversations = conversations.filter(c => safeNum(c.conversationTurns) >= 1);
     const startedCount = startedConversations.length;
     const ctaReachedCount = conversations.filter(c => c.ctaReached === true).length;
