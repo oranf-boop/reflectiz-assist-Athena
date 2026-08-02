@@ -231,7 +231,10 @@ Deno.serve(async (req) => {
     const engagedCount = conversations.filter(c => c.conversationOutcome === "ENGAGED").length;
     const droppedCount = conversations.filter(c => c.conversationOutcome === "DROPPED").length;
     const bouncedCount = conversations.filter(c => c.conversationOutcome === "BOUNCED").length;
-    const ctaRate = pct(ctaReachedCount, startedCount);
+    // ctaRate = sessions with ctaReached true / total sessions (totalEngagedCount), not
+    // divided by startedCount. July 28 had 7 total conversations and 1 ctaReached, so
+    // the rate is 1/7 (about 14%), not 1/1 (100%).
+    const ctaRate = pct(ctaReachedCount, totalEngagedCount);
 
     // --- Metric 5: Top 10 pages by bubble impressions ---
     const pageGroups = {};
