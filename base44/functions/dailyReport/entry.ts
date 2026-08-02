@@ -334,7 +334,8 @@ Deno.serve(async (req) => {
       totalDismissed,
       totalExpired,
       totalAbandoned,
-      conversations: startedCount,
+      conversations: totalEngagedCount,
+      startedCount,
       ctaReachedCount,
       ctaRate,
       convertedCount,
@@ -346,6 +347,7 @@ Deno.serve(async (req) => {
       topPagesByImpressions,
       topGeo,
       intentCounts,
+      backfilledDates,
     });
   } catch (e) {
     console.error("dailyReport failed:", e && e.message ? e.message : String(e));
