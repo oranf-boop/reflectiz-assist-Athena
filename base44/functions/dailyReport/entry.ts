@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
     const allConversationSessionIds = new Set((allConversations || []).map(c => c.sessionId).filter(Boolean));
     const impressionSessionIds = new Set(impressions.map(i => i.sessionId).filter(Boolean));
     const openedCount = [...impressionSessionIds].filter(sid => allConversationSessionIds.has(sid)).length;
-    const openRate = pct(openedCount, impressionSessionIds.size);
+    const openRate = pctPrecise(openedCount, impressionSessionIds.size);
 
     // --- Metric 3: Opener clicks ---
     const openerClicks = clicks.filter(c => safeNum(c.turnNumber) === 1);
