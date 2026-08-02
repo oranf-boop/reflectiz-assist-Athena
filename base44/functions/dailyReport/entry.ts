@@ -62,14 +62,14 @@ function computeCoreMetricsForDate(dateStr, allImpressions, allConversations, al
   const dayEnd = `${dateStr}T23:59:59.999Z`;
   const inDay = (d) => !!d && d >= dayStart && d <= dayEnd;
 
-  const dayImpressions = (allImpressions || []).filter(i => inDay(i.shownAt));
+  const dayImpressions = (allImpressions || []).filter(i => inDay(i.shownAt) && !isExcludedImpressionUrl(i.pageUrl));
   const dayConversations = (allConversations || []).filter(c => inDay(c.timestamp));
 
   const totalImpressions = dayImpressions.length;
   const totalEngagedCount = dayConversations.length;
   const startedCount = dayConversations.filter(c => safeNum(c.conversationTurns) >= 1).length;
   const ctaReachedCount = dayConversations.filter(c => c.ctaReached === true).length;
-  const ctaRate = pct(ctaReachedCount, startedCount);
+  const ctaRate = pct(ctaReachedCount, totalEngagedCount);
 
   const allConversationSessionIds = new Set((allConversations || []).map(c => c.sessionId).filter(Boolean));
   const impressionSessionIds = new Set(dayImpressions.map(i => i.sessionId).filter(Boolean));
