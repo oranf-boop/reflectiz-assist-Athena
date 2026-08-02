@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
 
     const inWindow = (dateStr) => !!dateStr && dateStr >= windowStart && dateStr <= windowEnd;
 
-    const impressions = (allImpressions || []).filter(i => inWindow(i.shownAt));
+    const impressions = (allImpressions || []).filter(i => inWindow(i.shownAt) && !isExcludedImpressionUrl(i.pageUrl));
     const conversations = (allConversations || []).filter(c => inWindow(c.timestamp));
     const clicks = (allClicks || []).filter(c => inWindow(c.clickedAt));
 
