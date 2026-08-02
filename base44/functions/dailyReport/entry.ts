@@ -66,7 +66,7 @@ function computeCoreMetricsForDate(dateStr, allImpressions, allConversations, al
   const allConversationSessionIds = new Set((allConversations || []).map(c => c.sessionId).filter(Boolean));
   const impressionSessionIds = new Set(dayImpressions.map(i => i.sessionId).filter(Boolean));
   const openedCount = [...impressionSessionIds].filter(sid => allConversationSessionIds.has(sid)).length;
-  const openRate = pct(openedCount, impressionSessionIds.size);
+  const openRate = pctPrecise(openedCount, impressionSessionIds.size);
 
   return { totalImpressions, totalEngagedCount, openRate, ctaRate };
 }
