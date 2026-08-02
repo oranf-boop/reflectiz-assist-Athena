@@ -36,6 +36,32 @@ function pagePath(url) {
   }
 }
 
+// Recomputes just the fields stored on a DailyReport row (impressions, conversations,
+// openRate, ctaRate) for an arbitrary past date, reusing the same broad, already-fetched
+// entity lists as the primary report rather than issuing new queries per day. Used only
+// by the backfill step, which never builds the full Slack message for these dates.
+function computeCoreMetricsForDate(dateStr, allImpressions, allConversations, allClicks) {
+  const dayStart = `${dateStr}T00:00:00.000Z`;
+  const dayEnd = `${dateStr}T23:59:59.999Z`;
+  const inDay = (d) => !!d && d >= dayStart && d <= dayEnd;
+
+  const dayImpressions = (allImpressions || []).filter(i => inDay(i.shownAt));
+  const dayConversations = (allConversations || []).filter(c => inDay(c.timestamp));
+
+  const totalImpressions = dayImpressions.length;
+  const totalEngagedCount = dayConversations.length;
+  const startedCount = dayConversations.filter(c => safeNum(c.conversationTurns) >= 1).length;
+  const ctaReachedCount = dayConversations.filter(c => c.ctaReached === true).length;
+  const ctaRate = pct(ctaReachedCount, startedCount);
+
+  const allConversationSessionIds = new Set((allConversations || []).map(c => c.sessionId).filter(Boolean));
+  const impressionSessionIds = new Set(dayImpressions.map(i => i.sessionId).filter(Boolean));
+  const openedCount = [...impressionSessionIds].filter(sid => allConversationSessionIds.has(sid)).length;
+  const openRate = pct(openedCount, impressionSessionIds.size);
+
+  return { totalImpressions, totalEngagedCount, openRate, ctaRate };
+}
+
 async function postToSlack(text) {
   if (!SLACK_WEBHOOK_URL) {
     throw new Error("SLACK_WEBHOOK_URL env var is not set");
