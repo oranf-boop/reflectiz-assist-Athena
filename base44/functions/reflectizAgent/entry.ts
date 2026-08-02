@@ -738,7 +738,7 @@ Deno.serve(async (req) => {
   // Suppress entirely on WordPress admin/login pages: internal employees editing content
   // should never see the widget, generate impression data, or show up in Slack alerts.
   // Runs before any DB query so it costs nothing on every admin page view.
-  if ((currentPageUrl || "").includes("/wp-admin/") || (currentPageUrl || "").includes("/wp-login/")) {
+  if ((currentPageUrl || "").includes("/wp-admin/") || (currentPageUrl || "").includes("/wp-login/") || (currentPageUrl || "").includes("/book-a-meeting/")) {
     return new Response(JSON.stringify({ reply: null, sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
   }
 
