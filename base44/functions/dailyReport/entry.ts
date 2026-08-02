@@ -21,6 +21,15 @@ function pct(part, whole) {
   return Math.round((safeNum(part) / whole) * 100);
 }
 
+// One-decimal-place percentage, used only for openRate. Rounding a genuinely small
+// rate (a handful of conversions out of hundreds of impression sessions) to a whole
+// number always displays as 0, which reads as a broken calculation even when the
+// underlying numbers are correct. One decimal keeps a real nonzero rate visible.
+function pctPrecise(part, whole) {
+  if (!whole) return 0;
+  return Math.round((safeNum(part) / whole) * 1000) / 10;
+}
+
 // Strip query string and fragment, then return the path only, no domain, e.g.
 // "https://www.reflectiz.com/blog/foo/?utm_source=x" -> "/blog/foo/"
 function pagePath(url) {
