@@ -277,15 +277,44 @@ Deno.serve(async (req) => {
     const text = lines.join("\n");
     await postToSlack(text);
 
+    let backfilledDates = [];
     if (!isTestMode) {
       await base44.asServiceRole.entities.DailyReport.create({
         reportDate,
         impressions: totalImpressions,
-        conversations: startedCount,
+        conversations: totalEngagedCount,
         openRate,
         ctaRate,
         generatedAt: new Date().toISOString(),
       });
+
+      // Backfill: opportunistically fill any missing DailyReport rows from the last 7
+      // days so a gap (for example from the cron trigger not firing on a given day)
+      // self-heals on the next real run. Backfilled days are stored but never posted
+      // to Slack, only the reportDate above is ever posted.
+      try {
+        for (let i = 1; i <= 7; i++) {
+          const backfillDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+          if (backfillDate === reportDate) continue;
+          const existingForDay = await base44.asServiceRole.entities.DailyReport.filter({ reportDate: backfillDate });
+          if (existingForDay && existingForDay.length > 0) continue;
+          const metrics = computeCoreMetricsForDate(backfillDate, allImpressions, allConversations, allClicks);
+          await base44.asServiceRole.entities.DailyReport.create({
+            reportDate: backfillDate,
+            impressions: metrics.totalImpressions,
+            conversations: metrics.totalEngagedCount,
+            openRate: metrics.openRate,
+            ctaRate: metrics.ctaRate,
+            generatedAt: new Date().toISOString(),
+          });
+          backfilledDates.push(backfillDate);
+        }
+        if (backfilledDates.length > 0) {
+          console.log("Backfilled missing DailyReport rows for:", backfilledDates.join(", "));
+        }
+      } catch (e) {
+        console.error("Backfill failed:", e.message);
+      }
     }
 
     return Response.json({
