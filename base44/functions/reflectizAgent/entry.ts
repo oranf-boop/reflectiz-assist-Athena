@@ -742,6 +742,20 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ reply: null, sessionId: incomingSessionId || null }), { headers: CORS_HEADERS });
   }
 
+  // Suppress on internal/staging hostnames: reflectiz.test, localhost, and 127.0.0.1
+  // are dev and QA environments, not real visitors, and should never generate
+  // impression data, Conversations rows, or Slack alerts.
+  if (
+    (currentPageUrl || "").includes("reflectiz.test") ||
+    (currentPageUrl || "").includes("localhost") ||
+    (currentPageUrl || "").includes("127.0.0.1")
+  ) {
+    return new Response(
+      JSON.stringify({ reply: null, sessionId: incomingSessionId || null }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
   // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
   if (trackingEvent === "opener_shown") {
     try {
