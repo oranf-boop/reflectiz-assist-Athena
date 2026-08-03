@@ -152,17 +152,6 @@ Deno.serve(async (req) => {
       subtitle = "_Last 24 hours_";
     }
 
-    // Idempotency: only one report per reportDate, even if the caller (scheduledCrawl)
-    // fires its 05:00 UTC check more than once inside the same run window.
-    // options.force bypasses this for manual reruns/testing. Test-mode runs skip it
-    // entirely since they never write a DailyReport row.
-    if (!options.force && !isTestMode) {
-      const existingReports = await base44.asServiceRole.entities.DailyReport.filter({ reportDate });
-      if (existingReports && existingReports.length > 0) {
-        return Response.json({ success: true, skipped: true, reason: `already generated for ${reportDate}` });
-      }
-    }
-
     // Fetch a generous window of recent records and filter in-memory to the exact
     // 24h window. Mirrors this codebase's established pattern elsewhere (list broadly,
     // filter in JS) rather than relying on server-side date-range queries.
@@ -359,16 +348,18 @@ Deno.serve(async (req) => {
     }
 
     const text = lines.join("\n");
-    await postToSlack(text);
 
     let backfilledDates = [];
-    if (!isTestMode) {
-      // Always query before writing, in both this main path and the backfill loop
-      // below. Update the existing row if reportDate already has one, otherwise
-      // create it. This is what actually prevents duplicates: relying on the
-      // idempotency skip-check further up is not enough, since options.force
-      // deliberately bypasses that check and would otherwise reach an unconditional
-      // create() here every time it is used.
+    if (isTestMode) {
+      await postToSlack(text);
+    } else {
+      // Query DailyReport for reportDate first, then decide whether to post to Slack.
+      // slackPosted gates the post so retriggering (scheduledCrawl firing its STEP 5
+      // check more than once, or a manual force:true rerun) always refreshes the stored
+      // metrics but never posts to Slack more than once per reportDate. The record write
+      // and the Slack post are no longer decided by two separate checks racing each
+      // other; the existing record (if any) is fetched once and slackPosted is read off
+      // it directly.
       const existingForReportDate = await base44.asServiceRole.entities.DailyReport.filter({ reportDate });
       const reportPayload = {
         reportDate,
@@ -379,9 +370,16 @@ Deno.serve(async (req) => {
         generatedAt: new Date().toISOString(),
       };
       if (existingForReportDate && existingForReportDate.length > 0) {
-        await base44.asServiceRole.entities.DailyReport.update(existingForReportDate[0].id, reportPayload);
+        const existingRecord = existingForReportDate[0];
+        await base44.asServiceRole.entities.DailyReport.update(existingRecord.id, reportPayload);
+        if (existingRecord.slackPosted !== true) {
+          await postToSlack(text);
+          await base44.asServiceRole.entities.DailyReport.update(existingRecord.id, { slackPosted: true });
+        }
       } else {
-        await base44.asServiceRole.entities.DailyReport.create(reportPayload);
+        const created = await base44.asServiceRole.entities.DailyReport.create({ ...reportPayload, slackPosted: false });
+        await postToSlack(text);
+        await base44.asServiceRole.entities.DailyReport.update(created.id, { slackPosted: true });
       }
 
       // Backfill: opportunistically fill any missing DailyReport rows from the last 7
