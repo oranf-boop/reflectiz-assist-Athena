@@ -23,6 +23,10 @@
       "type": "string",
       "format": "date-time",
       "title": "Shown At"
+    },
+    "bubbleVariant": {
+      "type": "string",
+      "title": "Bubble Variant"
     }
   },
   "required": []
