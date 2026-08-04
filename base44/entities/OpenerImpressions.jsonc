@@ -27,6 +27,34 @@
     "bubbleVariant": {
       "type": "string",
       "title": "Bubble Variant"
+    },
+    "geo": {
+      "type": "string",
+      "title": "Geo"
+    },
+    "wasFallback": {
+      "type": "boolean",
+      "title": "Was Fallback",
+      "default": false
+    },
+    "dismissed": {
+      "type": "boolean",
+      "title": "Dismissed",
+      "default": false
+    },
+    "expired": {
+      "type": "boolean",
+      "title": "Expired",
+      "default": false
+    },
+    "abandoned": {
+      "type": "boolean",
+      "title": "Abandoned",
+      "default": false
+    },
+    "timeVisibleMs": {
+      "type": "number",
+      "title": "Time Visible (ms)"
     }
   },
   "required": []
