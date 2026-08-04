@@ -954,6 +954,7 @@ Deno.serve(async (req) => {
             [terminalField]: true,
             timeVisibleMs: typeof body.timeVisibleMs === "number" ? body.timeVisibleMs : typeof body.timeVisible === "number" ? body.timeVisible : 0,
             wasFallback: !!body.isFallback,
+            bubbleVariant: body.bubbleVariant || "A",
           });
         }
       }
