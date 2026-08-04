@@ -774,6 +774,7 @@ Deno.serve(async (req) => {
         shownAt: new Date().toISOString(),
         geo: geo ?? "",
         wasFallback: body.isFallback ?? false,
+        bubbleVariant: body.bubbleVariant || "A",
       });
     } catch (e) {
       console.error("opener_shown record failed:", e.message);
