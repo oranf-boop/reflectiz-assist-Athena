@@ -774,6 +774,8 @@ Deno.serve(async (req) => {
         shownAt: new Date().toISOString(),
         geo: geo ?? "",
         wasFallback: body.isFallback ?? false,
+        // A/B color test: variant is assigned client-side once per session and echoed
+        // back on every impression and terminal event so results can be grouped by variant.
         bubbleVariant: body.bubbleVariant || "A",
       });
     } catch (e) {
@@ -954,6 +956,7 @@ Deno.serve(async (req) => {
             [terminalField]: true,
             timeVisibleMs: typeof body.timeVisibleMs === "number" ? body.timeVisibleMs : typeof body.timeVisible === "number" ? body.timeVisible : 0,
             wasFallback: !!body.isFallback,
+            // Same variant echo as opener_shown above, kept in sync per terminal event.
             bubbleVariant: body.bubbleVariant || "A",
           });
         }
