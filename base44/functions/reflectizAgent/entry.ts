@@ -711,7 +711,13 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS_HEADERS });
   }
 
-  const body = await req.json();
+  let body;
+  try {
+    const text = await req.text();
+    body = JSON.parse(text);
+  } catch (e) {
+    body = {};
+  }
   const { message, currentPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage, hasActiveConversation, openerText } = body;
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
