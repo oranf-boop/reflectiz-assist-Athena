@@ -26,7 +26,8 @@
     },
     "bubbleVariant": {
       "type": "string",
-      "title": "Bubble Variant"
+      "title": "Bubble Variant",
+      "default": "A"
     },
     "geo": {
       "type": "string",
