@@ -806,19 +806,18 @@ async function prewarmPageOpeners(base44, limit) {
   summary.prewarm = await prewarmPageOpeners(base44, options.prewarmLimit || 100);
   console.log("Crawl + prewarm run finished:", JSON.stringify(summary));
 
-  // STEP 5: Daily report trigger. The "Daily Website Crawl" automation actually runs
-  // scheduledCrawl at 03:00 UTC (confirmed via the automation's cron config and via
-  // WebsiteContent updated_date timestamps landing at 03:00:xx UTC on days it ran), not
-  // 05:00 UTC as originally assumed here, so the window is corrected to match the real
-  // cron time. options.force bypasses the time check entirely for manual runs, so this
-  // can be exercised on demand without waiting for the cron window. Runs last, after
-  // crawl and prewarm have completed, and is guarded by a DailyReport dedup check so it
-  // only fires once per reportDate even if scheduledCrawl runs more than once in the
-  // window or force is passed repeatedly.
+  // STEP 5: Daily report trigger. The "Daily Website Crawl" automation runs scheduledCrawl
+  // at 03:00 UTC, but the crawl's own duration varies run to run, so the previous narrow
+  // 03:00-03:29 window occasionally missed the trigger entirely (this is what produced the
+  // missing Aug 3-5 DailyReport rows). The window is now widened to 03:00 through 23:59 UTC
+  // so the trigger fires whenever this run happens to finish, no matter how long the crawl
+  // took. options.force bypasses the time check entirely for manual runs. Runs last, after
+  // crawl and prewarm have completed, and is still guarded by the DailyReport dedup check
+  // below so it only fires once per reportDate no matter how many times scheduledCrawl runs
+  // inside the window or force is passed repeatedly.
   const nowUTC = new Date();
   const nowHour = nowUTC.getUTCHours();
-  const nowMinute = nowUTC.getUTCMinutes();
-  const inReportWindow = nowHour === 3 && nowMinute < 30;
+  const inReportWindow = nowHour >= 3;
   if (options.force === true || inReportWindow) {
     try {
       const yesterday = new Date(Date.UTC(
