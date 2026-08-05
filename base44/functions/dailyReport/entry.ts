@@ -296,6 +296,37 @@ Deno.serve(async (req) => {
       else intentCounts.other += 1;
     });
 
+    // --- Metric 11: A/B bubble color test breakdown ---
+    // bubbleVariant is assigned client-side once per session and echoed back on every
+    // impression (see reflectizAgent's opener_shown and terminal-event handlers), so this
+    // groups the day's impressions by variant to surface how the live test is trending.
+    // Open rate uses the same unique-session methodology as Metric 2 above, not a raw
+    // impression-count ratio, so it stays comparable to the overall open rate figure.
+    const VARIANT_LABELS = { A: "navy", B: "green", C: "blue" };
+    const variantStats = {};
+    ["A", "B", "C"].forEach(v => {
+      const rows = impressions.filter(i => (i.bubbleVariant || "A") === v);
+      const sessionIds = new Set(rows.map(i => i.sessionId).filter(Boolean));
+      const opened = [...sessionIds].filter(sid => allConversationSessionIds.has(sid)).length;
+      variantStats[v] = {
+        impressions: rows.length,
+        expired: rows.filter(i => i.expired === true).length,
+        dismissed: rows.filter(i => i.dismissed === true).length,
+        openRate: pctPrecise(opened, sessionIds.size),
+      };
+    });
+    // A variant needs at least 10 impressions to qualify as "leading" so a single lucky
+    // open on a near-empty variant can't win the day.
+    let leadingVariant = null;
+    let leadingRate = -1;
+    ["A", "B", "C"].forEach(v => {
+      const s = variantStats[v];
+      if (s.impressions >= 10 && s.openRate > leadingRate) {
+        leadingRate = s.openRate;
+        leadingVariant = v;
+      }
+    });
+
     // --- Build the Slack message ---
     const lines = [];
     lines.push(`:bar_chart: *Athena Daily Report -- ${reportDate}${isTestMode ? " (TEST)" : ""}*`);
@@ -320,10 +351,9 @@ Deno.serve(async (req) => {
       lines.push(`(none)`);
     }
     lines.push(``);
-    lines.push(`*:world_map: Top 5 pages visitors engaged on*`);
-    const topFivePages = topPagesByImpressions.slice(0, 5);
-    if (topFivePages.length > 0) {
-      topFivePages.forEach((p, i) => lines.push(`${i + 1}. ${p.path} -- ${p.impressions} impressions · ${p.openRate}% open rate`));
+    lines.push(`*:world_map: Top 10 pages visitors engaged on*`);
+    if (topPagesByImpressions.length > 0) {
+      topPagesByImpressions.forEach((p, i) => lines.push(`${i + 1}. ${p.path} -- ${p.impressions} impressions · ${p.openRate}% open rate`));
     } else {
       lines.push(`(none)`);
     }
@@ -342,6 +372,13 @@ Deno.serve(async (req) => {
     lines.push(``);
     lines.push(`*:pushpin: Registration clicks*`);
     lines.push(`${ctaClickCount} direct clicks to /registration/ or /free-trial/`);
+    lines.push(``);
+    lines.push(`*:art: A/B Bubble Color Test*`);
+    ["A", "B", "C"].forEach(v => {
+      const s = variantStats[v];
+      lines.push(`Variant ${v} (${VARIANT_LABELS[v]}): ${s.impressions} impressions · ${s.expired} expired · ${s.dismissed} dismissed · ${s.openRate}% open rate`);
+    });
+    lines.push(leadingVariant ? `_Leading: Variant ${leadingVariant}_` : `_Leading: not enough data yet, each variant needs 10+ impressions to qualify_`);
 
     if (totalImpressions < 10) {
       lines.push(``);
