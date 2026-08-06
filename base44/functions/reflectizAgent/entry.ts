@@ -2075,7 +2075,7 @@ Generate a natural one-sentence opening message that:
   const languageLabel = effectiveLanguage === "he" ? "he (Hebrew -- respond in Hebrew)" : "";
   const visitorContext = [
     languageLabel ? `[Visitor language: ${languageLabel}]` : "",
-    geo ? `[Visitor geo: ${geo}]` : "",
+    geo ? `[Visitor geo: ${safeGeo}]` : "",
     currentPageUrl ? `[Current page: ${currentPageUrl}]` : "",
   ].filter(Boolean).join("\n");
 
