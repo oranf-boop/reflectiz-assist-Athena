@@ -983,22 +983,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
-  // Sanitize currentPageUrl to prevent prompt injection via crafted URLs
-  // Strip everything after the path (no query strings in prompts) and
-  // reject URLs that contain prompt-like instruction patterns
-  function sanitizePageUrl(url) {
-    if (!url) return "";
-    try {
-      const parsed = new URL(url);
-      // Only allow reflectiz.com URLs
-      if (!parsed.hostname.includes("reflectiz.com")) return "";
-      // Return only origin + pathname, no query string or hash
-      return parsed.origin + parsed.pathname;
-    } catch (e) {
-      return "";
-    }
-  }
-    "https://www.reflectiz.com/": "64% of third-party scripts access your data without justification -- is yours one of them?",
+  // Dynamic page-aware opener for all INIT variants
+  const CURATED_BUBBLES_EN = {
     "https://www.reflectiz.com/blog/trust-wallet-hack/": "Browser extensions are the new attack vector. Is yours monitored?",
     "https://www.reflectiz.com/blog/what-is-ctem/": "Most CTEM programs miss the web layer entirely. Does yours?",
     "https://www.reflectiz.com/learning-hub/pentest-agent-webinar/": "Traditional pentesting misses dynamic web apps. There is a better way.",
