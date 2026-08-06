@@ -2070,7 +2070,7 @@ Generate a natural one-sentence opening message that:
   const relevantPages = await searchWebsiteContent(base44, message, currentPageUrl);
   const ragBlock = formatRetrievedPages(relevantPages);
 
-  const messages = [...conversationHistory];
+  const messages = [...safeHistory];
 
   const languageLabel = effectiveLanguage === "he" ? "he (Hebrew -- respond in Hebrew)" : "";
   const visitorContext = [
