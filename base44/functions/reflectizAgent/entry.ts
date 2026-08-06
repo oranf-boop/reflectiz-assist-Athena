@@ -724,7 +724,7 @@ Deno.serve(async (req) => {
   if (rawPageUrl) {
     try {
       const _pu = new URL(String(rawPageUrl));
-      if (_pu.hostname.includes("reflectiz.com")) {
+      if (_pu.hostname === "www.reflectiz.com" || _pu.hostname === "reflectiz.com") {
         currentPageUrl = _pu.origin + _pu.pathname.replace(/\s.*$/, "").replace(/[^a-zA-Z0-9/_\-.]/g, "");
       }
     } catch (_e) { currentPageUrl = ""; }
