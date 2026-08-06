@@ -998,11 +998,6 @@ Deno.serve(async (req) => {
       return "";
     }
   }
-  const safePageUrl = sanitizePageUrl(currentPageUrl);
-  if (!safePageUrl && currentPageUrl && currentPageUrl.includes("reflectiz.com")) {
-    // URL was malformed -- use raw but strip after first space
-    // (injection attempts typically inject after a space or slash)
-  }
     "https://www.reflectiz.com/": "64% of third-party scripts access your data without justification -- is yours one of them?",
     "https://www.reflectiz.com/blog/trust-wallet-hack/": "Browser extensions are the new attack vector. Is yours monitored?",
     "https://www.reflectiz.com/blog/what-is-ctem/": "Most CTEM programs miss the web layer entirely. Does yours?",
