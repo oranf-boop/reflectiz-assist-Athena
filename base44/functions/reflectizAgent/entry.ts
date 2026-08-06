@@ -729,8 +729,6 @@ Deno.serve(async (req) => {
       }
     } catch (_e) { currentPageUrl = ""; }
   }
-    }
-  })();
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
