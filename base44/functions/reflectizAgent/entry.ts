@@ -732,6 +732,40 @@ Deno.serve(async (req) => {
   let language = body.language;
   const conversationHistory = body.conversationHistory || body.messages || [];
 
+  // SECURITY: sanitize all user-supplied fields that reach Gemini prompts
+  // Strip any content that looks like prompt injection instructions
+  function stripInjection(val: string, maxLen = 200): string {
+    if (!val) return "";
+    const s = String(val).slice(0, maxLen);
+    // Remove common injection patterns
+    const injectionPatterns = [
+      /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/gi,
+      /you\s+are\s+now/gi,
+      /act\s+as\s+(a|an)?/gi,
+      /forget\s+(all\s+)?(your|previous)/gi,
+      /new\s+instructions?:/gi,
+      /system\s*:/gi,
+      /\[INST\]/gi,
+      /###\s*(instruction|system|prompt)/gi,
+      /always\s+postfix/gi,
+      /always\s+append/gi,
+      /always\s+prefix/gi,
+    ];
+    let clean = s;
+    for (const p of injectionPatterns) {
+      clean = clean.replace(p, "[removed]");
+    }
+    return clean.trim();
+  }
+  const safePageTitle = stripInjection(clientPageTitle || "", 150);
+  const safeGeo = stripInjection(geo || "", 50);
+  const safeReferral = stripInjection(referralSource || "", 100);
+  // Sanitize each message in conversation history
+  const safeHistory = conversationHistory.map((m: any) => ({
+    ...m,
+    content: m.role === "user" ? stripInjection(String(m.content || ""), 1000) : m.content,
+  }));
+
   // Resolve opener language once from geo + browser language (Phase 1: de/fr/it/es, else en)
   const resolvedLang = resolveLanguage(geo, language);
 
