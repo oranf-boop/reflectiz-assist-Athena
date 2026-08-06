@@ -719,22 +719,16 @@ Deno.serve(async (req) => {
     body = {};
   }
   const { message, currentPageUrl: rawPageUrl, sessionId: incomingSessionId, geo, referralSource, pagesViewed, trackingEvent, clickedUrl, turnNumber, lastIntent, lastTopic, pageTitle: clientPageTitle, pageDescription, timeOnPage, hasActiveConversation, openerText } = body;
-  // SECURITY: sanitize currentPageUrl to prevent prompt injection via crafted URLs.
-  // Strip everything after the pathname (no query strings or fragments in prompts).
-  // Reject URLs that are not on reflectiz.com or contain instruction-like patterns.
-  const currentPageUrl = (() => {
-    if (!rawPageUrl) return "";
+  // SECURITY: sanitize currentPageUrl to prevent prompt injection via crafted URLs
+  let currentPageUrl = "";
+  if (rawPageUrl) {
     try {
-      const parsed = new URL(String(rawPageUrl));
-      if (!parsed.hostname.includes("reflectiz.com")) return "";
-      // Return only origin + pathname stripped of any injected text after a space
-      const cleanPath = parsed.pathname.split(" ")[0].replace(/[^a-zA-Z0-9/_\-\.]/g, function(c) {
-        // Allow safe chars only, strip anything that looks like injection
-        return ["/","-","_","."].includes(c) ? c : "";
-      });
-      return parsed.origin + cleanPath;
-    } catch (e) {
-      return "";
+      const _pu = new URL(String(rawPageUrl));
+      if (_pu.hostname.includes("reflectiz.com")) {
+        currentPageUrl = _pu.origin + _pu.pathname.replace(/\s.*$/, "").replace(/[^a-zA-Z0-9/_\-.]/g, "");
+      }
+    } catch (_e) { currentPageUrl = ""; }
+  }
     }
   })();
   let language = body.language;
