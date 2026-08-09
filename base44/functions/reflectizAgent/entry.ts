@@ -2296,7 +2296,7 @@ Generate a natural one-sentence opening message that:
     const normalizedCurrentPage = normalizeUrl(currentPageUrl);
     reply = reply.replace(urlRegex, (foundUrl) => {
       if (normalizeUrl(foundUrl) === normalizedCurrentPage) {
-        return "https://www.reflectiz.com/learning-hub/";
+        return "https://www.reflectiz.com/registration/";
       }
       return foundUrl;
     });
