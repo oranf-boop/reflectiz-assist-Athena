@@ -348,9 +348,16 @@ function prewarmPriority(page) {
 
 async function prewarmUpsertOpener(base44, pageUrl, data) {
   try {
-    const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl, language: data.language });
-    if (existing && existing.length > 0) {
-      const sorted = existing.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
+    // Query by pageUrl only, not by {pageUrl, language}. Many existing rows predate the
+    // language field and were written before it was ever set, so an exact-match filter on
+    // language never matched them -- the lookup silently returned empty and fell through to
+    // create() on every single run, which is what produced 50+ duplicate rows on busy pages.
+    // Missing language on an old row is treated as PREWARM_LANG for matching purposes, since
+    // this job has only ever written English rows.
+    const allForUrl = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl });
+    const sameLanguage = (allForUrl || []).filter(r => (r.language || PREWARM_LANG) === data.language);
+    if (sameLanguage.length > 0) {
+      const sorted = sameLanguage.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
       await base44.asServiceRole.entities.PageOpeners.update(sorted[0].id, data);
       for (const dup of sorted.slice(1)) {
         await base44.asServiceRole.entities.PageOpeners.delete(dup.id).catch(() => {});
@@ -645,9 +652,33 @@ Return only valid JSON, nothing else:
   return { opener, bubbleText };
 }
 
+// Extracts the URL from a generated opener's markdown link, e.g.
+// "...text... [label](https://www.reflectiz.com/foo/)" -> "https://www.reflectiz.com/foo/"
+function prewarmExtractOpenerUrl(opener) {
+  const m = (opener || "").match(/\]\((https?:\/\/[^)]+)\)/);
+  return m ? m[1] : null;
+}
+
+// Cross-checks the page an opener actually links to against the page being pre-warmed:
+// the linked page's own WebsiteContent.categories must overlap with the pre-warmed
+// page's categories. Fails open (returns true) when there is nothing to contradict --
+// no link found, the pre-warmed page has no categories of its own, or the linked page
+// has no WebsiteContent record -- since this is a safety net against a wrong-topic
+// pick, not a general content-completeness check.
+function prewarmValidateTopicMatch(opener, page, allContent) {
+  const url = prewarmExtractOpenerUrl(opener);
+  if (!url) return true;
+  const pageCats = Array.isArray(page.categories) ? page.categories : [];
+  if (pageCats.length === 0) return true;
+  const normalized = prewarmNormalizeUrl(url);
+  const target = allContent.find(c => prewarmNormalizeUrl(c.pageUrl) === normalized);
+  if (!target || !Array.isArray(target.categories) || target.categories.length === 0) return true;
+  return target.categories.some(c => pageCats.includes(c));
+}
+
 async function prewarmPageOpeners(base44, limit) {
   const jobStart = Date.now();
-  const result = { candidates: 0, warmed: 0, skipped_fresh: 0, skipped_never_cached: 0, no_candidates: 0, failed: 0, timed_out: false, elapsedMs: 0 };
+  const result = { candidates: 0, warmed: 0, skipped_fresh: 0, skipped_never_cached: 0, no_candidates: 0, topic_mismatch_skipped: 0, failed: 0, timed_out: false, elapsedMs: 0 };
   try {
     const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
     const eligible = (allContent || []).filter(p => p.isActive === true && Array.isArray(p.categories) && p.categories.length > 0 && p.pageUrl);
@@ -671,12 +702,36 @@ async function prewarmPageOpeners(base44, limit) {
       await Promise.allSettled(batch.map(async (page) => {
         try {
           const cacheUrl = prewarmCacheUrl(page.pageUrl);
-          const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl, language: PREWARM_LANG });
-          const fresh = (existing || []).some(r => r.opener && r.opener.length > 20 && r.generatedAt && new Date(r.generatedAt).getTime() > freshCutoff);
+          // Same missing-language fix as prewarmUpsertOpener: query by pageUrl only and
+          // treat a row with no language set as PREWARM_LANG, otherwise this freshness
+          // check never matches any pre-language-field row and the job regenerates content
+          // (burning a Gemini call) for pages that already have a same-day opener cached.
+          const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl: cacheUrl });
+          const existingSameLang = (existing || []).filter(r => (r.language || PREWARM_LANG) === PREWARM_LANG);
+          const fresh = existingSameLang.some(r => r.opener && r.opener.length > 20 && r.generatedAt && new Date(r.generatedAt).getTime() > freshCutoff);
           if (fresh) { result.skipped_fresh++; return; }
 
-          const generated = await prewarmGenerateOpener(page, allContent);
-          if (!generated) { result.no_candidates++; return; }
+          // Up to 3 attempts total (the first try plus 2 retries): each attempt regenerates
+          // the opener from scratch and re-validates that the page it links to actually
+          // shares a category with the page being pre-warmed, guarding against an
+          // occasional wrong-topic candidate slipping through (e.g. a PCI case study
+          // linked from a privacy page) regardless of how it got picked.
+          let generated = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const candidate = await prewarmGenerateOpener(page, allContent);
+            if (!candidate) break;
+            if (prewarmValidateTopicMatch(candidate.opener, page, allContent)) {
+              generated = candidate;
+              break;
+            }
+            console.warn(`prewarm topic mismatch for ${page.pageUrl} (attempt ${attempt + 1} of 3): opener linked to an off-topic page, retrying`);
+          }
+          if (!generated) {
+            result.no_candidates++;
+            result.topic_mismatch_skipped++;
+            console.warn(`prewarm skipped ${page.pageUrl}: no topically-matching opener after repeated attempts`);
+            return;
+          }
 
           await prewarmUpsertOpener(base44, cacheUrl, {
             opener: generated.opener,
