@@ -16,8 +16,8 @@ Deno.serve(async (req) => {
     const sorted = english.slice().sort((a, b) =>
       String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || ""))
     );
-    const keep = sorted[0];
-    const toDelete = sorted.slice(1);
+    const keep = body.deleteAll ? null : sorted[0];
+    const toDelete = body.deleteAll ? sorted : sorted.slice(1);
     let deleted = 0;
     for (const row of toDelete) {
       try {
