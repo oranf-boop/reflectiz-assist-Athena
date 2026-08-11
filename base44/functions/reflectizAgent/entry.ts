@@ -1254,7 +1254,7 @@ Deno.serve(async (req) => {
     // Form nudge: learning-hub gated/webinar pages get a form-focused opener instead of an article link
     if (isFormNudgePage(currentPageUrl)) {
       const base44 = createClientFromRequest(req);
-      const contextTitle = clientPageTitle || currentPageUrl;
+      const contextTitle = safePageTitle || currentPageUrl;
 
       // Fetch page content from DB for context
       let pageContent = "";
@@ -1339,7 +1339,7 @@ Return only valid JSON, nothing else:
     }
 
     const base44 = createClientFromRequest(req);
-    const contextTitle = clientPageTitle || currentPageUrl;
+    const contextTitle = safePageTitle || currentPageUrl;
 
     // Blog -> Hub companion: if this blog has a gated learning-hub counterpart, recommend it directly
     const canonicalBlogUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
