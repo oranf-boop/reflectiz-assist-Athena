@@ -884,7 +884,13 @@ async function prewarmPageOpeners(base44, limit) {
       const existingReport = await base44
         .asServiceRole.entities.DailyReport
         .filter({ reportDate: reportDateStr });
-      if (!existingReport || existingReport.length === 0) {
+      // Retry whenever no row exists for yesterday, or a row exists but never actually
+      // posted to Slack (slackPosted !== true). A row existing is not the same as the
+      // report having posted -- dailyReport does its own upsert + slackPosted guard
+      // internally (see dailyReport/entry.ts), so re-invoking it here for a failed row
+      // is safe and will not produce a duplicate Slack post.
+      const alreadyPosted = !!(existingReport && existingReport.some(r => r.slackPosted === true));
+      if (!alreadyPosted) {
         await fetch(
           "https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/dailyReport",
           {
