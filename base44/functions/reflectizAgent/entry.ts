@@ -620,11 +620,18 @@ function canonicalCacheUrl(url) {
 
 // Upsert a PageOpeners record keyed by pageUrl + language. Updates the newest
 // existing record and deletes any duplicates so the cache stays one row per key.
+// Query by pageUrl only, not by {pageUrl, language}: rows written before the language
+// field existed have no language set, so an exact-match filter on language never finds
+// them and every call falls through to create(), which is what produced 80+ duplicate
+// rows on busy pages like blog/trivy-supply-chain/. Missing language, on either the
+// stored row or the incoming data, is treated as "en" since this cache was English-only
+// before localization was added.
 async function upsertPageOpener(base44, pageUrl, data) {
   try {
-    const existing = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl, language: data.language });
-    if (existing && existing.length > 0) {
-      const sorted = existing.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
+    const allForUrl = await base44.asServiceRole.entities.PageOpeners.filter({ pageUrl });
+    const sameLanguage = (allForUrl || []).filter(r => (r.language || "en") === (data.language || "en"));
+    if (sameLanguage.length > 0) {
+      const sorted = sameLanguage.slice().sort((a, b) => String(b.updated_date || b.generatedAt || "").localeCompare(String(a.updated_date || a.generatedAt || "")));
       await base44.asServiceRole.entities.PageOpeners.update(sorted[0].id, data);
       for (const dup of sorted.slice(1)) {
         await base44.asServiceRole.entities.PageOpeners.delete(dup.id).catch(() => {});
