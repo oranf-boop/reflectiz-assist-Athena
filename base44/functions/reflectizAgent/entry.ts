@@ -1335,7 +1335,7 @@ Return only valid JSON, nothing else:
         });
       }
 
-      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId, _deployVerificationMarker: "1786500000" }), { headers: CORS_HEADERS });
     }
 
     const base44 = createClientFromRequest(req);
@@ -1429,7 +1429,7 @@ Return only valid JSON:
         });
       }
 
-      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId, _deployVerificationMarker: "1786500000" }), { headers: CORS_HEADERS });
     }
 
     // Fetch current page's own DB content for richer opener personalization
@@ -2131,7 +2131,7 @@ Return only valid JSON, nothing else:
       });
     }
 
-    return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId, _deployVerificationMarker: "1786500000" }), { headers: CORS_HEADERS });
   }
 
   // client replaced by callClaude helper
