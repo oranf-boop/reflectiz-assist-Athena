@@ -120,7 +120,6 @@ async function postToSlack(text) {
 }
 
 Deno.serve(async (req) => {
-  console.log("DEPLOY_VERIFICATION_MARKER_1786500000");
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" } });
   }
@@ -458,7 +457,6 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      _deployVerificationMarker: "1786500000",
       testMode: isTestMode,
       windowStart,
       windowEnd,
