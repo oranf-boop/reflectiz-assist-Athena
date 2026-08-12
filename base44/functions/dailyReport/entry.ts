@@ -458,6 +458,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
+      _deployVerificationMarker: "1786500000",
       testMode: isTestMode,
       windowStart,
       windowEnd,
