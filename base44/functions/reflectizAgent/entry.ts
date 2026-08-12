@@ -1429,7 +1429,7 @@ Return only valid JSON:
         });
       }
 
-      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId, _deployVerificationMarker: contextTitle }), { headers: CORS_HEADERS });
     }
 
     // Fetch current page's own DB content for richer opener personalization
