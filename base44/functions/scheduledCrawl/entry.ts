@@ -774,6 +774,7 @@ async function prewarmPageOpeners(base44, limit) {
   }
 
   Deno.serve(async (req) => {
+  try {
   const base44 = createClientFromRequest(req);
   const now = new Date().toISOString().split("T")[0];
   let options = {};
@@ -929,4 +930,13 @@ async function prewarmPageOpeners(base44, limit) {
   }
 
   return Response.json(summary);
+  } catch (e) {
+    // Guards createClientFromRequest and anything else structurally outside the STEP 1-3
+    // and STEP 5 try/catches. If base44 client construction itself fails, there is no
+    // valid client for STEP 4/5 to use either -- forcing a continuation here would just
+    // produce a second, less legible crash inside prewarmPageOpeners or the report
+    // trigger, so this logs clearly once and returns a clean error response instead.
+    console.error("scheduledCrawl handler failed before completing:", e.name, e.message, e.stack);
+    return Response.json({ error: "scheduledCrawl failed", message: e.message }, { status: 500 });
+  }
 });
