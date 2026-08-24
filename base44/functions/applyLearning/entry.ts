@@ -116,20 +116,27 @@ Deno.serve(async (req) => {
   const reports = await base44.asServiceRole.entities.LearningReports.list("-reportDate", 50);
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
+  // Thresholds set from the 9 real applies that worked May 3 - June 3 2026: confidence
+  // ranged 3-5/10 (never higher, in 32 reports total, before or after this change), and
+  // sample size ranged 38-259. The previous >=6/>=50 gate was stricter than anything that
+  // ever actually applied, which is why nothing auto-applied from June 3 onward.
+  const MIN_CONFIDENCE = 3;
+  const MIN_SAMPLE_SIZE = 35;
+
   const report = reports.find(r =>
     r.appliedToAgent === false &&
-    (r.confidenceScore || 0) >= 6 &&
-    (r.totalConversations || 0) >= 50 &&
+    (r.confidenceScore || 0) >= MIN_CONFIDENCE &&
+    (r.totalConversations || 0) >= MIN_SAMPLE_SIZE &&
     r.reportDate >= sevenDaysAgo
   );
 
   if (!report) {
-    const anyPending = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= 6);
+    const anyPending = reports.find(r => r.appliedToAgent === false && (r.confidenceScore || 0) >= MIN_CONFIDENCE);
     if (anyPending) {
       const tooOld = (anyPending.reportDate || "") < sevenDaysAgo;
-      const tooSmall = (anyPending.totalConversations || 0) < 50;
+      const tooSmall = (anyPending.totalConversations || 0) < MIN_SAMPLE_SIZE;
       if (tooOld) return Response.json({ message: "Report too old to apply safely. Waiting for a more recent report.", reportDate: anyPending.reportDate });
-      if (tooSmall) return Response.json({ message: `Sample size too small to trust (${anyPending.totalConversations} conversations). Minimum required: 50.`, reportDate: anyPending.reportDate });
+      if (tooSmall) return Response.json({ message: `Sample size too small to trust (${anyPending.totalConversations} conversations). Minimum required: ${MIN_SAMPLE_SIZE}.`, reportDate: anyPending.reportDate });
     }
     return Response.json({ message: "No actionable report available yet." });
   }
