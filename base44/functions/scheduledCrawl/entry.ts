@@ -781,6 +781,7 @@ async function prewarmPageOpeners(base44, limit) {
 
   let summary = { prewarm_only: true, run_date: now };
   if (!options.prewarmOnly) {
+  try {
   // Calculate cutoff: only crawl pages modified in the last 2 days (catch new + recently updated)
   const cutoffDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
@@ -855,6 +856,13 @@ async function prewarmPageOpeners(base44, limit) {
   };
 
   console.log("Scheduled crawl complete:", JSON.stringify(summary));
+  } catch (e) {
+    // A scan failure must never silently prevent STEP 4 (prewarm) and STEP 5 (report
+    // trigger) from running -- log clearly and fall through with whatever partial
+    // summary we have, rather than letting an uncaught exception kill the whole request.
+    console.error("Scheduled crawl STEP 1-3 failed, continuing to prewarm and report:", e.name, e.message, e.stack);
+    summary = { ...summary, crawl_error: e.message };
+  }
   }
 
   // STEP 4: PageOpeners cache pre-warm. Runs strictly after the crawl above has completed.
@@ -891,7 +899,7 @@ async function prewarmPageOpeners(base44, limit) {
       // is safe and will not produce a duplicate Slack post.
       const alreadyPosted = !!(existingReport && existingReport.some(r => r.slackPosted === true));
       if (!alreadyPosted) {
-        await fetch(
+        const dailyReportRes = await fetch(
           "https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/dailyReport",
           {
             method: "POST",
@@ -900,14 +908,23 @@ async function prewarmPageOpeners(base44, limit) {
               "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH"
             },
             body: JSON.stringify({}),
+            signal: AbortSignal.timeout(120000),
           }
         );
-        console.log("Daily report triggered for", reportDateStr);
+        // fetch() only rejects on network-level failure -- an HTTP error status from
+        // dailyReport itself would previously pass through here silently and still log
+        // as "triggered", even though nothing happened. Check and log the real outcome.
+        if (dailyReportRes.ok) {
+          console.log("Daily report triggered for", reportDateStr);
+        } else {
+          const bodyText = await dailyReportRes.text().catch(() => "");
+          console.error(`dailyReport call returned HTTP ${dailyReportRes.status} for ${reportDateStr}:`, bodyText.slice(0, 500));
+        }
       } else {
         console.log("Daily report already sent for", reportDateStr);
       }
     } catch (e) {
-      console.error("dailyReport invocation failed:", e.message);
+      console.error("dailyReport invocation failed:", e.name, e.message, e.stack);
     }
   }
 
