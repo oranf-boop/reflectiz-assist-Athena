@@ -315,6 +315,7 @@ async function runBubbleEngagementAnalysis(base44, weekConversations) {
 }
 
 Deno.serve(async (req) => {
+  try {
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me().catch(() => null);
   const isScheduled = !user;
@@ -502,7 +503,6 @@ Return exactly this JSON structure:
   // Parse conversation analysis JSON
   const convRawText = conversationResponse.content[0]?.text ?? "";
   const convJsonMatch = convRawText.match(/\{[\s\S]*\}/);
-  const analysis = convJsonMatch ? JSON.parse(convJsonMatch[0]) : null;
 
   let parsedAnalysis = null;
   if (convJsonMatch) {
@@ -582,4 +582,8 @@ Return exactly this JSON structure:
     performanceScoresUpdated: performanceUpdates.length,
     bubbleAnalysis,
   });
+  } catch (e) {
+    console.error("analyzeAndLearn handler failed:", e.name, e.message, e.stack);
+    return Response.json({ error: "analyzeAndLearn failed", message: e.message }, { status: 500 });
+  }
 });
