@@ -1,0 +1,83 @@
+name: Athena Dead-Man's-Switch Healthcheck
+
+# Independent of every Base44-hosted function. This exists specifically for
+# the failure mode that let the Aug 17-23 outage go unnoticed for 6 days:
+# every Base44 function down simultaneously, including whatever would
+# normally have sent a Slack alert. This workflow calls the live public
+# reflectizAgent endpoint directly and, on failure, posts straight to a
+# Slack Incoming Webhook -- not through any Base44 function -- so it keeps
+# working even if the entire Base44 app is unreachable.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      target_url_override:
+        description: "Override the endpoint under test (for deliberately testing failure). Leave blank for the real endpoint."
+        required: false
+        default: ""
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reflectizAgent INIT and evaluate health
+        id: check
+        run: |
+          REAL_URL="https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/reflectizAgent"
+          OVERRIDE="${{ github.event.inputs.target_url_override }}"
+          TARGET_URL="${OVERRIDE:-$REAL_URL}"
+          echo "Target URL: $TARGET_URL"
+
+          SESSION_ID="sl-test-healthcheck-${{ github.run_id }}-${{ github.run_attempt }}"
+
+          http_code=$(curl -s -o /tmp/response.json -w "%{http_code}" --max-time 30 -X POST \
+            "$TARGET_URL" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.BASE44_API_KEY }}" \
+            -d "{\"message\":\"INIT\",\"sessionId\":\"$SESSION_ID\",\"currentPageUrl\":\"https://www.reflectiz.com/\",\"pageTitle\":\"Reflectiz\",\"geo\":\"US\",\"language\":\"en\",\"referralSource\":\"direct\",\"pagesViewed\":[\"https://www.reflectiz.com/\"]}" \
+            || echo "000")
+
+          echo "HTTP status: $http_code"
+          body=$(cat /tmp/response.json 2>/dev/null || echo "")
+          echo "Response body: $body"
+
+          healthy=true
+          reason=""
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            healthy=false
+            reason="HTTP $http_code"
+          fi
+
+          if ! echo "$body" | grep -q '"reply"'; then
+            healthy=false
+            reason="${reason:+$reason; }no reply field in response"
+          elif echo "$body" | grep -qE '"reply"\s*:\s*null'; then
+            healthy=false
+            reason="${reason:+$reason; }reply field is null"
+          fi
+
+          if echo "$body" | grep -qiE "builder plan|functions are blocked|insufficient.*credit|upgrade your base44 workspace"; then
+            healthy=false
+            reason="${reason:+$reason; }billing/plan-restriction text detected in response"
+          fi
+
+          echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "http_code=$http_code" >> "$GITHUB_OUTPUT"
+
+      - name: Alert Slack on failure
+        if: steps.check.outputs.healthy == 'false'
+        run: |
+          TEXT=":rotating_light: *Athena healthcheck failed* — reflectizAgent did not respond healthily.\nReason: ${{ steps.check.outputs.reason }}\nHTTP status: ${{ steps.check.outputs.http_code }}\nThis alert is sent directly by GitHub Actions, independent of any Base44 function, so it still fires even if the entire Base44 app is down.\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL_ATHENA_HEALTHCHECK }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg text "$TEXT" '{text: $text}')"
+
+      - name: Fail the job if unhealthy
+        if: steps.check.outputs.healthy == 'false'
+        run: |
+          echo "::error::Healthcheck failed: ${{ steps.check.outputs.reason }}"
+          exit 1

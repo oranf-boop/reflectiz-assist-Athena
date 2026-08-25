@@ -1,0 +1,38 @@
+name: Daily Crawl Trigger (independent of Base44 automations)
+
+# Runs the same scheduledCrawl invocation Base44's own "Daily Website Crawl"
+# automation is supposed to run, from a scheduler we can actually see the run
+# history for. Base44's automation has a demonstrated history of silently
+# failing for days/weeks (insufficient integration credits, then "Functions
+# are blocked" -- both billing-related) with zero external signal. This
+# workflow is deliberately redundant with that automation, not a replacement
+# for it -- both are left running. If Base44's automation is healthy, this
+# just re-confirms freshness; if it's silently dead again, this is the one
+# that still fires and that we get a visible failure notification for.
+
+on:
+  schedule:
+    # 03:00 UTC daily, matching Base44's "Daily Website Crawl" cron (0 3 * * *).
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST to scheduledCrawl
+        id: trigger
+        run: |
+          http_code=$(curl -s -o /tmp/response.json -w "%{http_code}" -X POST \
+            "https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/scheduledCrawl" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.BASE44_API_KEY }}" \
+            -d '{}')
+          echo "HTTP status: $http_code"
+          echo "Response body:"
+          cat /tmp/response.json
+          echo ""
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "::error::scheduledCrawl returned HTTP $http_code -- treating as failure so this shows up in Actions history."
+            exit 1
+          fi
