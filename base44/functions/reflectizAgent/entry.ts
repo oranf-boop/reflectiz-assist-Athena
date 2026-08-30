@@ -2121,14 +2121,64 @@ Return only valid JSON, nothing else:
     // Fallback if Gemini failed
     if (!opener) {
       const fallbackAsset = selectedAsset || candidates[0];
-      const FALLBACK_SENTENCES = {
-        en: "This page covers one of the most critical areas in web security right now.",
-        de: "Diese Seite behandelt einen der derzeit wichtigsten Bereiche der Web-Sicherheit.",
-        fr: "Cette page couvre l'un des domaines les plus critiques de la sécurité web actuellement.",
-        it: "Questa pagina tratta una delle aree più critiche della sicurezza web di oggi.",
-        es: "Esta página cubre una de las áreas más críticas de la seguridad web actual.",
+      // Framing sentence now varies by the recommended asset's actual content category
+      // (pageType, already carried on every candidate object) instead of one static
+      // sentence firing identically regardless of what's being recommended.
+      const FALLBACK_SENTENCES_BY_TYPE = {
+        en: {
+          "case-study": "Here's how one team already solved this.",
+          "use-case": "This is exactly the kind of gap teams miss.",
+          "blog": "Worth a closer look at what's actually happening here.",
+          "webinar": "This walks through exactly this problem.",
+          "event": "This walks through exactly this problem.",
+          "product": "Here's how this gets covered.",
+          "comparison": "Worth seeing how this actually stacks up.",
+          "other": "Worth a closer look at this.",
+        },
+        de: {
+          "case-study": "So hat ein Team dieses Problem bereits geloest.",
+          "use-case": "Genau diese Luecke uebersehen viele Teams.",
+          "blog": "Ein genauerer Blick lohnt sich hier.",
+          "webinar": "Genau dieses Thema wird hier behandelt.",
+          "event": "Genau dieses Thema wird hier behandelt.",
+          "product": "So wird das konkret abgedeckt.",
+          "comparison": "Ein Vergleich lohnt sich hier.",
+          "other": "Ein genauerer Blick lohnt sich.",
+        },
+        fr: {
+          "case-study": "Voici comment une equipe a deja resolu ce probleme.",
+          "use-case": "C'est exactement le type de lacune que les equipes manquent.",
+          "blog": "Cela merite un examen plus approfondi.",
+          "webinar": "Ce sujet est traite en detail ici.",
+          "event": "Ce sujet est traite en detail ici.",
+          "product": "Voici comment c'est couvert concretement.",
+          "comparison": "Une comparaison utile a consulter.",
+          "other": "Cela merite un examen plus approfondi.",
+        },
+        it: {
+          "case-study": "Ecco come un team ha gia risolto questo problema.",
+          "use-case": "Questo e esattamente il tipo di lacuna che i team non notano.",
+          "blog": "Vale la pena approfondire questo argomento.",
+          "webinar": "Questo argomento viene trattato nel dettaglio.",
+          "event": "Questo argomento viene trattato nel dettaglio.",
+          "product": "Ecco come viene coperto concretamente.",
+          "comparison": "Un confronto utile da vedere.",
+          "other": "Vale la pena approfondire.",
+        },
+        es: {
+          "case-study": "Asi es como un equipo ya resolvio este problema.",
+          "use-case": "Este es exactamente el tipo de brecha que los equipos pasan por alto.",
+          "blog": "Vale la pena profundizar en esto.",
+          "webinar": "Este tema se trata en detalle aqui.",
+          "event": "Este tema se trata en detalle aqui.",
+          "product": "Asi es como se cubre esto en la practica.",
+          "comparison": "Una comparacion que vale la pena ver.",
+          "other": "Vale la pena profundizar en esto.",
+        },
       };
-      opener = `${FALLBACK_SENTENCES[resolvedLang] || FALLBACK_SENTENCES.en} [${fallbackAsset.label}](${fallbackAsset.url})`;
+      const langSentences = FALLBACK_SENTENCES_BY_TYPE[resolvedLang] || FALLBACK_SENTENCES_BY_TYPE.en;
+      const framingSentence = langSentences[fallbackAsset.pageType] || langSentences.other;
+      opener = `${framingSentence} [${fallbackAsset.label}](${fallbackAsset.url})`;
       const FALLBACK_BUBBLES = {
         en: "Web security insight worth reading",
         de: "Lesenswerte Web-Sicherheits-Einblicke",
