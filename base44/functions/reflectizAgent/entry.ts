@@ -930,6 +930,10 @@ Deno.serve(async (req) => {
         // A/B color test: variant is assigned client-side once per session and echoed
         // back on every impression and terminal event so results can be grouped by variant.
         bubbleVariant: body.bubbleVariant || "A",
+        // Client-generated unique ID for this specific bubble instance (set once when it
+        // first shows), echoed back on every terminal event so that handler can update
+        // this exact row instead of guessing via sessionId+pageUrl+most-recent-shownAt.
+        clientImpressionId: body.impressionId ?? "",
       });
     } catch (e) {
       console.error("opener_shown record failed:", e.message);
