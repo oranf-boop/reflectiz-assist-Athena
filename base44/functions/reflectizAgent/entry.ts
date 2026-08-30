@@ -1098,25 +1098,42 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: CORS_HEADERS });
   }
 
-  // Bubble lifecycle events: record on the session's latest impression for this page.
+  // Bubble lifecycle events: record on the exact impression this event belongs to.
+  // Preferred path: the client sends impressionId (the clientImpressionId it was given
+  // when opener_shown first fired for this bubble instance) and we update that row
+  // directly -- no ambiguity possible. Fallback path: for any request without a valid
+  // impressionId (e.g. a stale cached client script during rollout), fall back to the
+  // old sessionId+pageUrl+most-recent-shownAt guess, and log clearly so that path stays
+  // traceable -- it should disappear from logs once all clients are on the new script.
   if (trackingEvent === "bubble_dismissed" || trackingEvent === "bubble_expired" || trackingEvent === "bubble_abandoned") {
     try {
-      if (incomingSessionId) {
-        const base44 = createClientFromRequest(req);
+      const base44 = createClientFromRequest(req);
+      const terminalField = trackingEvent === "bubble_dismissed" ? "dismissed" : trackingEvent === "bubble_abandoned" ? "abandoned" : "expired";
+      const updatePayload = {
+        [terminalField]: true,
+        timeVisibleMs: typeof body.timeVisibleMs === "number" ? body.timeVisibleMs : typeof body.timeVisible === "number" ? body.timeVisible : 0,
+        wasFallback: !!body.isFallback,
+        // Same variant echo as opener_shown above, kept in sync per terminal event.
+        bubbleVariant: body.bubbleVariant || "A",
+      };
+      let target = null;
+      if (body.impressionId) {
+        const exact = await base44.asServiceRole.entities.OpenerImpressions.filter({ clientImpressionId: body.impressionId });
+        target = (exact || [])[0] || null;
+        if (!target) {
+          console.warn("bubble event: impressionId provided but no matching row found, falling back to guess:", body.impressionId);
+        }
+      } else {
+        console.warn("bubble event fallback path used (no impressionId in payload), sessionId:", incomingSessionId);
+      }
+      if (!target && incomingSessionId) {
         const rows = await base44.asServiceRole.entities.OpenerImpressions.filter({ sessionId: incomingSessionId });
         const samePage = (rows || []).filter(r => (r.pageUrl || "") === (currentPageUrl ?? ""));
         const pool = samePage.length > 0 ? samePage : (rows || []);
-        const target = pool.sort((a, b) => String(b.shownAt || "").localeCompare(String(a.shownAt || "")))[0];
-        if (target) {
-          const terminalField = trackingEvent === "bubble_dismissed" ? "dismissed" : trackingEvent === "bubble_abandoned" ? "abandoned" : "expired";
-          await base44.asServiceRole.entities.OpenerImpressions.update(target.id, {
-            [terminalField]: true,
-            timeVisibleMs: typeof body.timeVisibleMs === "number" ? body.timeVisibleMs : typeof body.timeVisible === "number" ? body.timeVisible : 0,
-            wasFallback: !!body.isFallback,
-            // Same variant echo as opener_shown above, kept in sync per terminal event.
-            bubbleVariant: body.bubbleVariant || "A",
-          });
-        }
+        target = pool.sort((a, b) => String(b.shownAt || "").localeCompare(String(a.shownAt || "")))[0];
+      }
+      if (target) {
+        await base44.asServiceRole.entities.OpenerImpressions.update(target.id, updatePayload);
       }
     } catch (e) {
       console.error("bubble event record failed:", e.message);
