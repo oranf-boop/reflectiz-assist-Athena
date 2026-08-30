@@ -2179,14 +2179,63 @@ Return only valid JSON, nothing else:
       const langSentences = FALLBACK_SENTENCES_BY_TYPE[resolvedLang] || FALLBACK_SENTENCES_BY_TYPE.en;
       const framingSentence = langSentences[fallbackAsset.pageType] || langSentences.other;
       opener = `${framingSentence} [${fallbackAsset.label}](${fallbackAsset.url})`;
-      const FALLBACK_BUBBLES = {
-        en: "Web security insight worth reading",
-        de: "Lesenswerte Web-Sicherheits-Einblicke",
-        fr: "Un aperçu sécurité web à lire",
-        it: "Approfondimento di sicurezza web da leggere",
-        es: "Análisis de seguridad web que vale la pena leer",
+      // Same pageType-keyed approach as the opener framing sentence above -- this was
+      // still one static bubble-teaser sentence per language regardless of what content
+      // was actually being recommended.
+      const FALLBACK_BUBBLES_BY_TYPE = {
+        en: {
+          "case-study": "Real customer story worth a look",
+          "use-case": "A gap worth checking on your site",
+          "blog": "Worth reading before it's you",
+          "webinar": "Worth watching before it's you",
+          "event": "Worth watching before it's you",
+          "product": "Worth seeing what this actually covers",
+          "comparison": "Worth seeing how this stacks up",
+          "other": "Web security insight worth reading",
+        },
+        de: {
+          "case-study": "Echte Kundengeschichte, einen Blick wert",
+          "use-case": "Eine Luecke, die Sie pruefen sollten",
+          "blog": "Lesenswert, bevor es Sie trifft",
+          "webinar": "Sehenswert, bevor es Sie trifft",
+          "event": "Sehenswert, bevor es Sie trifft",
+          "product": "Sehen Sie, was das wirklich abdeckt",
+          "comparison": "Sehen Sie, wie das abschneidet",
+          "other": "Lesenswerte Web-Sicherheits-Einblicke",
+        },
+        fr: {
+          "case-study": "Une histoire client reelle a decouvrir",
+          "use-case": "Une lacune a verifier sur votre site",
+          "blog": "A lire avant que cela ne vous arrive",
+          "webinar": "A voir avant que cela ne vous arrive",
+          "event": "A voir avant que cela ne vous arrive",
+          "product": "Voyez ce que cela couvre reellement",
+          "comparison": "Voyez comment cela se compare",
+          "other": "Un apercu securite web a lire",
+        },
+        it: {
+          "case-study": "Una storia cliente reale da vedere",
+          "use-case": "Una lacuna da controllare sul tuo sito",
+          "blog": "Da leggere prima che tocchi a te",
+          "webinar": "Da vedere prima che tocchi a te",
+          "event": "Da vedere prima che tocchi a te",
+          "product": "Scopri cosa copre davvero",
+          "comparison": "Scopri come si confronta",
+          "other": "Approfondimento di sicurezza web da leggere",
+        },
+        es: {
+          "case-study": "Una historia real de un cliente",
+          "use-case": "Una brecha que deberia revisar en su sitio",
+          "blog": "Vale la pena leerlo antes de que le pase a usted",
+          "webinar": "Vale la pena verlo antes de que le pase a usted",
+          "event": "Vale la pena verlo antes de que le pase a usted",
+          "product": "Vea que cubre esto realmente",
+          "comparison": "Vea como se compara esto",
+          "other": "Analisis de seguridad web que vale la pena leer",
+        },
       };
-      bubbleText = bubbleText || (FALLBACK_BUBBLES[resolvedLang] || FALLBACK_BUBBLES.en);
+      const bubbleLangSentences = FALLBACK_BUBBLES_BY_TYPE[resolvedLang] || FALLBACK_BUBBLES_BY_TYPE.en;
+      bubbleText = bubbleText || bubbleLangSentences[fallbackAsset.pageType] || bubbleLangSentences.other;
     }
 
     // Derive bubble from opener if still empty
