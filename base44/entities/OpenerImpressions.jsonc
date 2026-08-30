@@ -29,6 +29,10 @@
       "title": "Bubble Variant",
       "default": "A"
     },
+    "clientImpressionId": {
+      "type": "string",
+      "title": "Client Impression ID"
+    },
     "geo": {
       "type": "string",
       "title": "Geo"
