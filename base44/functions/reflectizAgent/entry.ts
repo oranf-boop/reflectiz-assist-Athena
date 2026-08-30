@@ -202,7 +202,7 @@ const CORS_HEADERS = {
 
 // Soft-launch gate: Athena only activates for these IPs (office + owner).
 // To open Athena to everyone at launch, set SOFT_LAUNCH_GATE = false.
-const SOFT_LAUNCH_GATE = true;
+const SOFT_LAUNCH_GATE = false;
 const GATE_ALLOWED_IPS = [
   "2001:4860:7:1517::fc",
   "31.154.67.162",
