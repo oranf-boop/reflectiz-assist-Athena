@@ -505,8 +505,30 @@ async function callGeminiForPrewarm(prompt) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
-const PREWARM_FALLBACK_SENTENCE_EN = "This page covers one of the most critical areas in web security right now.";
-const PREWARM_FALLBACK_BUBBLE_EN = "Web security insight worth reading";
+// Same pageType-keyed fix as reflectizAgent's FALLBACK_SENTENCES_BY_TYPE / FALLBACK_BUBBLES_BY_TYPE --
+// this was still one static sentence firing identically regardless of what content was
+// actually being recommended. Prewarm is English-only (PREWARM_LANG), so only the en
+// variant set is needed here; wording is copied verbatim from reflectizAgent for consistency.
+const PREWARM_FALLBACK_SENTENCES_BY_TYPE_EN = {
+  "case-study": "Here's how one team already solved this.",
+  "use-case": "This is exactly the kind of gap teams miss.",
+  "blog": "Worth a closer look at what's actually happening here.",
+  "webinar": "This walks through exactly this problem.",
+  "event": "This walks through exactly this problem.",
+  "product": "Here's how this gets covered.",
+  "comparison": "Worth seeing how this actually stacks up.",
+  "other": "Worth a closer look at this.",
+};
+const PREWARM_FALLBACK_BUBBLES_BY_TYPE_EN = {
+  "case-study": "Real customer story worth a look",
+  "use-case": "A gap worth checking on your site",
+  "blog": "Worth reading before it's you",
+  "webinar": "Worth watching before it's you",
+  "event": "Worth watching before it's you",
+  "product": "Worth seeing what this actually covers",
+  "comparison": "Worth seeing how this stacks up",
+  "other": "Web security insight worth reading",
+};
 
 // Mirrors reflectizAgent's INIT opener pipeline: candidate selection, Gemini prompt,
 // JSON parse, validation, fallback. Returns null when there is truly nothing to
@@ -644,8 +666,9 @@ Return only valid JSON, nothing else:
 
   if (!opener) {
     const fallbackAsset = selectedAsset || candidates[0];
-    opener = `${PREWARM_FALLBACK_SENTENCE_EN} [${fallbackAsset.label}](${fallbackAsset.url})`;
-    bubbleText = bubbleText || PREWARM_FALLBACK_BUBBLE_EN;
+    const framingSentence = PREWARM_FALLBACK_SENTENCES_BY_TYPE_EN[fallbackAsset.pageType] || PREWARM_FALLBACK_SENTENCES_BY_TYPE_EN.other;
+    opener = `${framingSentence} [${fallbackAsset.label}](${fallbackAsset.url})`;
+    bubbleText = bubbleText || PREWARM_FALLBACK_BUBBLES_BY_TYPE_EN[fallbackAsset.pageType] || PREWARM_FALLBACK_BUBBLES_BY_TYPE_EN.other;
   }
   if (!bubbleText) bubbleText = opener.split(" ").slice(0, 6).join(" ");
 
