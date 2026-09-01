@@ -193,6 +193,53 @@ function isFormNudgePage(url) {
   return normalized !== "/learning-hub";
 }
 
+// Lightweight, synchronous URL-keyword categorization used to describe a visitor's prior
+// page in natural language (e.g. for the form-page journey nudge below). Mirrors the same
+// keyword taxonomy as determineRouting()'s heuristics further down -- intentionally kept as
+// the same category names/keywords rather than a second, independent classification scheme.
+// determineRouting() additionally layers in async DB-driven category overrides and
+// referral/paid-search signals that matter for INIT routing decisions; those aren't needed
+// here, where the goal is just a human-readable topic label, not a routing decision.
+function classifyJourneyCategory(url) {
+  const u = (url || "").toLowerCase();
+  if (u.includes("reflectiz-vs") || u.includes("vs-reflectiz") || u.includes("cside")) return "comparison";
+  if (u.includes("/plans") || u.includes("/pricing")) return "pricing";
+  if (u.includes("panel-discussion") || u.includes("live-panel") || u.includes("/webinar/")) return "panel";
+  if (u.includes("offensive-hub") || u.includes("pentest") || u.includes("offensive")) return "pentest";
+  if (u.includes("healthcare") || u.includes("hipaa")) return "healthcare";
+  if (u.includes("pci") || u.includes("compliance") || u.includes("dss")) return "pci";
+  if (u.includes("magecart") || u.includes("skimming")) return "magecart";
+  if (u.includes("supply-chain") || u.includes("supply_chain") || u.includes("security-hub")) return "supply-chain";
+  if (u.includes("consent") || u.includes("cookie-banner") || u.includes("ccpa")) return "consent";
+  if (u.includes("privacy") || u.includes("gdpr")) return "privacy";
+  if (u.includes("ai-supply") || u.includes("ai-attack") || u.includes("ai-retail")) return "ai-threats";
+  if (u.includes("ecommerce") || u.includes("retail") || u.includes("shopify")) return "retail";
+  if (u.includes("financial") || u.includes("finance") || u.includes("banking") || u.includes("dora")) return "financial";
+  if (u.includes("/platform/") || u.includes("/product/") || u.includes("remote-monitoring") || u.includes("how-it-works")) return "platform";
+  if (u.includes("/customers/")) return "case-study";
+  if (u.includes("/blog/") || u.includes("/learning-hub/")) return "blog";
+  return null;
+}
+
+const JOURNEY_CATEGORY_LABELS = {
+  comparison: "how Reflectiz compares to other vendors",
+  pricing: "plans and pricing",
+  panel: "an upcoming webinar or panel discussion",
+  pentest: "agentic penetration testing / Offensive Hub",
+  healthcare: "web security for healthcare sites",
+  pci: "PCI compliance",
+  magecart: "Magecart and web skimming attacks",
+  "supply-chain": "third-party script and supply chain risk",
+  consent: "cookie consent and tracking compliance",
+  privacy: "privacy and GDPR risk",
+  "ai-threats": "AI-related web security threats",
+  retail: "web security for e-commerce and retail",
+  financial: "web security for financial services",
+  platform: "the Reflectiz platform itself",
+  "case-study": "a customer success story",
+  blog: "one of the security blog articles",
+};
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
