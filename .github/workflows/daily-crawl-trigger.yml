@@ -11,9 +11,20 @@ name: Daily Crawl Trigger (independent of Base44 automations)
 # that still fires and that we get a visible failure notification for.
 
 on:
-  schedule:
-    # 03:00 UTC daily, matching Base44's "Daily Website Crawl" cron (0 3 * * *).
-    - cron: "0 3 * * *"
+  # Schedule disabled 2026-09-01: this was firing daily and failing every time
+  # (~4-8s in, immediately) because the BASE44_API_KEY secret this step needs
+  # was never added to the repo -- confirmed via the GitHub API that this repo
+  # has zero Actions secrets configured, and via the failing run's own log,
+  # which shows an empty "Authorization: Bearer " header and Base44 rejecting
+  # it with HTTP 500 "Invalid authorization header format". Not a transient
+  # issue, so left disabled rather than left failing loudly every day. Base44's
+  # own "Daily Website Crawl" automation (the thing this was meant as a backup
+  # for) has been healthy since it was fixed separately, so there's no
+  # coverage gap from turning this off -- just no backup notification anymore.
+  # workflow_dispatch below still works, so this can still be run manually, or
+  # re-enable the schedule below once BASE44_API_KEY is actually added.
+  # schedule:
+  #   - cron: "0 3 * * *"
   workflow_dispatch: {}
 
 jobs:
