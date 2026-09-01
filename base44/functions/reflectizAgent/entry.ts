@@ -962,6 +962,75 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Registration/free-trial/contact "lingering on the form" nudge: the widget fires this as
+  // a synthetic first chat message (always with an empty conversationHistory) when a visitor
+  // sits on a FORM_PAGES page without submitting. It never goes through the INIT flow --
+  // isFormPage() makes INIT return reply:null for these pages entirely -- so without this
+  // branch it fell straight into the generic BASELINE_SYSTEM_PROMPT chat completion further
+  // below, which has no pagesViewed/referralSource in its prompt and no rule against
+  // self-introducing on a non-Turn-1 trigger. That's why it used to redundantly say "I'm
+  // Athena..." and default to a generic client-side-risk framing regardless of what page or
+  // campaign the visitor actually came from.
+  const FORM_NUDGE_TRIGGER_RE = /without filling the form/i;
+  if (isFormPage(currentPageUrl) && FORM_NUDGE_TRIGGER_RE.test(message || "")) {
+    const sessionId = incomingSessionId || crypto.randomUUID();
+
+    // Journey signal: most recent non-form page the visitor viewed this session, if any.
+    const priorPages = pagesArr.filter(u => u && !isFormPage(u) && normalizeUrl(u) !== normalizeUrl(currentPageUrl));
+    const journeyUrl = priorPages[priorPages.length - 1] || "";
+    const journeyCategory = journeyUrl ? classifyJourneyCategory(journeyUrl) : null;
+    const journeyLabel = journeyCategory ? JOURNEY_CATEGORY_LABELS[journeyCategory] : null;
+
+    const formPageLabel = (currentPageUrl || "").includes("/free-trial") ? "free trial" : (currentPageUrl || "").includes("/contact") ? "contact" : "registration";
+
+    const journeyNudgePrompt = `You are Athena, a web security expert for Reflectiz. A visitor is sitting on the ${formPageLabel} page without submitting the form yet. Write ONE short proactive chat message to nudge them, tailored to what they actually looked at before arriving here.
+
+VISITOR JOURNEY: ${journeyLabel ? `Before this, they were looking at content about ${journeyLabel} (page: ${journeyUrl}).` : "No prior page on this site is known for this visit. They may have come directly to this page -- do not invent a journey."}
+${safeReferral ? `Referral source: ${safeReferral}` : ""}
+
+RULES:
+- Do NOT introduce yourself. Never say "I'm Athena", "I am the Reflectiz assistant", or anything similar -- this is not necessarily the visitor's first interaction, and self-introduction here reads as a scripted template.
+- If a specific prior topic is given above, reference it the way a person who actually noticed what someone was looking at would describe it in conversation. Paraphrase the topic itself, do not restate the page name or category label verbatim (never "I see you were on the pentest page" -- instead something like "looks like you've been exploring agentic penetration testing").
+- If no prior topic is known, do not invent or imply one. Just acknowledge they're on this page and offer to help before they sign up, honestly and simply.
+- Maximum 2 sentences.
+- End with a genuine, specific question tied to what would actually be unclear or slowing them down, not a generic "any questions?".
+- No em dashes. No filler like "Great question" or "Happy to help".
+- Plain text only, no markdown links.${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response must be written in ${LANGUAGE_NAMES[resolvedLang]}.` : ""}
+
+Return only valid JSON, nothing else:
+{"opener": "..."}`;
+
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+    const geminiResult = await Promise.race([
+      callGemini({ messages: [{ role: "user", content: journeyNudgePrompt }], max_tokens: 300, model: "gemini-2.5-flash-lite" }),
+      geminiTimeout
+    ]);
+
+    let opener = null;
+    if (geminiResult) {
+      try {
+        const cleaned = (geminiResult?.content?.[0]?.text ?? "").trim().replace(/```json|```/g, "").trim();
+        opener = JSON.parse(cleaned).opener || null;
+      } catch (e) {
+        console.error("Form-page journey nudge JSON parse failed:", e.message);
+      }
+    }
+    if (opener) opener = opener.replace(/—/g, ",").replace(/–/g, "-").replace(/--/g, ",").replace(/&#[0-9]+;/g, "").replace(/&[a-z]+;/g, "").trim();
+
+    if (!opener) {
+      const FORM_NUDGE_FALLBACK = {
+        en: "You're on our registration page, happy to help with anything before you sign up.",
+        de: "Sie sind auf unserer Registrierungsseite, ich helfe gerne bei Fragen vor der Anmeldung.",
+        fr: "Vous etes sur notre page d'inscription, ravie de vous aider avant que vous ne finalisiez.",
+        it: "Sei sulla nostra pagina di registrazione, sono felice di aiutarti prima che tu ti iscriva.",
+        es: "Esta en nuestra pagina de registro, encantada de ayudarle con cualquier duda antes de inscribirse.",
+      };
+      opener = FORM_NUDGE_FALLBACK[resolvedLang] || FORM_NUDGE_FALLBACK.en;
+    }
+
+    return new Response(JSON.stringify({ reply: opener, sessionId }), { headers: CORS_HEADERS });
+  }
+
   // Opener impression tracking: bubble was shown to a visitor. DB record only, no Slack.
   if (trackingEvent === "opener_shown") {
     try {
