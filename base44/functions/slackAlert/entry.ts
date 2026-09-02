@@ -148,6 +148,8 @@ Deno.serve(async (req) => {
     });
   }
 
+  const base44 = createClientFromRequest(req);
+
   // Session-aware enrichment: query entities when a sessionId is provided.
   // Body fields below act as fallbacks so legacy callers keep working.
   let conv = null;
@@ -155,7 +157,6 @@ Deno.serve(async (req) => {
   let clicks = [];
   if (sessionId) {
     try {
-      const base44 = createClientFromRequest(req);
       const [convRows, impRows, clickRows] = await Promise.all([
         base44.asServiceRole.entities.Conversations.filter({ sessionId }).catch(() => []),
         base44.asServiceRole.entities.OpenerImpressions.filter({ sessionId }).catch(() => []),
