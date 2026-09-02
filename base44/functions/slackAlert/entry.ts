@@ -334,16 +334,45 @@ Return only the one sentence summary.`;
     footer,
   ].filter(s => s !== undefined && s !== null).join("\n");
 
-  const slackRes = await fetch(SLACK_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-
-  if (!slackRes.ok) {
-    const err = await slackRes.text();
-    return Response.json({ error: `Slack returned ${slackRes.status}: ${err}` }, { status: 500 });
+  if (!SLACK_BOT_TOKEN) {
+    return Response.json({ error: "SLACK_BOT_TOKEN env var is not set" }, { status: 500 });
   }
 
-  return Response.json({ success: true });
+  // Thread under this session's existing top-level message, if it has one. A session
+  // missing slackMessageTs falls back to posting top-level below -- either because this
+  // really is the first event of a brand-new session (expected, this is how the anchor
+  // message gets created in the first place), or because it's an older session that
+  // started before this threading fix shipped (unexpected past this rollout -- logged
+  // below so how often it's still happening is visible).
+  const threadTs = conv?.slackMessageTs || undefined;
+  if (!threadTs && conv && eventType !== "widget_opened" && !(eventType === "new_conversation" && (conv.conversationTurns ?? 0) <= 1)) {
+    console.warn("slackAlert: no slackMessageTs on existing session, falling back to a new top-level post", {
+      sessionId, eventType, conversationTurns: conv.conversationTurns ?? 0,
+    });
+  }
+
+  const postRes = await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+    body: JSON.stringify({
+      channel: SLACK_CHANNEL,
+      text,
+      mrkdwn: true,
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    }),
+  }).then(r => r.json());
+
+  if (!postRes.ok) {
+    return Response.json({ error: `Slack returned error: ${postRes.error}` }, { status: 500 });
+  }
+
+  // Only a top-level post establishes a new thread anchor. A threaded reply keeps the
+  // session's slackMessageTs pointed at the original message, not this reply's own ts.
+  if (!threadTs && conv && conv.id && postRes.ts) {
+    await base44.asServiceRole.entities.Conversations.update(conv.id, { slackMessageTs: postRes.ts }).catch(e =>
+      console.error("Failed to save slackMessageTs:", e.message)
+    );
+  }
+
+  return Response.json({ success: true, ts: postRes.ts, threaded: !!threadTs });
 });
