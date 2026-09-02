@@ -123,6 +123,31 @@ Deno.serve(async (req) => {
     isWidgetOpen,
   } = body;
 
+  // Zero-side-effect diagnostic: confirms SLACK_BOT_TOKEN is valid and resolves the
+  // configured channel, without posting anything. auth.test and conversations.list are
+  // both read-only Slack API calls. Not used by reflectizAgent -- callable directly for
+  // verification only.
+  if (body.debugAuthCheck === true) {
+    if (!SLACK_BOT_TOKEN) {
+      return Response.json({ ok: false, error: "SLACK_BOT_TOKEN env var is not set" }, { status: 500 });
+    }
+    const authRes = await fetch("https://slack.com/api/auth.test", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+    }).then(r => r.json());
+    const channelsRes = await fetch(`https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200`, {
+      headers: { "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+    }).then(r => r.json());
+    const matchingChannel = (channelsRes.channels || []).find(c => c.name === SLACK_CHANNEL);
+    return Response.json({
+      authTest: authRes,
+      configuredChannelName: SLACK_CHANNEL,
+      resolvedChannel: matchingChannel ? { id: matchingChannel.id, name: matchingChannel.name, is_member: matchingChannel.is_member } : null,
+      channelsListOk: channelsRes.ok,
+      channelsListError: channelsRes.error || null,
+    });
+  }
+
   // Session-aware enrichment: query entities when a sessionId is provided.
   // Body fields below act as fallbacks so legacy callers keep working.
   let conv = null;
