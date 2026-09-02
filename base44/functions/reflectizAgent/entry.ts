@@ -1326,6 +1326,7 @@ Return only valid JSON, nothing else:
     "https://www.reflectiz.com/customers/leeds-united-cyber-attack-case-study/": "Leeds United had malicious code infiltrate their site through a trusted third-party service. Here's how they caught it before it became a headline.",
     "https://www.reflectiz.com/blog/bank-websites-loan-data-tracking-pixels/": "9 of 14 bank websites studied sent loan applicant data to TikTok, Google, and Meta without proper consent. Is yours one of them?",
     "https://www.reflectiz.com/blog/jscrambler-npm-package-compromise/": "The Jscrambler npm package was compromised, proof that even security vendors can become a supply chain risk. Who's watching your vendors' code?",
+    "https://www.reflectiz.com/lp/agentic-pt-web/": "Reflectiz runs 10x the pentest coverage for the same budget, with real testing live within 1 day. Curious what that looks like on your own site?",
   };
   const CURATED_BUBBLES_DE: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % Ihrer Drittanbieter-Skripte greifen unbefugt auf Daten zu -- auch Ihre?",
