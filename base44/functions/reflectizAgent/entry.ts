@@ -2089,8 +2089,11 @@ URL: ${selectedAsset.url}
 WRITE TWO THINGS:
 
 1. bubbleText: This is the thought bubble a visitor sees before they open the chat. It must feel like a person talking, not a headline. Write it the way a colleague would say it out loud.
-Prefer a question over a statement when the page topic naturally invites one. Example: "Is your checkout actually secure?" beats "Checkout security risks revealed".
-Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
+Prefer a question over a statement when the page topic naturally invites one, but a stat or named source comes first either way -- "your" alone never carries the sentence.
+Must contain at least one of: a specific number or percentage, a named company or incident, a named regulation, or a named threat or attack vector. A direct you/your reference to the visitor is a good addition on top of one of those, never a substitute for one -- a bubble with "your" but no concrete number, name, or source is still generic and fails this rule.
+REJECTED PATTERN, do not write bubbles like these: bare category-question phrasing with no concrete hook, e.g. "TPRM in the AI Era trends?", "Is your website secure?", or a bare CTA like "Access [Product Name]" or "Get [Product Name]" -- these tell the visitor nothing they did not already know from the page title.
+GOOD EXAMPLES, match this level of specificity: "OWASP's 2026 list ranks software supply chain security as the #3 risk. Is your web app actually monitoring for it?" and "Apexx achieved zero PCI audit findings. Here is how they did it." -- both name a specific source, ranking, or result, not just the topic.
+If the current page content above is missing or too thin to supply a real stat, pull the sharpest concrete claim available from the page title or meta description instead (a number, a named capability, a specific outcome) -- do not fall back to a generic action-verb CTA like "Access X" or "Get X" just because detailed content is not available.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
 Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
@@ -2143,8 +2146,11 @@ WRITE THREE THINGS:
 1. selectedUrl: The exact URL of the option you picked from above. Must be one of the URLs listed.
 
 2. bubbleText: This is the thought bubble a visitor sees before they open the chat. It must feel like a person talking, not a headline. Write it the way a colleague would say it out loud.
-Prefer a question over a statement when the page topic naturally invites one. Example: "Is your checkout actually secure?" beats "Checkout security risks revealed".
-Must contain at least one of: a specific number, a named company, a named regulation, a named threat, or a direct you or your reference to the visitor.
+Prefer a question over a statement when the page topic naturally invites one, but a stat or named source comes first either way -- "your" alone never carries the sentence.
+Must contain at least one of: a specific number or percentage, a named company or incident, a named regulation, or a named threat or attack vector. A direct you/your reference to the visitor is a good addition on top of one of those, never a substitute for one -- a bubble with "your" but no concrete number, name, or source is still generic and fails this rule.
+REJECTED PATTERN, do not write bubbles like these: bare category-question phrasing with no concrete hook, e.g. "TPRM in the AI Era trends?", "Is your website secure?", or a bare CTA like "Access [Product Name]" or "Get [Product Name]" -- these tell the visitor nothing they did not already know from the page title.
+GOOD EXAMPLES, match this level of specificity: "OWASP's 2026 list ranks software supply chain security as the #3 risk. Is your web app actually monitoring for it?" and "Apexx achieved zero PCI audit findings. Here is how they did it." -- both name a specific source, ranking, or result, not just the topic.
+If the current page content above is missing or too thin to supply a real stat, pull the sharpest concrete claim available from the page title or meta description instead (a number, a named capability, a specific outcome) -- do not fall back to a generic action-verb CTA like "Access X" or "Get X" just because detailed content is not available.
 Minimum 4 words, maximum 10 words. Sentence case only, never Title Case.
 Never use marketing words like revealed, unveiled, insights, discover, explore, or learn, in any language (this includes their translated equivalents such as scopri/scoprire, decouvrez/decouvrir, entdecken/erfahren, descubre/descubra).
 Always capitalize company names, product names, and acronyms correctly (for example PayPal, Stripe, OWASP, Jscrambler, XSS, CSRF), even mid-sentence -- never lowercase a brand name.
