@@ -1,17 +1,26 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
-// This integration uses a Slack Incoming Webhook only, no bot token. Webhooks can only
-// post new messages, they cannot update or delete a previous one and never return a
-// message ts, so chat.update is not available here. Consolidation to one message per
-// session (Option B) is therefore implemented entirely in the caller (reflectizAgent):
-// this function stays a plain post-whatever-it-is-given endpoint, and reflectizAgent
-// only calls it for the approved trigger events (first widget open, first message
-// fallback, CTA reached, high-intent link click).
-const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
-if (!SLACK_WEBHOOK_URL) {
-  console.error("SLACK_WEBHOOK_URL env var is not set");
+// Posts via the "Athena Webite Agent" Slack app's bot token (chat.postMessage), not the
+// plain incoming webhook this used before. A webhook can only ever post a brand-new
+// top-level message -- it never returns a message ts, so there was nothing to thread
+// subsequent events under. That's why session activity used to show up as 3-5 separate
+// top-level posts per visitor (Option B below only reduced which events posted, it never
+// solved the fragmentation itself, since a webhook architecturally can't).
+//
+// chat.postMessage DOES return a ts for the message it just created, so threading is now
+// real: the first event in a session posts top-level and its ts is saved to that session's
+// Conversations.slackMessageTs; every later event for the same sessionId looks that ts up
+// and posts with thread_ts set, landing as a reply under the original message instead of a
+// new post. See the bottom of this file for where that happens.
+const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN");
+if (!SLACK_BOT_TOKEN) {
+  console.error("SLACK_BOT_TOKEN env var is not set");
 }
+// Channel name (no #) the bot posts session-activity into. chat.postMessage accepts a
+// bare channel name for a bot that is already a member of it, same channel the old
+// incoming webhook posted to.
+const SLACK_CHANNEL = Deno.env.get("SLACK_ATHENA_CHANNEL") || "athena-chat";
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-central1";
