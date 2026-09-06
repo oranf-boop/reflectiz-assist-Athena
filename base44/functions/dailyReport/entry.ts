@@ -341,13 +341,6 @@ Deno.serve(async (req) => {
     lines.push(``);
     lines.push(`*:pushpin: Registration clicks*`);
     lines.push(`${ctaClickCount} direct clicks to /registration/ or /free-trial/`);
-    lines.push(``);
-    lines.push(`*:art: A/B Bubble Color Test*`);
-    ["A", "B", "C"].forEach(v => {
-      const s = variantStats[v];
-      lines.push(`Variant ${v} (${VARIANT_LABELS[v]}): ${s.impressions} impressions · ${s.expired} expired · ${s.dismissed} dismissed · ${s.openRate}% open rate`);
-    });
-    lines.push(leadingVariant ? `_Leading: Variant ${leadingVariant}_` : `_Leading: not enough data yet, each variant needs 10+ impressions to qualify_`);
 
     if (totalImpressions < 10) {
       lines.push(``);
