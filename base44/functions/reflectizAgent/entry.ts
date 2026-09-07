@@ -1326,6 +1326,18 @@ Return only valid JSON, nothing else:
     "https://www.reflectiz.com/customers/leeds-united-cyber-attack-case-study/": "Leeds United had malicious code infiltrate their site through a trusted third-party service. Here's how they caught it before it became a headline.",
     "https://www.reflectiz.com/blog/bank-websites-loan-data-tracking-pixels/": "9 of 14 bank websites studied sent loan applicant data to TikTok, Google, and Meta without proper consent. Is yours one of them?",
     "https://www.reflectiz.com/blog/jscrambler-npm-package-compromise/": "The Jscrambler npm package was compromised, proof that even security vendors can become a supply chain risk. Who's watching your vendors' code?",
+    "https://www.reflectiz.com/learning-hub/magecart-attack-in-ecomm/": "Attackers set up a fake Shopify store just to host Magecart skimmer code on Shopify's own CDN. Would that slip past your monitoring?",
+    "https://www.reflectiz.com/learning-hub/secure-vibe-coding/": "AI-assisted repos show 40% higher secret exposure than human-written code. Is your vibe-coded app already leaking credentials?",
+    "https://www.reflectiz.com/learning-hub/cookie-privacy-monster-case-study/": "Reflectiz found 37 domains injecting cookies without consent, hidden behind a corporate VPN. Could yours be doing the same undetected?",
+    "https://www.reflectiz.com/learning-hub/web-exposure-management-report/": "Gartner says most web exposure programs still can't see every first-party, third-party, and nth-party script running live. Can yours?",
+    "https://www.reflectiz.com/learning-hub/ciso-guide-ctem/": "With a standard vulnerability-management approach, a formjacking attack can go unnoticed for weeks. Gartner's CTEM framework catches it before it starts, does yours?",
+    "https://www.reflectiz.com/learning-hub/javascript-injection-playbook/": "The Polyfill.io supply chain attack silently compromised over 100,000 websites, including Hulu and Mercedes-Benz. Is a trusted script doing the same on yours?",
+    "https://www.reflectiz.com/learning-hub/live-panel-discussion-2026/": "PCI DSS 4.0.1 compliance doesn't equal protection, according to execs from Domino's, APEXX Global, and the PCI Council. Where does your payment risk actually sit?",
+    "https://www.reflectiz.com/learning-hub/reflectiz-taboola-marketing-security-webinar/": "One approved marketing tag can trigger dozens of unreviewed fourth-party scripts, even on platforms reaching 600 million users daily like Taboola's. What's hiding behind yours?",
+    "https://www.reflectiz.com/learning-hub/webinar-ai-retail-feb-2026/": "AI agents now control retail payment pages, and attackers are already exploiting them through prompt injection. Is your checkout ready for that?",
+    "https://www.reflectiz.com/learning-hub/ai-supply-chain-attacks/": "AI-enabled supply chain attacks jumped 156% last year, and the EU AI Act now fines violations up to 35 million euros. Is your defense keeping pace?",
+    "https://www.reflectiz.com/learning-hub/gtm-tags-case-study/": "Reflectiz found GTM and its connected apps drive 45% of total risk exposure across 4,000 sites analyzed. Is your tag manager one of them?",
+    "https://www.reflectiz.com/learning-hub/ctem-divide-2026-research/": "Only 16% of security leaders have actually implemented CTEM, even though 87% know they should. Which side of that gap are you on?",
     "https://www.reflectiz.com/lp/agentic-pt-web/": "Reflectiz runs 10x the pentest coverage for the same budget, with real testing live within 1 day. Curious what that looks like on your own site?",
   };
   const CURATED_BUBBLES_DE: Record<string, string> = {
