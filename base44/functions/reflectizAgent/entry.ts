@@ -1472,6 +1472,7 @@ Return only valid JSON, nothing else:
         const normalizedUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
         const pageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedUrl });
         pageContent = pageRecord?.[0]?.pageContent || "";
+        if (!pageRecord?.length) triggerContentFetchIfMissing(normalizedUrl);
       } catch (e) {
         console.error("Form nudge page content fetch failed:", e.message);
       }
@@ -1648,6 +1649,7 @@ Return only valid JSON:
       const normalizedCurrentUrl = (currentPageUrl || "").replace(/\/$/, "") + "/";
       const currentPageRecord = await base44.asServiceRole.entities.WebsiteContent.filter({ pageUrl: normalizedCurrentUrl });
       currentPageContent = (currentPageRecord?.[0]?.pageContent || "").replace(/\s+/g, " ").trim().slice(0, 700);
+      if (!currentPageRecord?.length) triggerContentFetchIfMissing(normalizedCurrentUrl);
     } catch (e) {
       console.error("Current page content fetch failed:", e.message);
     }
