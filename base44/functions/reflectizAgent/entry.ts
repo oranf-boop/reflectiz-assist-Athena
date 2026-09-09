@@ -502,6 +502,14 @@ function sanitizeContent(text) {
     .trim();
 }
 
+const _contentFetchTriggered = new Set();
+function triggerContentFetchIfMissing(pageUrl) {
+  const key = (pageUrl || "").toLowerCase();
+  if (!key || _contentFetchTriggered.has(key)) return;
+  _contentFetchTriggered.add(key);
+  fireScheduledCrawlSingleUrl(pageUrl);
+}
+
 function normalizeUrl(url) {
   if (!url) return "";
   return url
