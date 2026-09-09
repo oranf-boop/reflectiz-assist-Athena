@@ -502,6 +502,14 @@ function sanitizeContent(text) {
     .trim();
 }
 
+function fireScheduledCrawlSingleUrl(pageUrl) {
+  fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/scheduledCrawl", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+    body: JSON.stringify({ singleUrl: pageUrl }),
+  }).catch(() => {});
+}
+
 const _contentFetchTriggered = new Set();
 function triggerContentFetchIfMissing(pageUrl) {
   const key = (pageUrl || "").toLowerCase();
