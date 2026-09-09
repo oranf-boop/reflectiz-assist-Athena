@@ -1339,6 +1339,7 @@ Return only valid JSON, nothing else:
     "https://www.reflectiz.com/learning-hub/gtm-tags-case-study/": "Reflectiz found GTM and its connected apps drive 45% of total risk exposure across 4,000 sites analyzed. Is your tag manager one of them?",
     "https://www.reflectiz.com/learning-hub/ctem-divide-2026-research/": "Only 16% of security leaders have actually implemented CTEM, even though 87% know they should. Which side of that gap are you on?",
     "https://www.reflectiz.com/lp/agentic-pt-web/": "Reflectiz runs 10x the pentest coverage for the same budget, with real testing live within 1 day. Curious what that looks like on your own site?",
+    "https://www.reflectiz.com/lp/founders-case-study-webinar/": "Reflectiz's own co-founder, ranked #22 in Google's Hall of Fame, had their pentest agent find a critical OTP flaw at a major insurance company exposing millions of users. What would it find on yours?",
   };
   const CURATED_BUBBLES_DE: Record<string, string> = {
     "https://www.reflectiz.com/": "64 % Ihrer Drittanbieter-Skripte greifen unbefugt auf Daten zu -- auch Ihre?",
