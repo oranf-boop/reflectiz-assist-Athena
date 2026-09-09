@@ -803,6 +803,24 @@ async function prewarmPageOpeners(base44, limit) {
   let options = {};
   try { options = await req.json(); } catch (_e) { options = {}; }
 
+  // Traffic-triggered content backfill (called fire-and-forget from reflectizAgent's
+  // triggerContentFetchIfMissing whenever a live request hits a page with zero
+  // WebsiteContent rows): crawl exactly one URL on demand, bypassing the sitemap parse,
+  // 2-day recency filter, and hub-discovery pipeline entirely. Reuses crawlPage() as-is --
+  // same active/dead-page handling, same WebsiteContent write -- so a page that got real
+  // traffic before scheduledCrawl's own next run (or one /lp/* excludes outright from the
+  // sitemap path) still gets a row from its very first real visit, not just its lucky next
+  // nightly run. Additive only -- the sitemap/recency logic below is untouched.
+  if (options.singleUrl) {
+    try {
+      const result = await crawlPage(options.singleUrl, base44, now);
+      return Response.json({ single_url: options.singleUrl, result: result.status });
+    } catch (e) {
+      console.error("Single-URL triggered crawl failed:", options.singleUrl, e.message);
+      return Response.json({ single_url: options.singleUrl, error: e.message }, { status: 500 });
+    }
+  }
+
   let summary = { prewarm_only: true, run_date: now };
   if (!options.prewarmOnly) {
   try {
