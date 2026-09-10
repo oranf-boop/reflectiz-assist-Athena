@@ -1729,8 +1729,17 @@ Return only valid JSON:
         ...(Array.isArray(pagesViewed) ? pagesViewed.map(u => normalizeUrl(u)) : [normalizeUrl(pagesViewed)]).filter(Boolean),
       ]);
       try {
-        // Fetch ALL active records and filter in-memory -- DB array-field queries are unreliable
-        const allContent = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000);
+        // Fetch ALL active records and filter in-memory -- DB array-field queries are unreliable.
+        // Time-boxed: under high concurrent load this full scan can back up like any other DB
+        // read; racing it against a timeout lets a slow scan fail fast into the existing empty-
+        // candidates path (see the hardcoded-opener safety net below) instead of hanging the
+        // whole request.
+        const listTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+        const allContent = await Promise.race([
+          base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 1000),
+          listTimeout,
+        ]);
+        if (!allContent) return [];
         const matches = allContent.filter(page =>
           page.isActive === true &&
           Array.isArray(page.categories) &&
@@ -1981,7 +1990,15 @@ Return only valid JSON:
     // Panel routing -- fetch companion panel/event pages dynamically from DB
     if (routing.reason === "panel-priority") {
       try {
-        const allPages = await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500);
+        // Same time-boxing as getCandidatesForCategory's scan below -- a slow read here just
+        // means no panel candidates were found in time, and execution falls through to the
+        // regular getCandidatesForCategory path a few lines down.
+        const panelListTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+        const allPages = await Promise.race([
+          base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500),
+          panelListTimeout,
+        ]);
+        if (!allPages) throw new Error("panel candidate list timed out");
         const panelKeywords = ["panel-discussion", "live-panel", "/webinar/"];
         const securityEventKws = ["pci", "security", "compliance", "privacy", "supply", "pentest", "magecart", "threat", "breach", "risk"];
         const panelPages = allPages.filter(p => {
