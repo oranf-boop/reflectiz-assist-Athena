@@ -6,7 +6,11 @@ const REGION = "us-central1";
 const GEMINI_MODEL = "gemini-2.5-flash";
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
 
+let _geminiToken = null;
+let _geminiTokenExpiry = 0;
+
 async function getAccessToken() {
+  if (_geminiToken && Date.now() < _geminiTokenExpiry) return _geminiToken;
   const sa = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON"));
   const jwt = new JWT({
     email: sa.client_email,
@@ -14,6 +18,8 @@ async function getAccessToken() {
     scopes: ["https://www.googleapis.com/auth/cloud-platform"],
   });
   const { token } = await jwt.getAccessToken();
+  _geminiToken = token;
+  _geminiTokenExpiry = Date.now() + 55 * 60 * 1000; // 55 min cache
   return token;
 }
 
