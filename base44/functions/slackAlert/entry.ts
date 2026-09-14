@@ -358,6 +358,12 @@ Return only the one sentence summary.`;
       channel: SLACK_CHANNEL,
       text,
       mrkdwn: true,
+      // The View Session / View Dashboard links below always point at the same dashboard
+      // URL, so Slack's auto-unfurl was generating an identical big preview card under
+      // every single message, drowning out the actual session activity. The links
+      // themselves stay fully clickable -- this only suppresses the extra preview card.
+      unfurl_links: false,
+      unfurl_media: false,
       ...(threadTs ? { thread_ts: threadTs } : {}),
     }),
   }).then(r => r.json());
