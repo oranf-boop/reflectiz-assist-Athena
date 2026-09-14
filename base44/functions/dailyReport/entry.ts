@@ -111,7 +111,7 @@ async function postToSlack(text) {
   const res = await fetch(SLACK_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, unfurl_links: false, unfurl_media: false }),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
