@@ -307,7 +307,7 @@ async function runBubbleEngagementAnalysis(base44, weekConversations) {
     await fetch(SLACK_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: slackText }),
+      body: JSON.stringify({ text: slackText, unfurl_links: false, unfurl_media: false }),
     }).catch(err => console.error("Slack bubble report failed:", err.message));
   }
 
@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
         await fetch(SLACK_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: slackText }),
+          body: JSON.stringify({ text: slackText, unfurl_links: false, unfurl_media: false }),
         }).catch(err => console.error("Slack opener invalidation notification failed:", err.message));
       }
     }
