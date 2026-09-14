@@ -59,7 +59,7 @@ async function postToSlack(channel, text) {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${SLACK_BOT_TOKEN}`,
     },
-    body: JSON.stringify({ channel, text, mrkdwn: true }),
+    body: JSON.stringify({ channel, text, mrkdwn: true, unfurl_links: false, unfurl_media: false }),
   });
 }
 
