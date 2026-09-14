@@ -246,7 +246,7 @@ ${changeSummary}
   await fetch(Deno.env.get("SLACK_WEBHOOK_URL"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: slackText }),
+    body: JSON.stringify({ text: slackText, unfurl_links: false, unfurl_media: false }),
   }).catch(err => console.error("Slack notification failed:", err.message));
 
   return Response.json({ status: "pending_review", pendingChangeId: pendingChange.id, changeSummary });
