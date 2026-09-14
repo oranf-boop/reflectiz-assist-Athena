@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
         await fetch(SLACK_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, unfurl_links: false, unfurl_media: false }),
         }).catch((e) => console.error("Slack DOWN alert failed:", e.message));
       }
     }
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         await fetch(SLACK_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, unfurl_links: false, unfurl_media: false }),
         }).catch((e) => console.error("Slack RECOVERED alert failed:", e.message));
       }
     }
