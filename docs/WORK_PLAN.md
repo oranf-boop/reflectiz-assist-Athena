@@ -232,19 +232,16 @@ backfill path exists for the known-affected rows (`37dfc470`, `85a34018`,
 `b4829b31`, `0b034df3`, and the Sep 1 Offensive Hub / `9607db7e` session).
 
 ## 7. PendingConfigChanges — AI system-prompt change proposals
-**Status: 🔴 Open (1 of 2 unresolved as of 2026-09-17)**
+**Status: ✅ Done — both resolved**
 
-- Sep 14 proposal: reviewed and **rejected** 2026-09-17. Closed, no action needed.
-- Sep 9 proposal: still **pending**, unreviewed for 8+ days as of last check.
-  Its own auto-generated `changeSummary` field is truncated/broken and
-  doesn't actually describe the change. On inspection of the raw
-  `proposedPrompt`/`previousPrompt` diff: approving it as-is would silently
-  **delete** three working conversation rules (repeated-off-topic handling,
-  the financial-services page recommendation, and the Sucuri/WAF
-  competitor-objection script) while adding two reasonable small
-  improvements (acknowledging vague Turn-2 replies naturally, handling
-  ambiguous inputs). **Recommend it not be approved until rewritten** to
-  keep the existing rules intact.
+- Sep 14 proposal: reviewed and **rejected** 2026-09-17.
+- Sep 9 proposal: reviewed and **rejected** 2026-09-22 (confirmed via direct
+  query: `status: "rejected"`, `updated_date: 2026-09-22`). This is the one
+  that would have silently deleted three working conversation rules
+  (repeated-off-topic handling, the financial-services page recommendation,
+  the Sucuri/WAF competitor-objection script) — correctly rejected, not
+  approved as-is. Live `reflectizAgent` prompt is unaffected by either
+  proposal.
 
 ## 8. RAG keyword-search: a third unbounded `WebsiteContent.list(500)` scan
 **Status: 🔴 Open — flagged, not fixed**
