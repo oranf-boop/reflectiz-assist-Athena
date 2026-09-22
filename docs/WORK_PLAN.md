@@ -35,18 +35,51 @@ fetch, independent of sitemap status or recency: `triggerContentFetchIfMissing`
 of 2026-09-17 (new `WebsiteContent` rows appearing at non-cron hours).
 
 ## 2. Hardcoded Base44 API key
-**Status: 🔴 Open**
+**Status: ✅ Done (code + secret) — ⚠️ live behavioral proof not achievable, see below**
 
 The internal app-key used for cross-function calls (`app-key-AQMEVGjibXJE...`)
-is a literal string hardcoded directly in source — currently 7+ occurrences
-across `reflectizAgent/entry.ts` and `scheduledCrawl/entry.ts`, including the
-one added for item #1 above. No env var currently exists for it (unlike
-`SLACK_WEBHOOK_URL` / `GOOGLE_SERVICE_ACCOUNT_JSON`, which are read via
-`Deno.env.get`). Raised repeatedly, never fixed. Real fix requires creating a
-Base44 environment variable/secret (a dashboard action, not something
-available via the MCP tools used in these sessions) and then updating every
-occurrence for consistency — fixing only new occurrences while leaving
-existing ones hardcoded doesn't actually reduce exposure.
+was a literal string hardcoded in 8 places across `reflectizAgent/entry.ts`
+(7) and `scheduledCrawl/entry.ts` (1). Previously flagged as blocked on a
+dashboard-only action — **that was re-checked 2026-09-22 and found to no
+longer be true** now that CLI auth works (see item #3's auth fix). `base44
+secrets set` genuinely exists and works: created `BASE44_INTERNAL_API_KEY`
+directly via `base44 --app-id 69edc5de1c84c71c086635e0 secrets set
+"BASE44_INTERNAL_API_KEY=..."`, no dashboard step needed, confirmed present
+afterward via `secrets list`. All 8 occurrences replaced with
+`Deno.env.get("BASE44_INTERNAL_API_KEY")` (module-scope const, same pattern
+as `SLACK_WEBHOOK_URL`), 0 literal occurrences remain (grep-confirmed), both
+files syntax-check clean. Published 2026-09-22.
+
+**Live verification attempted thoroughly, but hit genuine structural
+limits — reporting honestly rather than claiming a clean proof that
+doesn't exist.** A live test conversation through the fixed code path
+succeeded normally (no crash from the env-var change). But isolating
+whether the *specific key value* is being read and used correctly turned
+out to be untestable through either consumer of this key, for reasons
+pre-existing and unrelated to this fix:
+- `scheduledCrawl`'s `singleUrl` endpoint does not enforce the
+  Authorization header at all — confirmed by sending it both the correct
+  key and a deliberately wrong one; both produced identical responses.
+- `reflectizAgent`'s own `x-athena-prewarm` header check (the other
+  consumer) is currently unreachable dead code, since `SOFT_LAUNCH_GATE =
+  false` makes `gateAllows()` return `true` unconditionally before that
+  check is ever reached.
+- Neither `scheduledCrawl` nor `slackAlert` (the two functions this key is
+  sent to) log anything on their success paths, so prod logs couldn't help
+  distinguish "worked" from "silently no-op'd."
+- A secondary attempt to confirm via the test conversation's
+  `firstMessageAlertSent` field (which the code sets unconditionally on
+  conversation creation) found it unexpectedly absent from the stored
+  record — flagged as a separate, unconfirmed oddity worth a closer look
+  in a future session, not assumed to be caused by this fix.
+
+**Bottom line:** the fix itself — eliminating the hardcoded secret from
+source — is complete, deployed, and confirmed via source/syntax
+verification. Confirming the *exact value* is correctly consumed live
+would require either adding a real auth check to `scheduledCrawl`'s
+`singleUrl` endpoint (arguably a good idea on its own merits) or re-enabling
+`SOFT_LAUNCH_GATE`, neither of which was done here since both are out of
+scope for a credential-hygiene fix.
 
 ## 3. Fallback rate — spike fixed, instability unresolved
 **Status: 🟡 In progress**
