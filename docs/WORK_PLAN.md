@@ -67,11 +67,39 @@ crisis average. A weekday/weekend correlation was hypothesized from one
 week of data but not yet confirmed against the full post-fix window. Sep 11
 specifically (28.9%, the worst day of the whole spike) remains unexplained.
 
-**Next step:** this session is re-investigating the full Sep 10–22 window
-to test the weekday/weekend hypothesis properly and look for a second,
-non-load-proportional bottleneck (a fixed-capacity resource with
-unpredictable contention, rather than a simple more-traffic-more-fallback
-relationship). See findings appended below once complete.
+**2026-09-22 investigation findings:** pulled the full Sep 10–22 window
+(13 days). The weekday/weekend pattern is real, not one week's coincidence
+— two independent Saturdays (5.8%, 5.6%) and two independent Sundays (3.2%,
+4.9%) both land in a tight low band; two independent Thu/Fri pairs (24.0%/
+28.9% and 17.3%/19.7%) both land in a consistently high band. But it does
+**not** track this app's own traffic volume: Sep 14 (Monday) had 1,806
+impressions — the single highest-volume day in the whole window — yet only
+11.8% fallback, better than either Thursday, both of which had *less*
+traffic. Simple "more visitors = more fallback" does not explain this.
+
+Most coherent explanation given the evidence: contention on a **shared,
+fixed-capacity resource that something other than Athena's own visitor
+traffic drives** — most plausibly the Gemini/OAuth quota shared across
+*every* function in this codebase that calls Gemini (`scheduledCrawl`,
+`analyzeAndLearn`, `dailyReport`, `applyLearning`, `backfillCategories`,
+`resetCategories`, `trainingAgent`, `slackBot`, not just `reflectizAgent`),
+or Base44's own platform-level infrastructure shared across tenants —
+either of which could plausibly follow a general weekday-business-hours
+pattern unrelated to Reflectiz's own traffic specifically.
+
+**Not confirmed, and no fix proposed — deliberately.** No cron/schedule
+config is visible in this repo (Base44 schedules are set via the platform
+dashboard, not source-controlled), and Base44 server-side logs remain
+inaccessible from this sandbox (the `base44 logs` device-code auth has
+blocked every attempt across multiple sessions, including 2026-09-22).
+Without confirming the actual mechanism, forcing a code fix here would be
+a guess, not a fix. Sep 11 (28.9%, the single worst day of the whole
+window) still has no more specific explanation than "this pattern."
+
+**Next step:** get working Base44 log access (needs a human to complete
+the device-code browser confirmation outside this sandbox), or check the
+Base44 dashboard directly for which functions in this app are scheduled
+on which days, to see if anything clusters on Thu/Fri.
 
 ## 4. Conversion-tagging: zero-message sessions tagged "Converted"
 **Status: ✅ Done — verified live**
