@@ -81,6 +81,26 @@ would require either adding a real auth check to `scheduledCrawl`'s
 `SOFT_LAUNCH_GATE`, neither of which was done here since both are out of
 scope for a credential-hygiene fix.
 
+## 18. Internal endpoints have no auth enforcement
+**Status: 🔴 Open — new finding, 2026-09-22**
+
+Discovered while verifying item #2: `scheduledCrawl`'s `singleUrl` mode
+(added for item #1's crawl-coverage fix) does not check the Authorization
+header at all — a deliberately wrong key produces the identical result to
+the correct one. Separately, `reflectizAgent`'s own equality check on this
+same key is currently dead code, since `SOFT_LAUNCH_GATE = false` makes
+`gateAllows()` return true before that check is ever reached. Net effect:
+the internal API key now lives safely out of source control (item #2),
+but isn't actually enforced by either receiving function right now — a
+real, separate gap, arguably bigger in practice than the hardcoding
+itself was. Not fixed — found during a different task, correctly not
+fixed opportunistically without being asked first.
+
+**Also flagged, unconfirmed:** a test conversation's `firstMessageAlertSent`
+field was unexpectedly absent from the stored record despite the code
+setting it unconditionally on conversation creation — noted as a new,
+unverified lead from the same investigation, not yet looked into.
+
 ## 3. Fallback rate — spike fixed, instability unresolved
 **Status: 🟡 In progress**
 
