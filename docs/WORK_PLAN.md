@@ -307,20 +307,26 @@ requires a real stat or named entity. Re-confirmed present in the live
 prompt through 2026-09-17.
 
 ## 14. No analytics (GA4) connector attached
-**Status: 🔴 Open — roadmap item**
+**Status: ✅ Mitigated — via Swan, not a native connector**
 
-Traffic-source breakdowns in reporting rely entirely on Athena's own
-chat-engagement referral data (a small, possibly biased sample — sessions
-that triggered some widget interaction only), not real total site traffic.
-Connecting GA4 would replace this proxy with the real picture.
+No GA4 connector exists on this Base44 app directly, and that's not being
+pursued. Instead, Swan (a separate connected agent) has live GA4 access and
+has been used successfully multiple times this month for real traffic-source
+and session-level validation (e.g. cross-checking referral sources against
+real GA4 sessions, confirming/debunking suspicious `?ref=` tags). This is an
+on-demand, ask-when-needed check rather than always-on reporting data inside
+Base44 itself — good enough for verification, not a substitute for wiring
+GA4 numbers directly into automated reports if that's ever wanted later.
 
 ## 15. No CRM (HubSpot) connector attached
-**Status: 🔴 Open — roadmap item**
+**Status: ✅ Mitigated — via Swan, not a native connector**
 
-Self-labeled "Converted"/CTA-reached conversations cannot be independently
-verified from within Base44 — every self-reported conversion this
-engagement has surfaced has needed manual cross-checking against real CRM
-records by a human. A connector would remove that manual step.
+Same resolution as #14: Swan has live HubSpot access and has been used
+successfully to verify real contacts/deals this month (ThaleLabs/Unni,
+Logan Darby) — confirming or debunking self-labeled "Converted" sessions on
+request. This remains a manual, ask-Swan-when-needed step, not an automated
+cross-check baked into reporting — worth keeping in mind if conversion
+numbers ever need to be verified at scale rather than one at a time.
 
 ## 16. Phase 2b — bubble timing/exposure question
 **Status: 🔴 Open — long-standing, no new data**
