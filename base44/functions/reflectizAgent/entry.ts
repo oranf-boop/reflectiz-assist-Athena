@@ -23,7 +23,7 @@ async function getAccessToken() {
   return token;
 }
 
-async function callGemini({ system, messages, max_tokens, model }) {
+async function callGemini({ system, messages, max_tokens, model, signal }) {
   const token = await getAccessToken();
   const resolvedModel = model || GEMINI_MODEL;
   const url = `https://${REGION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${REGION}/publishers/google/models/${resolvedModel}:generateContent`;
@@ -41,10 +41,13 @@ async function callGemini({ system, messages, max_tokens, model }) {
     body.systemInstruction = { parts: [{ text: system }] };
   }
 
+  // An optional AbortSignal lets a caller that gave up waiting (e.g. a Promise.race
+  // timeout) actually stop this request instead of leaving it running server-side.
   const res = await fetch(url, {
     method: "POST",
     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
   if (!res.ok) {
     const errText = await res.text();
