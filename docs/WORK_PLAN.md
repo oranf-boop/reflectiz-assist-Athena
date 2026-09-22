@@ -263,6 +263,3 @@ average: ~0.35%, flat across the window with no upward trend visible. At
 that pace the full month would land well under target — this is a KPI to
 keep watching each reporting cycle, not a single fix to ship.
 
----
-
-*(Findings from the 2026-09-22 fallback re-investigation, item #3, appended below once complete.)*
