@@ -87,19 +87,58 @@ or Base44's own platform-level infrastructure shared across tenants —
 either of which could plausibly follow a general weekday-business-hours
 pattern unrelated to Reflectiz's own traffic specifically.
 
-**Not confirmed, and no fix proposed — deliberately.** No cron/schedule
-config is visible in this repo (Base44 schedules are set via the platform
-dashboard, not source-controlled), and Base44 server-side logs remain
-inaccessible from this sandbox (the `base44 logs` device-code auth has
-blocked every attempt across multiple sessions, including 2026-09-22).
-Without confirming the actual mechanism, forcing a code fix here would be
-a guess, not a fix. Sep 11 (28.9%, the single worst day of the whole
-window) still has no more specific explanation than "this pattern."
+**2026-09-22 (later same day) — Base44 CLI auth finally succeeded** (root
+cause of every prior failure: the CLI was being killed by a short shell
+`timeout` before it could detect confirmation — not an actual auth
+problem; fixed by running `base44 login`/`whoami` detached via `nohup ...
+&`). Both previously-blocked capabilities now work with `--app-id
+69edc5de1c84c71c086635e0` passed explicitly.
 
-**Next step:** get working Base44 log access (needs a human to complete
-the device-code browser confirmation outside this sandbox), or check the
-Base44 dashboard directly for which functions in this app are scheduled
-on which days, to see if anything clusters on Thu/Fri.
+**Schedule list obtained** (`base44 workflows list`): 7 automations.
+`applyLearning` ("Weekly Agent Prompt Update") and `analyzeAndLearn`
+("Weekly Conversation Analysis") both run **weekly on Mondays, ~04:00–
+05:30 UTC** — real, confirmed extra load specifically on Monday mornings.
+Being weekly (not daily), this alone can't explain a Thu/Fri-specific
+pattern.
+
+**Prod log retention is same-day only — confirmed by direct test.**
+Queried `base44 logs --env prod` for Sep 18 through Sep 21 explicitly:
+all four returned "No production logs found"; only Sep 22 (today)
+returned data. **Historical logs for the actual worst/best days (Sep 18,
+21 vs Sep 19, 20) are not retrievable — this avenue is closed for
+retroactive analysis**, not blocked by auth anymore. Only real-time
+monitoring going forward would work via this path.
+
+**New corroborating evidence from today's live logs:** 59 of 77
+`reflectizAgent` log lines in a 30-minute window (77%) show a Gemini/
+Vertex-AI call (`us-central1-aiplatform.googleapis.com`) still in-flight
+*after* the response was already sent to the visitor
+(`b44_telemetry:post_response_work`, `non_ok_pre_response:true`). This
+directly corroborates a gap identified during the original Sep 10 fix
+investigation and never addressed: the `Promise.race`-based timeouts
+around the security-guard/opener Gemini calls stop *waiting* on Gemini
+but never cancel the underlying call, so it keeps running regardless.
+Seen on ~3 in 4 requests even on a moderate day (Tuesday) — a routine,
+ongoing condition, not a rare edge case. Not proven to be specifically
+worse on Thu/Fri (no historical comparison possible, see above), but a
+real, current, unaddressed contributor to unpredictable contention under
+bursty load.
+
+**Still not confirmed, still no fix proposed — deliberately.** Two real
+leads now exist (Monday weekly-job load; routine orphaned Gemini calls
+from uncancelled `Promise.race` timeouts) but neither is confirmed as
+*the* cause of the Thu/Fri-specific pattern, and retroactive log
+verification is no longer possible. Sep 11 (28.9%, the single worst day
+of the whole window) still has no specific explanation.
+
+**Next step:** the `Promise.race`-doesn't-cancel gap is real, current,
+and independently worth fixing (via `AbortController`) regardless of
+whether it's the full explanation for the weekday pattern — this was
+already flagged as deferred, deliberate scope in the original Sep 10 fix
+session. Given retroactive logs are gone, the only way to test the Thu/
+Fri hypothesis further now is prospective: watch this same live-logs
+metric (in-flight-at-response rate) across the next Thu/Fri vs a
+weekend, in real time, before drawing a final conclusion.
 
 ## 4. Conversion-tagging: zero-message sessions tagged "Converted"
 **Status: ✅ Done — verified live**
