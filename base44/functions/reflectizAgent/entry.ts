@@ -2543,7 +2543,12 @@ Generate a natural one-sentence opening message that:
   ].filter(Boolean).join("\n");
 
   const userContent = [ragBlock, visitorContext, message].filter(Boolean).join("\n\n");
-  messages.push({ role: "user", content: userContent });
+  // displayContent carries the visitor's real, untagged text alongside the composite prompt
+  // content -- content (with the RAG block + [Visitor geo]/[Visitor language]/[Current page]
+  // tags) is what Gemini sees and is left untouched; displayContent is what the transcript
+  // shows, so turn 1 of a conversation no longer disappears from the transcript just because
+  // this turn happened to carry visitor-context tags.
+  messages.push({ role: "user", content: userContent, displayContent: message });
 
   // Security guard: screen the visitor's own current-turn message for injection before it
   // reaches the main Gemini call. Using `message` directly, not the composite userContent
@@ -2662,6 +2667,10 @@ Generate a natural one-sentence opening message that:
   const ctaReached = userMessageCount >= 1 && /meeting|trial|contact|assessment|registration|sign up|demo/i.test(reply);
 
   function isCleanMessage(m) {
+    // A message carrying displayContent already has its real, tag-free text available --
+    // never drop it from the transcript. Fall back to the old substring check only for
+    // messages that don't (e.g. anything pushed elsewhere without this field).
+    if (m.displayContent !== undefined) return true;
     const c = m.content || "";
     return !c.includes("[RELEVANT WEBSITE CONTENT]") &&
       !c.includes("[Visitor language") &&
@@ -2670,7 +2679,7 @@ Generate a natural one-sentence opening message that:
 
   const cleanTranscript = messages
     .filter(isCleanMessage)
-    .map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.content}`)
+    .map(m => `${m.role === "user" ? "Visitor" : "Agent"}: ${m.displayContent ?? m.content}`)
     .join("\n\n");
 
   const lastMessageRole = messages[messages.length - 1]?.role || "assistant";
