@@ -822,9 +822,14 @@ Respond with exactly one word only: SAFE, SUSPICIOUS, or BLOCKED.
 No explanation. No punctuation. One word.`;
 
   try {
+    // AbortController so a timed-out guard call actually stops instead of continuing to
+    // run server-side after this function has already moved on.
+    const guardController = new AbortController();
+    const guardCall = callGemini({ messages: [{ role: "user", content: prompt }], max_tokens: 5, model: "gemini-2.5-flash-lite", signal: guardController.signal });
+    guardCall.catch(() => {}); // swallow the AbortError from a timed-out call, never let it surface as an unhandled rejection
     const guardResult = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: prompt }], max_tokens: 5, model: "gemini-2.5-flash-lite" }),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), 2000)),
+      guardCall,
+      new Promise<null>(resolve => setTimeout(() => { guardController.abort(); resolve(null); }, 2000)),
     ]);
     const verdict = ((guardResult as any)?.content?.[0]?.text ?? "").trim().toUpperCase().replace(/[^A-Z]/g, "");
     if (verdict === "BLOCKED") return "BLOCKED";
@@ -869,9 +874,12 @@ Respond with exactly one word only: SAFE or BLOCKED.
 No explanation. No punctuation. One word.`;
 
   try {
+    const guardController = new AbortController();
+    const guardCall = callGemini({ messages: [{ role: "user", content: prompt }], max_tokens: 5, model: "gemini-2.5-flash-lite", signal: guardController.signal });
+    guardCall.catch(() => {});
     const guardResult = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: prompt }], max_tokens: 5, model: "gemini-2.5-flash-lite" }),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), 2000)),
+      guardCall,
+      new Promise<null>(resolve => setTimeout(() => { guardController.abort(); resolve(null); }, 2000)),
     ]);
     const verdict = ((guardResult as any)?.content?.[0]?.text ?? "").trim().toUpperCase().replace(/[^A-Z]/g, "");
     return verdict === "BLOCKED" ? "BLOCKED" : "SAFE";
@@ -1025,9 +1033,12 @@ RULES:
 Return only valid JSON, nothing else:
 {"opener": "..."}`;
 
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+    const geminiController = new AbortController();
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => { geminiController.abort(); resolve(null); }, 5000));
+    const geminiCall = callGemini({ messages: [{ role: "user", content: journeyNudgePrompt }], max_tokens: 300, model: "gemini-2.5-flash-lite", signal: geminiController.signal });
+    geminiCall.catch(() => {});
     const geminiResult = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: journeyNudgePrompt }], max_tokens: 300, model: "gemini-2.5-flash-lite" }),
+      geminiCall,
       geminiTimeout
     ]);
 
@@ -1513,9 +1524,12 @@ ABSOLUTE RULES:
 Return only valid JSON, nothing else:
 {"bubbleText": "...", "opener": "Insight sentence. Plain text form nudge sentence."}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names and standard names like PCI DSS unchanged.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
 
-      const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const geminiController = new AbortController();
+      const geminiTimeout = new Promise((resolve) => setTimeout(() => { geminiController.abort(); resolve(null); }, 5000));
+      const geminiCall = callGemini({ messages: [{ role: "user", content: formNudgePrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite", signal: geminiController.signal });
+      geminiCall.catch(() => {});
       const geminiResult = await Promise.race([
-        callGemini({ messages: [{ role: "user", content: formNudgePrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite" }),
+        geminiCall,
         geminiTimeout
       ]);
 
@@ -1608,9 +1622,12 @@ ABSOLUTE RULES:
 Return only valid JSON:
 {"bubbleText": "5-6 words here", "opener": "Insight sentence. [${hubLabel}](${hubCompanionUrl})"}${resolvedLang !== "en" ? `\nCRITICAL LANGUAGE REQUIREMENT: The ENTIRE response (bubbleText and opener sentence 1) must be written in ${LANGUAGE_NAMES[resolvedLang]}. Do not write any sentence in English. Keep brand names, standard names like PCI DSS, and the exact markdown link in sentence 2 unchanged.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
 
-      const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const geminiController = new AbortController();
+      const geminiTimeout = new Promise((resolve) => setTimeout(() => { geminiController.abort(); resolve(null); }, 5000));
+      const geminiCall = callGemini({ messages: [{ role: "user", content: hubPrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite", signal: geminiController.signal });
+      geminiCall.catch(() => {});
       const geminiResult = await Promise.race([
-        callGemini({ messages: [{ role: "user", content: hubPrompt }], max_tokens: 512, model: "gemini-2.5-flash-lite" }),
+        geminiCall,
         geminiTimeout
       ]);
 
@@ -2123,7 +2140,8 @@ Return only valid JSON:
     }
 
     // STEP 2: Gemini writes the copy only
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+    const geminiController = new AbortController();
+    const geminiTimeout = new Promise((resolve) => setTimeout(() => { geminiController.abort(); resolve(null); }, 5000));
 
     let openerPrompt;
 
@@ -2231,8 +2249,10 @@ Return only valid JSON, nothing else:
 {"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
     }
 
+    const geminiCall = callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite", signal: geminiController.signal });
+    geminiCall.catch(() => {});
     const geminiResult = await Promise.race([
-      callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite" }),
+      geminiCall,
       geminiTimeout
     ]);
 
