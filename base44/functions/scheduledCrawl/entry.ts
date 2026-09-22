@@ -1,6 +1,9 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 
+// Shared secret for internal cross-function calls within this app.
+const BASE44_INTERNAL_API_KEY = Deno.env.get("BASE44_INTERNAL_API_KEY");
+
 const HUB_PAGES_CRAWL = [
   "https://www.reflectiz.com/learning-hub/",
   "https://www.reflectiz.com/events/",
@@ -947,7 +950,7 @@ async function prewarmPageOpeners(base44, limit) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH"
+              "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}`
             },
             body: JSON.stringify({}),
             signal: AbortSignal.timeout(120000),
