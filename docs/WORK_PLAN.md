@@ -140,6 +140,44 @@ Fri hypothesis further now is prospective: watch this same live-logs
 metric (in-flight-at-response rate) across the next Thu/Fri vs a
 weekend, in real time, before drawing a final conclusion.
 
+### 3a. Orphaned Gemini calls from uncancelled `Promise.race` timeouts
+**Status: ✅ Done — verified live, 2026-09-22.** (Sub-item of #3 — this
+does NOT close #3 itself; the weekday/weekend mechanism is still not
+fully confirmed, see above.)
+
+Fixed all 6 `Promise.race`-wrapped Gemini calls in `reflectizAgent/entry.ts`
+(`securityGuard`, `outputGuard`, the journey/form-lingering nudge, the
+hub-companion nudge, and the main opener generation): each now creates an
+`AbortController`, calls `.abort()` at the exact moment its timeout fires
+(2000ms for the two guards, 5000ms for the four content-generation calls)
+instead of just giving up waiting, and passes the signal into `callGemini()`
+(which now accepts an optional `signal` and forwards it to its underlying
+`fetch()`). A no-op `.catch(() => {})` on each call prevents the eventual
+`AbortError` from surfacing as an unhandled rejection. Timeout durations,
+fallback behavior, and the visitor-facing response are all unchanged —
+scoped purely to what happens to the abandoned request afterward.
+
+**Live-verified with real before/after log evidence, not just code
+review.** Published 2026-09-22 13:09 UTC. Pulled prod logs before and
+after via `base44 logs --env prod --function reflectizAgent` (the
+`post_response_work` / `inflight_at_response` telemetry, filtered for
+calls to `us-central1-aiplatform.googleapis.com`):
+
+| | Pre-fix (same day, before 13:09 UTC) | Post-fix (13:09–13:27 UTC, 5 live test requests + organic traffic) |
+|---|---|---|
+| Gemini call in-flight after response | 59 of 77 log lines (77%) | 0 of 34 log lines (0%) |
+
+The only `post_response_work` entries remaining post-fix are for the
+separate, intentionally fire-and-forget Slack-alert call
+(`api.base44.app`, `non_ok_pre_response:false`) — never part of this bug,
+correctly still async-by-design. The specific Gemini-abandonment signal
+dropped to zero.
+
+Note: prod log retention is same-day only (see above), so this before/
+after comparison was only possible because both windows fell on
+2026-09-22 — a day earlier and the pre-fix baseline would already have
+aged out.
+
 ## 4. Conversion-tagging: zero-message sessions tagged "Converted"
 **Status: ✅ Done — verified live**
 
