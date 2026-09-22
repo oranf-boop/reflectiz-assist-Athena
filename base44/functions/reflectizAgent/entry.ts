@@ -517,7 +517,7 @@ function sanitizeContent(text) {
 function fireScheduledCrawlSingleUrl(pageUrl) {
   fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/scheduledCrawl", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
     body: JSON.stringify({ singleUrl: pageUrl }),
   }).catch(() => {});
 }
