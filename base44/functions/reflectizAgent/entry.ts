@@ -2656,7 +2656,10 @@ Generate a natural one-sentence opening message that:
 
   const intentClassification = await classifyIntent(messages, currentPageUrl);
 
-  const ctaReached = /meeting|trial|contact|assessment|registration|sign up|demo/i.test(reply);
+  // ctaReached must never fire on a session with no real visitor message -- otherwise a
+  // CTA-shaped word anywhere in Athena's own opening/nudge reply (e.g. "registration")
+  // tags the session CONVERTED even though the visitor never said anything.
+  const ctaReached = userMessageCount >= 1 && /meeting|trial|contact|assessment|registration|sign up|demo/i.test(reply);
 
   function isCleanMessage(m) {
     const c = m.content || "";
