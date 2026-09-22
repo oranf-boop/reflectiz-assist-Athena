@@ -5,6 +5,9 @@ const PROJECT_ID = "dashboarderv0";
 const REGION = "us-central1";
 const GEMINI_MODEL = "gemini-2.5-flash";
 const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+// Shared secret for internal cross-function calls within this app (scheduledCrawl,
+// slackAlert, etc.) and for validating the widget-uptime prewarm header below.
+const BASE44_INTERNAL_API_KEY = Deno.env.get("BASE44_INTERNAL_API_KEY");
 
 let _geminiToken = null;
 let _geminiTokenExpiry = 0;
@@ -279,7 +282,7 @@ function gateClientIp(req) {
 function gateAllows(req) {
   if (!SOFT_LAUNCH_GATE) return true;
   // Internal cache pre-warm requests bypass the visitor gate.
-  if (req.headers.get("x-athena-prewarm") === "app-key-AQMEVGjibXJE55B9QiqZnjCH") return true;
+  if (req.headers.get("x-athena-prewarm") === BASE44_INTERNAL_API_KEY) return true;
   const ip = gateClientIp(req);
   if (!ip) return false;
   if (GATE_ALLOWED_IPS.some(e => e.toLowerCase() === ip)) return true;
@@ -1146,7 +1149,7 @@ Return only valid JSON, nothing else:
     if (shouldAlert) {
       await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
           sessionId: incomingSessionId ?? "",
           eventType: "widget_opened",
@@ -1232,7 +1235,7 @@ Return only valid JSON, nothing else:
     if (isHighIntent) {
       await fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
           sessionId,
           eventType: "link_click",
@@ -2742,7 +2745,7 @@ Generate a natural one-sentence opening message that:
     if (fireConversionAlert) {
       fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
           sessionId,
           eventType: "conversion",
@@ -2763,7 +2766,7 @@ Generate a natural one-sentence opening message that:
     } else if (fireFirstMessageAlert) {
       fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
           sessionId,
           eventType: "new_conversation",
@@ -2801,7 +2804,7 @@ Generate a natural one-sentence opening message that:
 
     fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer app-key-AQMEVGjibXJE55B9QiqZnjCH" },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
       body: JSON.stringify({
         sessionId,
         eventType: "new_conversation",
