@@ -2143,9 +2143,6 @@ Return only valid JSON:
     }
 
     // STEP 2: Gemini writes the copy only
-    const geminiController = new AbortController();
-    const geminiTimeout = new Promise((resolve) => setTimeout(() => { geminiController.abort(); resolve(null); }, 5000));
-
     let openerPrompt;
 
     if (!isMultiCandidate) {
@@ -2252,78 +2249,109 @@ Return only valid JSON, nothing else:
 {"selectedUrl": "...", "bubbleText": "5-6 words here", "opener": "Sentence one. [label](url)"}${resolvedLang !== "en" ? `\nIMPORTANT: Write the opener sentence, the link label text (the text in square brackets), and the bubbleText in ${LANGUAGE_NAMES[resolvedLang]}. Keep the URL inside the parentheses exactly unchanged. Keep product names, brand names, and standard names like PCI DSS in their original form.${resolvedLang === "de" ? " Follow German capitalization rules: all nouns are capitalized, not just sentence starts." : ""}` : ""}`;
     }
 
-    const geminiCall = callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite", signal: geminiController.signal });
-    geminiCall.catch(() => {});
-    const geminiResult = await Promise.race([
-      geminiCall,
-      geminiTimeout
-    ]);
+    async function runOpenerAttempt() {
+      const attemptController = new AbortController();
+      const attemptTimeout = new Promise((resolve) => setTimeout(() => { attemptController.abort(); resolve(null); }, 5000));
+      const attemptCall = callGemini({ messages: [{ role: "user", content: openerPrompt }], max_tokens: 1024, model: "gemini-2.5-flash-lite", signal: attemptController.signal });
+      attemptCall.catch(() => {});
+      const attemptResult = await Promise.race([attemptCall, attemptTimeout]);
 
-    let opener = null;
-    let bubbleText = null;
+      let attemptOpener = null;
+      let attemptBubbleText = null;
+      let attemptSelectedAsset = selectedAsset;
 
-    if (geminiResult) {
-      const rawText = (geminiResult?.content?.[0]?.text ?? "").trim();
-      try {
-        const cleaned = rawText.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-        opener = parsed.opener || null;
-        bubbleText = parsed.bubbleText || null;
+      if (attemptResult) {
+        const rawText = (attemptResult?.content?.[0]?.text ?? "").trim();
+        try {
+          const cleaned = rawText.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(cleaned);
+          attemptOpener = parsed.opener || null;
+          attemptBubbleText = parsed.bubbleText || null;
 
-        if (isMultiCandidate && parsed.selectedUrl) {
-          const matched = candidates.find(c =>
-            c.url === parsed.selectedUrl || c.url.replace(/\/$/, "") === String(parsed.selectedUrl).replace(/\/$/, "")
-          );
-          if (matched) selectedAsset = matched;
+          if (isMultiCandidate && parsed.selectedUrl) {
+            const matched = candidates.find(c =>
+              c.url === parsed.selectedUrl || c.url.replace(/\/$/, "") === String(parsed.selectedUrl).replace(/\/$/, "")
+            );
+            if (matched) attemptSelectedAsset = matched;
+          }
+        } catch (e) {
+          console.error("JSON parse failed:", e.message);
         }
-      } catch (e) {
-        console.error("JSON parse failed:", e.message);
       }
+
+      // Sanitize HTML entities from opener and bubbleText
+      if (attemptOpener) {
+        attemptOpener = attemptOpener
+          .replace(/&#039;/g, "'")
+          .replace(/&#8211;/g, "-")
+          .replace(/&#8212;/g, "-")
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&#\d+;/g, "")
+          .replace(/&[a-z]+;/g, "");
+      }
+      if (attemptBubbleText) {
+        attemptBubbleText = attemptBubbleText
+          .replace(/&#039;/g, "'")
+          .replace(/&#8211;/g, "-")
+          .replace(/&#8212;/g, "-")
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#\d+;/g, "")
+          .replace(/&[a-z]+;/g, "");
+      }
+
+      // Repair nested brackets inside markdown labels: [text [x] more](url) -> [text x more](url)
+      if (attemptOpener) {
+        attemptOpener = attemptOpener.replace(/\[([^\]]*)\[([^\]]*)\]([^\]]*)\]\(/g, "[$1$2$3](");
+      }
+
+      // Validate opener using Gemini's chosen asset
+      const validationAsset = (isMultiCandidate && attemptSelectedAsset) ? attemptSelectedAsset : candidates[0];
+      const currentPageStripped = (currentPageUrl || "").replace(/\/$/, "");
+      if (!attemptOpener || attemptOpener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset ||
+        !attemptOpener.includes(validationAsset.url.replace(/\/$/, "")) ||
+        (currentPageStripped && attemptOpener.includes(currentPageStripped + ")")) ||
+        (currentPageStripped && attemptOpener.includes(currentPageStripped + "/)"))) {
+        attemptOpener = null;
+      }
+
+      return { opener: attemptOpener, bubbleText: attemptBubbleText, selectedAsset: attemptSelectedAsset };
     }
 
-    // Sanitize HTML entities from opener and bubbleText
-    if (opener) {
-      opener = opener
-        .replace(/&#039;/g, "'")
-        .replace(/&#8211;/g, "-")
-        .replace(/&#8212;/g, "-")
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&#\d+;/g, "")
-        .replace(/&[a-z]+;/g, "");
-    }
-    if (bubbleText) {
-      bubbleText = bubbleText
-        .replace(/&#039;/g, "'")
-        .replace(/&#8211;/g, "-")
-        .replace(/&#8212;/g, "-")
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .replace(/&#\d+;/g, "")
-        .replace(/&[a-z]+;/g, "");
+    let opener;
+    let bubbleText;
+    {
+      const firstAttempt = await runOpenerAttempt();
+      opener = firstAttempt.opener;
+      bubbleText = firstAttempt.bubbleText;
+      if (firstAttempt.selectedAsset) selectedAsset = firstAttempt.selectedAsset;
     }
 
-    // Repair nested brackets inside markdown labels: [text [x] more](url) -> [text x more](url)
-    if (opener) {
-      opener = opener.replace(/\[([^\]]*)\[([^\]]*)\]([^\]]*)\]\(/g, "[$1$2$3](");
-    }
-
-    // Validate opener using Gemini's chosen asset
-    // Only fall back to candidates[0] if opener already failed
-    const validationAsset = (isMultiCandidate && selectedAsset) ? selectedAsset : candidates[0];
-    const currentPageStripped = (currentPageUrl || "").replace(/\/$/, "");
-    if (!opener || opener.replace(/\[.*?\]\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean).length < 4 || !validationAsset ||
-      !opener.includes(validationAsset.url.replace(/\/$/, "")) ||
-      (currentPageStripped && opener.includes(currentPageStripped + ")")) ||
-      (currentPageStripped && opener.includes(currentPageStripped + "/)"))) {
-      opener = null;
+    // Curated pages have a safety net for bubbleText (CURATED_BUBBLES_EN) but not for
+    // opener/reply -- a single Gemini failure/timeout/validation-rejection here used to
+    // get permanently cached and served to every future visitor (docs/WORK_PLAN.md #3b).
+    // One bounded retry (its own AbortController, same 5s budget) gives curated pages a
+    // second chance before falling back. Uncurated pages are unchanged: one attempt only.
+    if (!opener && curatedBubble) {
+      console.warn("curated-page opener retry triggered:", currentPageUrl);
+      const retryAttempt = await runOpenerAttempt();
+      if (retryAttempt.opener) {
+        opener = retryAttempt.opener;
+        bubbleText = retryAttempt.bubbleText;
+        if (retryAttempt.selectedAsset) selectedAsset = retryAttempt.selectedAsset;
+      } else {
+        console.warn("curated-page opener retry also failed, falling back (not caching):", currentPageUrl);
+      }
     }
 
     if (isMultiCandidate && !selectedAsset) {
       selectedAsset = candidates[0];
     }
+
+    let usedFallbackOpener = false;
 
     // Privacy violation check
     const privacyViolations = ["direct traffic", "you came from", "you searched", "you landed", "after searching", "via google", "organic search", "indicates a strong", "your search", "coming from", "traffic to"];
@@ -2353,6 +2381,7 @@ Return only valid JSON, nothing else:
 
     // Fallback if Gemini failed
     if (!opener) {
+      usedFallbackOpener = true;
       const fallbackAsset = selectedAsset || candidates[0];
       // Framing sentence now varies by the recommended asset's actual content category
       // (pageType, already carried on every candidate object) instead of one static
@@ -2485,8 +2514,13 @@ Return only valid JSON, nothing else:
     // Strip any Unicode en/em dashes from bubbleText
     if (bubbleText) bubbleText = bubbleText.replace(/[–—]/g, "--");
 
-    // Cache
-    if (isValidPageUrl && opener && bubbleText) {
+    // Cache -- a curated page that still had to fall back to a generic sentence (even
+    // after the retry above) is deliberately NOT cached: caching it would lock in the
+    // same bad opener for every future visitor, the exact bug this fix addresses
+    // (docs/WORK_PLAN.md #3b). Skipping the write means the next visitor gets a fresh
+    // generation attempt instead of the same stale result forever.
+    const skipCuratedFallbackCache = !!curatedBubble && usedFallbackOpener;
+    if (isValidPageUrl && opener && bubbleText && !skipCuratedFallbackCache) {
       await upsertPageOpener(base44, canonicalCacheUrl(currentPageUrl), {
         opener,
         bubbleText,
@@ -2495,6 +2529,8 @@ Return only valid JSON, nothing else:
         isActive: true,
         isCurated: !!curatedBubble,
       });
+    } else if (skipCuratedFallbackCache) {
+      console.warn("curated-page opener still fallback after retry, not caching:", currentPageUrl);
     }
 
     return new Response(JSON.stringify({ reply: decorateOpener(opener, message, resolvedLang), bubbleText, lang: resolvedLang, sessionId }), { headers: CORS_HEADERS });
