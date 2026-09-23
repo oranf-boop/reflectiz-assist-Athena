@@ -259,14 +259,40 @@ curated `bubbleText` alongside a generic fallback `reply`. Confirmed by reading
   e.g. a cached `blog/elfsight-incident` row mixing an English curated bubble
   with a French fallback opener. Same root design gap, different symptom.
 
-**No fix applied — stopping to report per this session's scope.** The design
-gap (curated override never reaching `opener`) is intentional-by-comment, so
-"fixing" it is a product decision, not a safe mechanical patch. Two directions
-exist for Oran to choose between (neither implemented): (a) minimal —  when
-`isCurated` is true, don't cache/serve a fallback-sentence `opener`, forcing a
-retry instead of permanently locking in the pairing; (b) broader — extend
-curated content to include a curated `opener`/reply for these pages too, not
-just the bubble teaser. Cache rows were read-only queried, nothing written.
+**Decision made 2026-09-23: pursue option (a).** Implemented, not yet published.
+
+- **Retry policy:** when the page is curated (`curatedBubble` truthy) and the
+  first Gemini opener attempt fails validation/timeout/parse, retry **exactly
+  once** with a fresh, independent `AbortController` + 5s budget (same as the
+  original attempt, so a failed retry aborts its own call cleanly instead of
+  becoming a second orphaned background call, per item #3a). Uncurated pages
+  are completely unchanged — still one attempt only.
+- **If the retry also fails:** the generic fallback sentence is still shown to
+  *this* visitor (unchanged visitor-facing behavior on double failure), but
+  the result is **not written to the `PageOpeners` cache** (chose option (ii)
+  over a short-TTL cache, since a TTL would need new cache-schema/expiry logic
+  for a race that a per-request retry cap already bounds, while skipping the
+  write is simpler and self-healing: the next visitor gets a fresh attempt,
+  and once any visit succeeds it's cached normally and all further visits are
+  free cache hits, no more Gemini calls at all).
+- **Worst-case cost:** at most 1 extra Gemini call, and only for the ~15% of
+  curated pages currently stuck (cache-hit visits and uncurated pages: zero
+  extra cost). Self-limiting by design — cost only recurs for a given page
+  until its first successful regeneration.
+- **Code:** `base44/functions/reflectizAgent/entry.ts`, the INIT opener path.
+  The call+parse+validate logic was extracted into a local `runOpenerAttempt()`
+  so both the first attempt and the retry share one implementation; a
+  `usedFallbackOpener` flag gates the cache-skip. `tsc --noEmit` run against
+  the file: no new errors (only pre-existing environmental/type noise
+  unrelated to this change, matching the same pattern already present at 5
+  other unedited `callGemini` call sites in the same file).
+- **Not yet live-verified:** this session could not exercise the new code
+  path against real HTTP traffic without publishing first (no separate
+  always-on preview endpoint was found; re-running `base44 functions list`
+  to check hit a fresh device-code login wall in this session's sandbox,
+  not pursued further to avoid interrupting Oran for a live-verification
+  side-quest). Live verification on the real affected pages happens
+  immediately after Publish, per Task 4.
 
 ### 3a. Orphaned Gemini calls from uncancelled `Promise.race` timeouts
 **Status: ✅ Done — verified live, 2026-09-22.** (Sub-item of #3 — this
