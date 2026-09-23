@@ -379,14 +379,21 @@ cross-check baked into reporting — worth keeping in mind if conversion
 numbers ever need to be verified at scale rather than one at a time.
 
 ## 16. Phase 2b — bubble timing/exposure question
-**Status: 🔴 Open — long-standing, no new data**
+**Status: 🔴 Open — re-diagnosed 2026-09-22, same conclusion holds**
 
-`wasFallback` is a client-side timing flag (set true if the bubble is shown
-before the real backend response arrives), not a pure content-quality
-signal — meaning some fraction of fallback-flagged impressions may reflect
-correct content served just slightly late, not genuinely bad content. Still
-pending clean data to separate the two; not touched by any session on
-record so far.
+Re-tested after the `clientImpressionId` exact-row-targeting fix (2026-08-30)
+and today's AbortController fix (item #3a). Clean week (Sep 15–22, n=8,416):
+dismissed 0.51%, expired 28.34%, abandoned 43.25%, no-signal 30.32%, opened
+0.71% — matches the original diagnosis (abandoned ~41–43%) within normal
+week-to-week variance. Expired median `timeVisibleMs` now measures exactly
+25.0s, matching the real hide-timer (confirmed live in widget source), not
+the ~3.1s bug artifact — confirming the tracking fixes made the data
+trustworthy, and confirming the outcome itself is genuinely unchanged.
+Abandonment concentrates on blog (55%) and landing pages (18%), consistent
+with a content/relevance problem, not a timing-duration one. **Verdict:
+Phase 2b (timing/trigger redesign) is not justified by this data — no
+design proposed this session, per scope. Effort should stay on content
+quality (items #1, #12, #13), weighted toward blog/landing-page content.**
 
 ## 17. Open rate vs. target
 **Status: 🟡 Tracking, behind pace as of last measurement**
