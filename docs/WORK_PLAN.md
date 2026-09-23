@@ -193,6 +193,81 @@ Fri hypothesis further now is prospective: watch this same live-logs
 metric (in-flight-at-response rate) across the next Thu/Fri vs a
 weekend, in real time, before drawing a final conclusion.
 
+### 3b. Curated pages serving a stale/fallback `reply` alongside a correct `bubbleText`
+**Status: 🔴 Open — diagnosed 2026-09-23, root cause found, fix NOT applied (needs a decision)**
+
+Found while investigating a live report of 3 curated pages (`/offensive-hub/`,
+`/blog/elfsight-incident/`, `/blog/data-security-standards/`) showing a correct
+curated `bubbleText` alongside a generic fallback `reply`. Confirmed by reading
+`reflectizAgent/entry.ts`'s INIT opener path directly:
+
+- `bubbleText` and `reply` (`opener`) are **not generated from the same source**.
+  `CURATED_BUBBLES_EN`/`DE`/`FR`/`ES`/`IT` (hardcoded, always current) override
+  `bubbleText` only — by explicit design, per the code's own comment: `// Curated
+  bubble overrides generated one -- opener stays Gemini-generated`. There is no
+  curated-reply equivalent; `opener` always depends on a live Gemini call
+  succeeding validation, falling back to one of 7 generic pageType-keyed
+  sentences (`FALLBACK_SENTENCES_BY_TYPE`) if Gemini times out, fails JSON
+  parsing, or fails post-generation validation (must reference the selected
+  asset's URL, ≥4 words of prose, no self-link, no referral-source mention).
+  Whichever pair results (real or fallback `opener`, paired with the always-
+  correct curated `bubbleText`) gets cached **together** in one `PageOpeners`
+  row via `upsertPageOpener`, and every subsequent visit for that page+language
+  serves the cached pair verbatim with no re-check of `curatedBubble` and no
+  retry of generation.
+
+- **This is not simple pre-fix cache staleness** (the pattern already fixed for
+  `ai-retail-webinar`/`supply-chain-anz`/`tprm-ai-gartner-2026`). Directly
+  queried `PageOpeners`: the `/blog/data-security-standards/` row was freshly
+  regenerated at 2026-09-23 06:28 UTC — hours before this investigation — and
+  the fresh regeneration **still** produced a generic fallback `opener`
+  recommending an unrelated page. Cache invalidation alone will not durably fix
+  this; the underlying Gemini-generation reliability issue would just refill
+  the cache with the same fallback on the next request.
+
+- **Scope, sampled across all 76 `CURATED_BUBBLES_EN` URLs** (72 found in
+  cache): **11 of 72 (~15%) currently serve a fallback `opener`** paired with a
+  correct curated `bubbleText` — not limited to the 3 originally reported.
+  Affected: `blog/data-security-standards`, `blog/top-10-agentic-web-app-
+  pentesting-tools`, `blog/apache-airflow-security-exposed-instances`,
+  `blog/paypal-breach-2026`, `blog/javascript-obfuscation`, `blog/jscrambler-
+  npm-package-compromise`, `blog/stripe-skimmer-2026`, `blog/ibm-cost-of-a-
+  data-breach-report-2026`, `blog/bank-websites-loan-data-tracking-pixels`,
+  `blog/ai-retail-webinar`, `blog/disney-ccpa-fine-biggest-so-far`. (The
+  originally-reported `/offensive-hub/` and `/blog/elfsight-incident/` carry
+  large backlogs of un-deduplicated historical cache rows rather than one clean
+  current row — see next point.)
+
+- **Notable, unconfirmed timing correlation, flagged not claimed:** 8 of the 11
+  fallback rows were generated in the ~17 hours *after* today's AbortController
+  fix (item #3a, published 2026-09-22 13:09 UTC) — the very code path that
+  fix touched includes this same opener-generation Gemini call. Only 3 predate
+  it (2 shortly before on the same day, 1 from 2026-08-15). Comparing pages
+  touched post-fix (18.4% fallback, n=38) vs. pages not touched since (11.8%,
+  n=34) is directionally consistent with a regression but is **not a
+  controlled comparison** (different pages, different times) — no mechanism
+  connecting the two was confirmed in code, and prod-log confirmation for the
+  exact 06:28 UTC failure was not obtained this session (CLI re-auth in the
+  fresh sandbox did not complete in time). Left as an open lead, not a
+  conclusion.
+
+- **Separately noticed, not chased further:** curated-bubble language coverage
+  is thin outside English (`CURATED_BUBBLES_DE/FR/ES/IT` cover ~15-16 of the
+  76 URLs each) — a non-English visitor to an uncovered curated page gets an
+  **English** `bubbleText` (via the `map[url] || CURATED_BUBBLES_EN[url]`
+  fallback in `getCuratedBubble`) paired with a native-language `opener`,
+  e.g. a cached `blog/elfsight-incident` row mixing an English curated bubble
+  with a French fallback opener. Same root design gap, different symptom.
+
+**No fix applied — stopping to report per this session's scope.** The design
+gap (curated override never reaching `opener`) is intentional-by-comment, so
+"fixing" it is a product decision, not a safe mechanical patch. Two directions
+exist for Oran to choose between (neither implemented): (a) minimal —  when
+`isCurated` is true, don't cache/serve a fallback-sentence `opener`, forcing a
+retry instead of permanently locking in the pairing; (b) broader — extend
+curated content to include a curated `opener`/reply for these pages too, not
+just the bubble teaser. Cache rows were read-only queried, nothing written.
+
 ### 3a. Orphaned Gemini calls from uncancelled `Promise.race` timeouts
 **Status: ✅ Done — verified live, 2026-09-22.** (Sub-item of #3 — this
 does NOT close #3 itself; the weekday/weekend mechanism is still not
