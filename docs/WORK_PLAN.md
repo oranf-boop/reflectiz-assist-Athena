@@ -286,13 +286,51 @@ curated `bubbleText` alongside a generic fallback `reply`. Confirmed by reading
   the file: no new errors (only pre-existing environmental/type noise
   unrelated to this change, matching the same pattern already present at 5
   other unedited `callGemini` call sites in the same file).
-- **Not yet live-verified:** this session could not exercise the new code
-  path against real HTTP traffic without publishing first (no separate
-  always-on preview endpoint was found; re-running `base44 functions list`
-  to check hit a fresh device-code login wall in this session's sandbox,
-  not pursued further to avoid interrupting Oran for a live-verification
-  side-quest). Live verification on the real affected pages happens
-  immediately after Publish, per Task 4.
+- **Status: ✅ Done — published and live-verified 2026-09-23 (Oran published
+  11:39 UTC).** Forced a clean cache-miss on 8 of the 11 originally-affected
+  pages (blanked each `PageOpeners.opener` via `update_entities`, confirmed
+  first via query that none had been touched by organic traffic since
+  publish), then sent a live INIT request to prod for each. Result: **4 of 8
+  succeeded on the retry** with real, relevant, on-topic openers; **4 of 8
+  were genuine double-failures** (both the original attempt and the retry
+  legitimately failed) — correctly distinguished from a broken fix by
+  re-querying the cache immediately after each test.
+
+  **Success cases (real opener now cached, `generatedAt` updated to the
+  fresh test timestamp — confirms the next visitor is a free cache hit):**
+  - `blog/paypal-breach-2026`: before — "Worth a closer look at this. [DORA:
+    Strengthen Operational Resilience...]" (unrelated). After — "Research
+    shows tracking pixels on 9 out of 14 bank websites fired without valid
+    consent, sending loan data to TikTok and Google. [Bank Websites Are
+    Sending Loan Data to TikTok and Google]" (genuinely related).
+  - `blog/stripe-skimmer-2026`: before — "Worth a closer look at what's
+    actually happening here. [Simple Web Skimming Campaign...]" (unrelated).
+    After — "A payment processor became a hiding spot for theft it prevents.
+    [The 7 Biggest Supply Chain Attacks of 2026]" (genuinely related).
+  - `blog/bank-websites-loan-data-tracking-pixels`: before — generic "Worth a
+    closer look at what's actually happening here." After — "A rogue pixel on
+    a leading healthcare website compromised sensitive data. [Case Study: The
+    Risks of Forgotten Pixels on Websites]" (genuinely related).
+  - `blog/ai-retail-webinar`: before — generic "Worth a closer look at this."
+    After — "AI-enabled supply chain attacks surged by 156% last year, and
+    traditional defenses are falling short. [CISO's Expert Guide To AI Supply
+    Chain Attacks]" (genuinely related).
+
+  **Legitimate double-failure cases (both attempts failed honestly — NOT a
+  sign the fix is broken):** `blog/javascript-obfuscation`, `blog/jscrambler-
+  npm-package-compromise`, `blog/ibm-cost-of-a-data-breach-report-2026`,
+  `blog/disney-ccpa-fine-biggest-so-far` all still returned a generic
+  fallback sentence to the test visitor. Confirmed this is the *designed*
+  behavior, not a bug: re-querying `PageOpeners` for all 4 immediately after
+  showed `opener` still blank (the value I forced before testing) and
+  `generatedAt` completely unchanged from before the test — proving
+  `upsertPageOpener` was never called for these rows, i.e. the cache-skip
+  logic fired correctly. The next real visitor to any of these 4 pages gets
+  a fresh attempt (with its own retry), not the same locked-in bad result —
+  the exact self-healing behavior this fix was built for.
+
+  bubbleText was correct and unchanged (curated) in all 8 cases throughout,
+  confirming the original bug's other half was never in question.
 
 ### 3a. Orphaned Gemini calls from uncancelled `Promise.race` timeouts
 **Status: ✅ Done — verified live, 2026-09-22.** (Sub-item of #3 — this
