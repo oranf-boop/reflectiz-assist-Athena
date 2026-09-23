@@ -194,7 +194,7 @@ metric (in-flight-at-response rate) across the next Thu/Fri vs a
 weekend, in real time, before drawing a final conclusion.
 
 ### 3b. Curated pages serving a stale/fallback `reply` alongside a correct `bubbleText`
-**Status: 🔴 Open — diagnosed 2026-09-23, root cause found, fix NOT applied (needs a decision)**
+**Status: ✅ Done — fixed, published, and live-verified 2026-09-23**
 
 Found while investigating a live report of 3 curated pages (`/offensive-hub/`,
 `/blog/elfsight-incident/`, `/blog/data-security-standards/`) showing a correct
