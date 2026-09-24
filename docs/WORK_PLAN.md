@@ -29,17 +29,20 @@ item, entity schema cross-reference, dead-code sweep, secret hygiene,
 curated-content/cache health, scheduled-automation integrity). Full detail
 in that session's chat report; summary here, ranked by severity:
 
-1. **[HIGH, new] Slack threading (item #10) is broken for real sessions
-   right now.** Confirmed live: 2 real recent multi-turn sessions posted
-   3 and 6 separate top-level messages each instead of one threaded
-   conversation. Root cause: `reflectizAgent`'s `slackAlert` HTTP calls
-   for `new_conversation`/conversion/first-message events (lines ~2789,
-   2810, 2848) are fired without `await` — the same platform-kills-
-   background-work mechanism item #3a proved and fixed for Gemini calls,
-   never applied here. This is also the likely answer to the long-
-   unconfirmed `firstMessageAlertSent`-absent lead from items #2/#6/#18.
-   **Needs a dedicated fix session** (add `await`, verify with real
-   before/after log evidence the same way #3a did).
+1. **[RESOLVED 2026-09-24] Slack threading (item #10) was broken for
+   real sessions — fixed, and it turned out to be two separate bugs, not
+   one.** Root cause #1: 3 `slackAlert` HTTP calls fired without `await`
+   (same class as item #3a's Gemini fix, never applied here) — fixed via
+   `waitUntil()`. Root cause #2, found only by live-testing fix #1 and
+   not assuming success: `firstMessageAlertSent` and `slackMessageTs`
+   were never declared in `Conversations.jsonc`'s schema, so both were
+   silently dropped on every write regardless of await timing — this,
+   not the unawaited fetch, was the real answer to the long-unconfirmed
+   `firstMessageAlertSent` mystery from items #2/#6/#18. Both fixed,
+   live-verified with real Slack thread data (see item #10 for full
+   detail). One caveat: verified via 5 deliberate test sessions, not yet
+   against genuinely organic traffic (none occurred in the few minutes
+   since publish) — worth a quick spot-check next visit.
 2. **[MEDIUM, new] A 3rd `PendingConfigChanges` proposal has sat
    unreviewed since 2026-09-23** (item #7 only covered the first two).
    Diff reviewed: looks additive/safe (a new content-driven opener rule,
