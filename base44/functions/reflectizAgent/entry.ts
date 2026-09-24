@@ -1,5 +1,6 @@
 import { JWT } from "npm:google-auth-library@9.15.1";
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
+import { waitUntil } from "base44:runtime";
 
 const PROJECT_ID = "dashboarderv0";
 const REGION = "us-central1";
@@ -2785,8 +2786,16 @@ Generate a natural one-sentence opening message that:
       ...(fireConversionAlert && { firstMessageAlertSent: true }),
     });
 
+    // Fire-and-forget, but wrapped in waitUntil() so the platform keeps this request's
+    // execution context alive long enough for the Slack post (and slackAlert's own
+    // Conversations.slackMessageTs write-back, which threading depends on) to actually
+    // complete -- an unwrapped, un-awaited fetch here was getting killed after the
+    // response returned, the same failure class item #3a fixed for Gemini calls, just
+    // never applied to this one. waitUntil() is best-effort (per Base44's own docs), which
+    // is the right tradeoff for a Slack notification: worth trying hard for, not worth
+    // making the visitor wait on.
     if (fireConversionAlert) {
-      fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+      waitUntil(fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
@@ -2805,9 +2814,9 @@ Generate a natural one-sentence opening message that:
           conversationOutcome,
           isConversion: true,
         }),
-      }).catch(err => console.error("slackAlert conversion notification failed:", err.message));
+      }).catch(err => console.error("slackAlert conversion notification failed:", err.message)));
     } else if (fireFirstMessageAlert) {
-      fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+      waitUntil(fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
         body: JSON.stringify({
@@ -2825,7 +2834,7 @@ Generate a natural one-sentence opening message that:
           pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
           conversationOutcome,
         }),
-      }).catch(err => console.error("slackAlert conversation alert failed:", err.message));
+      }).catch(err => console.error("slackAlert conversation alert failed:", err.message)));
     }
   } else {
     // CREATE new conversation - fire slack alert
@@ -2845,7 +2854,10 @@ Generate a natural one-sentence opening message that:
       firstMessageAlertSent: true,
     });
 
-    fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
+    // Same waitUntil() reasoning as the two alert branches above -- this is the anchor
+    // post for a brand-new conversation; if it never completes, every later event for
+    // this session has no slackMessageTs to thread under and falls back to top-level.
+    waitUntil(fetch("https://api.base44.app/api/apps/69edc5de1c84c71c086635e0/functions/slackAlert", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${BASE44_INTERNAL_API_KEY}` },
       body: JSON.stringify({
@@ -2863,7 +2875,7 @@ Generate a natural one-sentence opening message that:
         pagesViewed: Array.isArray(pagesViewed) ? pagesViewed.join(",") : (pagesViewed ?? ""),
         conversationOutcome: "BOUNCED",
       }),
-    }).catch(() => {});
+    }).catch(() => {}));
   }
 
   return new Response(JSON.stringify({ reply, sessionId }), { headers: CORS_HEADERS });
