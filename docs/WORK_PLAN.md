@@ -487,14 +487,36 @@ backfill path exists for the known-affected rows (`37dfc470`, `85a34018`,
   proposal.
 
 ## 8. RAG keyword-search: a third unbounded `WebsiteContent.list(500)` scan
-**Status: 🔴 Open — flagged, not fixed**
+**Status: ✅ Done — fixed, published, and live-verified 2026-09-24**
 
 Found during the fallback-rate investigation: a third instance of the same
 unbounded-scan shape (fixed for item #3 above) exists in a RAG-style
-keyword-search helper (`reflectizAgent/entry.ts`, ~line 403), used during
-actual chat-message handling (not the INIT/opener path item #3 covers).
-Same risk under load, explicitly out of scope when found — flagged here so
-it isn't lost.
+keyword-search helper (`reflectizAgent/entry.ts`, ~line 403, inside
+`searchWebsiteContent()`), used during actual chat-message handling (not the
+INIT/opener path item #3 covers). Same risk under load, explicitly out of
+scope when first found — revisited and closed this session.
+
+Applied the identical proven fix from the other two instances: wrapped the
+`WebsiteContent.list("-lastScanned", 500)` call in a `Promise.race` against a
+4000ms timeout resolving `null`, then `if (!rawPages) return [];` — reusing
+`searchWebsiteContent`'s own pre-existing empty-result path (already handled
+gracefully downstream by `formatRetrievedPages()`, which renders `""` for an
+empty array). No new fallback behavior invented, no caller changes needed.
+`tsc --noEmit` showed the identical pre-existing error set as before the
+edit (only line numbers shifted), confirming no new issues introduced.
+
+Published, then live-verified with a real chat message exercising this exact
+path ("Can you tell me more about magecart supply chain attacks and web
+skimming risks?" against a fresh test session): the RAG search completed
+within budget and returned a correct, relevant reply citing genuinely related
+content (`blog/supply-chain-anz/`), confirming the timeout wrapper didn't
+break the search — it still returns real results under normal conditions and
+would now fail fast into the existing empty-RAG-context path instead of
+hanging the whole chat request if the scan were ever slow.
+
+All three unbounded-scan instances flagged since the fallback-rate
+investigation are now closed: the two in the INIT/opener path (item #3) and
+this one in the chat-message RAG path.
 
 ## 9. Slack unfurl-suppression (link preview cards cluttering the channel)
 **Status: ✅ Done — code confirmed live**
