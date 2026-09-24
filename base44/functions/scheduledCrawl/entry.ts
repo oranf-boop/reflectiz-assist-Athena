@@ -803,6 +803,20 @@ async function prewarmPageOpeners(base44, limit) {
   try {
   const base44 = createClientFromRequest(req);
   const now = new Date().toISOString().split("T")[0];
+
+  // TEMP diagnostic for docs/WORK_PLAN.md item #18: this function has no inbound auth
+  // check at all today. Before adding real enforcement, we need to know whether Base44's
+  // own "Daily Website Crawl" scheduled trigger sends an Authorization header matching
+  // BASE44_INTERNAL_API_KEY automatically -- guessing and shipping a hard check risks
+  // silently breaking the legitimate nightly cron. Logging only, nothing is rejected yet.
+  // Remove this block once the nightly run has been observed and real enforcement ships.
+  const _authHeader = req.headers.get("Authorization");
+  console.log("[item18-auth-probe]", {
+    headerPresent: !!_authHeader,
+    matchesInternalKey: _authHeader === `Bearer ${BASE44_INTERNAL_API_KEY}`,
+    singleUrl: !!(await req.clone().json().catch(() => ({}))).singleUrl,
+  });
+
   let options = {};
   try { options = await req.json(); } catch (_e) { options = {}; }
 
