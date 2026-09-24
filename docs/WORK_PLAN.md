@@ -20,6 +20,64 @@ Status legend: ✅ Done (live-verified) · 🟡 In progress · 🔴 Open · ⏸�
 
 ---
 
+## 20. Full infrastructure review — 2026-09-24
+**Status: 🔴 Open — 3 new findings need decisions, rest of the codebase is healthy**
+
+Exhaustive, section-by-section technical audit (repo integrity, syntax/type
+health across all 12 functions, live regression-check of every WORK_PLAN
+item, entity schema cross-reference, dead-code sweep, secret hygiene,
+curated-content/cache health, scheduled-automation integrity). Full detail
+in that session's chat report; summary here, ranked by severity:
+
+1. **[HIGH, new] Slack threading (item #10) is broken for real sessions
+   right now.** Confirmed live: 2 real recent multi-turn sessions posted
+   3 and 6 separate top-level messages each instead of one threaded
+   conversation. Root cause: `reflectizAgent`'s `slackAlert` HTTP calls
+   for `new_conversation`/conversion/first-message events (lines ~2789,
+   2810, 2848) are fired without `await` — the same platform-kills-
+   background-work mechanism item #3a proved and fixed for Gemini calls,
+   never applied here. This is also the likely answer to the long-
+   unconfirmed `firstMessageAlertSent`-absent lead from items #2/#6/#18.
+   **Needs a dedicated fix session** (add `await`, verify with real
+   before/after log evidence the same way #3a did).
+2. **[MEDIUM, new] A 3rd `PendingConfigChanges` proposal has sat
+   unreviewed since 2026-09-23** (item #7 only covered the first two).
+   Diff reviewed: looks additive/safe (a new content-driven opener rule,
+   nothing removed) but this is Oran's call to approve/reject, not this
+   session's.
+3. **[MEDIUM, new] `WebsiteContent` has www/non-www duplicate rows**
+   (at least 7 learning-hub pages) with inconsistent categories between
+   duplicates — one `lockCategories:true` copy stuck permanently empty
+   while a newer copy at a different URL-normalization carries real data.
+   Affects the item #12 "4 known gaps, no drift" claim, which no longer
+   holds cleanly.
+4. **[LOW-MEDIUM, new] `crawlWebsite` function is fully orphaned** — a
+   12th function (missing from this engagement's own tracking so far),
+   zero callers anywhere in the codebase, no automation attached. Needs
+   a keep-or-delete decision.
+5. **[LOW, new] `Weekly Training Simulation` automation is inactive with
+   a failed run from 2026-05-15**, never tracked anywhere until now.
+6. **[LOW, new] A separate GitHub Actions daily-crawl cron was disabled
+   2026-09-01** (missing secret) and never reconciled against Base44's
+   own "Daily Website Crawl" workflow — unclear if genuinely redundant.
+7. **[INFO] `list_entity_schemas` MCP tool is non-functional for this
+   app** right now — blocked a full formal schema audit; worked around
+   by sampling live rows, but Oran should know this capability is down.
+8. **[INFO] Base44 publish has real propagation lag (10–40s observed)**
+   this session — re-confirmed operational fact, not a new bug.
+
+**Clean / re-confirmed, no action needed:** git repo integrity (tree
+clean, local=origin exactly); syntax health across all 12 functions (no
+new error patterns, only more instances of already-known loose-typing
+noise); items #1, #2 (zero literal secrets app-wide), #3a (0% orphaned
+Gemini calls today, re-confirmed), #3b, #8, #9 (unfurl visually
+confirmed clean for the first time), #13, #18 (probe armed, today's
+cron predates it so no data lost); secret/env-var cross-reference clean;
+curated-bubble maps have zero duplicate keys; 8/8 sampled curated URLs
+reachable.
+
+---
+
 ## 19. Broader investigative leads for open rate / fallback rate (1.0% target)
 **Status: 🔵 Queued — do not start until items #8 and #18 are resolved**
 
