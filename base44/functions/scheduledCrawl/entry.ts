@@ -838,17 +838,27 @@ async function prewarmPageOpeners(base44, limit) {
         ? "_(singleUrl call -- already known to carry the correct header via reflectizAgent's own trigger)_"
         : "_(main crawl call -- if this is the nightly cron and the header is missing/wrong, that's the answer we needed)_",
     ].join("\n");
-    await fetch("https://slack.com/api/chat.postMessage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
-      body: JSON.stringify({
-        channel: SLACK_CHANNEL,
-        text: probeText,
-        mrkdwn: true,
-        unfurl_links: false,
-        unfurl_media: false,
-      }),
-    }).catch(e => console.error("item18-auth-probe Slack post failed:", e.message));
+    try {
+      const probeSlackRes = await fetch("https://slack.com/api/chat.postMessage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+        body: JSON.stringify({
+          channel: SLACK_CHANNEL,
+          text: probeText,
+          mrkdwn: true,
+          unfurl_links: false,
+          unfurl_media: false,
+        }),
+      }).then(r => r.json());
+      // chat.postMessage returns HTTP 200 even on a logical failure (e.g. channel_not_found,
+      // not_in_channel) -- checking only the fetch promise, not this ok flag, would silently
+      // "succeed" while nothing actually posted. Log it so a bad channel/token is visible.
+      if (!probeSlackRes.ok) {
+        console.error("item18-auth-probe Slack post returned an error:", probeSlackRes.error);
+      }
+    } catch (e) {
+      console.error("item18-auth-probe Slack post failed:", e.message);
+    }
   }
 
   let options = {};
