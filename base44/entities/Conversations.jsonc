@@ -85,6 +85,14 @@
     "isTrainingData": {
       "type": "boolean",
       "title": "Is Training Data"
+    },
+    "firstMessageAlertSent": {
+      "type": "boolean",
+      "title": "First Message Alert Sent"
+    },
+    "slackMessageTs": {
+      "type": "string",
+      "title": "Slack Message Timestamp"
     }
   },
   "required": []
