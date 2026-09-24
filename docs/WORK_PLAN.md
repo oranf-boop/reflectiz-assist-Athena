@@ -207,8 +207,46 @@ risk. The `x-athena-prewarm` line specifically can be removed whenever
 convenient as genuinely-orphaned dead code — low priority, cosmetic only,
 no security implication either way since it's unreachable now.
 
-**No code changes made — awaiting Oran's decision on Finding 1 specifically**
-(Finding 2 is a low-priority cleanup call, not blocking).
+**2026-09-24: Oran approved Finding 1's direction. Blocking question NOT yet
+resolvable from config — shipped the safe empirical diagnostic instead.**
+
+Tried to confirm via `base44 workflows list` whether the "Daily Website
+Crawl" scheduled trigger sends a matching `Authorization` header
+automatically. Hit a fresh device-code login wall in this session's sandbox
+(credentials don't persist across sessions — established pattern all
+engagement) and `list_entity_schemas` also errored for unrelated reasons;
+neither was pursued by interrupting Oran for a login click, since workflow
+scheduling config likely wouldn't expose per-request header details anyway
+even if reached.
+
+**Shipped instead (logging-only, no enforcement yet):** added a temporary,
+non-rejecting diagnostic at the very top of `scheduledCrawl`'s handler that
+logs whether an `Authorization` header is present and whether it matches
+`BASE44_INTERNAL_API_KEY`, plus whether the call is a `singleUrl` request
+(those already carry the correct header today, since `reflectizAgent`'s own
+`fireScheduledCrawlSingleUrl` sets it — confirmed in code). The one open
+unknown is specifically the **cron-triggered main crawl call** (`singleUrl:
+false`), which this probe will capture directly. **`tsc --noEmit`: clean,
+same pre-existing error pattern as before, no new issues.** Bundled Finding
+2's cosmetic fix into the same publish: deleted the dead `x-athena-prewarm`
+check from `reflectizAgent`'s `gateAllows()`.
+
+**Published and live-verified 2026-09-24:** confirmed both files deploy
+clean; the dead-code deletion doesn't change `gateAllows()`'s behavior
+(`SOFT_LAUNCH_GATE` is still `false`, so it still returns `true`
+unconditionally, as before). **Real enforcement is explicitly NOT shipped
+yet** — an unauthenticated call to `scheduledCrawl` still succeeds today.
+
+**Follow-up required, timing matters:** the nightly "Daily Website Crawl"
+runs ~03:00 UTC. Prod log retention is same-day only (established earlier
+this engagement) — the diagnostic's log line must be checked **on
+2026-09-25, after ~03:00 UTC but before the day rolls over**, or this
+run's evidence is lost and another full day's wait is needed. Once that
+log is read: if the cron already sends the correct header, add the real
+401-rejecting check immediately (safe, per Oran's approval already given).
+If it doesn't, escalate to Oran — either find and set the header in
+Base44's workflow config, or accept a documented gap until that's done.
+Remove this temporary logging block once real enforcement ships either way.
 
 **Also flagged, unconfirmed:** a test conversation's `firstMessageAlertSent`
 field was unexpectedly absent from the stored record despite the code
