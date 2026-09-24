@@ -231,11 +231,13 @@ same pre-existing error pattern as before, no new issues.** Bundled Finding
 2's cosmetic fix into the same publish: deleted the dead `x-athena-prewarm`
 check from `reflectizAgent`'s `gateAllows()`.
 
-**Published and live-verified 2026-09-24:** confirmed both files deploy
-clean; the dead-code deletion doesn't change `gateAllows()`'s behavior
-(`SOFT_LAUNCH_GATE` is still `false`, so it still returns `true`
-unconditionally, as before). **Real enforcement is explicitly NOT shipped
-yet** — an unauthenticated call to `scheduledCrawl` still succeeds today.
+Code changes made, syntax-checked, **not yet published** — awaiting Oran's
+go-ahead per this session's pause-before-publish permission. The dead-code
+deletion doesn't change `gateAllows()`'s behavior (`SOFT_LAUNCH_GATE` is
+still `false`, so it still returns `true` unconditionally, same as before).
+**Real enforcement is explicitly NOT part of this ship** — an
+unauthenticated call to `scheduledCrawl` will still succeed after this
+publish, by design, until tomorrow's log check informs the real fix.
 
 **Follow-up required, timing matters:** the nightly "Daily Website Crawl"
 runs ~03:00 UTC. Prod log retention is same-day only (established earlier
