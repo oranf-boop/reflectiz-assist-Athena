@@ -273,6 +273,33 @@ field was unexpectedly absent from the stored record despite the code
 setting it unconditionally on conversation creation — noted as a new,
 unverified lead from the same investigation, not yet looked into.
 
+**2026-09-24 (later same day) — self-reporting added, manual-check risk
+removed.** Instead of relying on someone remembering to pull same-day-only
+logs in a narrow window tomorrow, the diagnostic now posts its own result
+directly to `#athena-chat` (reusing the proven `chat.postMessage` + unfurl-
+suppression pattern from item #9) every time `scheduledCrawl` is invoked,
+awaited so it can't silently drop as post-response work (the same lesson
+from item #3a). Message states `headerPresent`, `matchesInternalKey`, and
+`singleUrl` plainly. Found and fixed a real bug during verification: the
+first version only caught network-level fetch failures, not Slack's own
+logical `ok:false` response body — could have silently "succeeded" while
+never actually posting. Corrected and re-verified: message confirmed
+landing in Slack, correctly formatted, no unfurl card, across three
+separate live tests. One remaining cosmetic gap, accepted rather than
+chased further: the live function is still running a slightly more verbose
+debug-logging version than the final intended one (functionally identical,
+same Slack-posting behavior confirmed three times) — not worth another
+publish cycle for a log-verbosity difference alone, especially since this
+whole diagnostic block gets deleted once real enforcement ships anyway.
+
+**Status now: tomorrow's cron-triggered main crawl call (`singleUrl:
+false`) will self-report to Slack automatically — no manual log-pulling
+or timing risk remains.** Once that message arrives (~03:00 UTC, 2026-09-25
+onward), read `headerPresent`/`matchesInternalKey` directly and proceed:
+correct header present → ship real 401 enforcement immediately (already
+approved); missing/wrong → escalate for a decision on fixing Base44's
+workflow config vs. accepting a documented gap.
+
 ## 3. Fallback rate — spike fixed, instability unresolved
 **Status: 🟡 In progress**
 
