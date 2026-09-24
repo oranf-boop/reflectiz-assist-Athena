@@ -231,13 +231,31 @@ same pre-existing error pattern as before, no new issues.** Bundled Finding
 2's cosmetic fix into the same publish: deleted the dead `x-athena-prewarm`
 check from `reflectizAgent`'s `gateAllows()`.
 
-Code changes made, syntax-checked, **not yet published** — awaiting Oran's
-go-ahead per this session's pause-before-publish permission. The dead-code
-deletion doesn't change `gateAllows()`'s behavior (`SOFT_LAUNCH_GATE` is
-still `false`, so it still returns `true` unconditionally, same as before).
-**Real enforcement is explicitly NOT part of this ship** — an
-unauthenticated call to `scheduledCrawl` will still succeed after this
-publish, by design, until tomorrow's log check informs the real fix.
+**Published 2026-09-24 11:33 UTC, fully live-verified same day.** Three
+checks, all confirmed directly against prod:
+
+1. Unauthenticated call (no `Authorization` header) to `scheduledCrawl` →
+   `HTTP 200`, not rejected. Wrong-key call (`Bearer definitely-the-wrong-
+   key-12345`) → also `HTTP 200`. Confirms no enforcement shipped yet, by
+   design — exactly as intended at this stage.
+2. **Diagnostic probe confirmed firing correctly via direct prod log read**
+   (CLI login completed with Oran's approval): both test calls appear
+   exactly as expected —
+   `{"headerPresent":false,"matchesInternalKey":false,"singleUrl":true}` and
+   `{"headerPresent":true,"matchesInternalKey":false,"singleUrl":true}`.
+3. A real `reflectizAgent` INIT call still returns a normal, ungated reply
+   (not the `{blocked:true}` shape) — confirms deleting the dead
+   `x-athena-prewarm` line didn't change `gateAllows()`'s behavior;
+   `SOFT_LAUNCH_GATE=false` still short-circuits it to `true` exactly as
+   before.
+
+CLI/log access now works for this app (logged in as marketing@reflectiz.com)
+— this same access is what tomorrow's real check will use, so that path is
+confirmed ready, not just theoretical.
+
+**Real enforcement is still explicitly NOT part of this ship** — an
+unauthenticated call to `scheduledCrawl` still succeeds today, by design,
+until tomorrow's cron log check informs the real fix.
 
 **Follow-up required, timing matters:** the nightly "Daily Website Crawl"
 runs ~03:00 UTC. Prod log retention is same-day only (established earlier
