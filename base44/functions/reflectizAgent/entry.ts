@@ -281,8 +281,6 @@ function gateClientIp(req) {
 }
 function gateAllows(req) {
   if (!SOFT_LAUNCH_GATE) return true;
-  // Internal cache pre-warm requests bypass the visitor gate.
-  if (req.headers.get("x-athena-prewarm") === BASE44_INTERNAL_API_KEY) return true;
   const ip = gateClientIp(req);
   if (!ip) return false;
   if (GATE_ALLOWED_IPS.some(e => e.toLowerCase() === ip)) return true;
