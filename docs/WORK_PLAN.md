@@ -133,19 +133,82 @@ would require either adding a real auth check to `scheduledCrawl`'s
 scope for a credential-hygiene fix.
 
 ## 18. Internal endpoints have no auth enforcement
-**Status: 🔴 Open — new finding, 2026-09-22**
+**Status: 🔴 Open — risk assessed 2026-09-24, recommendation given, awaiting decision**
 
 Discovered while verifying item #2: `scheduledCrawl`'s `singleUrl` mode
 (added for item #1's crawl-coverage fix) does not check the Authorization
 header at all — a deliberately wrong key produces the identical result to
 the correct one. Separately, `reflectizAgent`'s own equality check on this
 same key is currently dead code, since `SOFT_LAUNCH_GATE = false` makes
-`gateAllows()` return true before that check is ever reached. Net effect:
-the internal API key now lives safely out of source control (item #2),
-but isn't actually enforced by either receiving function right now — a
-real, separate gap, arguably bigger in practice than the hardcoding
-itself was. Not fixed — found during a different task, correctly not
-fixed opportunistically without being asked first.
+`gateAllows()` return true before that check is ever reached.
+
+### Finding 1 — `scheduledCrawl` has no inbound auth check anywhere (not just `singleUrl`)
+
+Grepped the entire file: the only use of `BASE44_INTERNAL_API_KEY` is
+**outbound** (as a Bearer token when `scheduledCrawl` calls other functions).
+There is no inbound header check anywhere in `Deno.serve`'s handler — this
+is broader than just the `singleUrl` branch: the main sitemap-wide crawl
+path (bigger blast radius: many pages per call) is equally unauthenticated.
+
+**Blast radius if reached by anyone, not just internal calls:** `crawlPage()`
+takes the caller-supplied URL with **no domain restriction**, does a
+server-side `fetch()` to it (SSRF: the app's own infra can be made to issue
+requests to an attacker-chosen destination), then — if the fetch succeeds —
+runs it through Gemini categorization and **writes it into `WebsiteContent`**.
+That entity feeds directly into what real visitors see (RAG search, item #8;
+opener/bubbleText candidate selection, items #3/#12/#16) — meaning an
+unauthenticated caller could inject fabricated content that Athena later
+recommends to real site visitors. This is a content-integrity/trust risk,
+not merely a resource-waste one, plus it consumes Gemini quota (compounding
+item #3's instability) with no rate limiting anywhere.
+
+**Reachability:** not tested directly this session (stayed read-only), but
+very high confidence it's reachable from the public internet with no
+platform-level gate — established all session by directly, repeatedly
+calling `reflectizAgent`'s identically-deployed/exposed endpoint with zero
+auth of any kind and getting real responses every time. `scheduledCrawl` is
+published the same way.
+
+**Recommendation: option (a) — add real enforcement, not "acceptable as-is".**
+The content-integrity angle (poisoned data reaching real visitors) makes
+this qualitatively worse than a typical low-risk internal-endpoint gap.
+Proposed change: at the very top of `scheduledCrawl`'s `Deno.serve` handler,
+before parsing the body or branching into `singleUrl`/sitemap-crawl, verify
+`req.headers.get("Authorization") === \`Bearer ${BASE44_INTERNAL_API_KEY}\``
+and return 401 if not — gating the whole function, mirroring the Bearer-
+token-equality pattern already used correctly elsewhere in this codebase.
+**Open question to resolve before implementing:** does Base44's own "Daily
+Website Crawl" scheduled-workflow trigger send this Authorization header
+automatically? If not, this fix would break the legitimate nightly cron
+job — needs confirming, not assuming, before this ships.
+
+### Finding 2 — `reflectizAgent`'s dead `x-athena-prewarm` check
+
+`SOFT_LAUNCH_GATE`'s own comment states its sole purpose: restrict Athena
+to office/owner IPs before public launch. It has been `false` (fully public)
+for this entire multi-week engagement of real production traffic — that
+job is conclusively done, with no evidence anywhere of a planned
+reactivation for some other future feature.
+
+However, `gateAllows()`/the IP-allowlist mechanism itself is generic,
+reusable infrastructure, not single-purpose throwaway code — and it's
+provably zero-risk to leave as-is, since it's genuinely unreachable while
+`SOFT_LAUNCH_GATE = false`. The one piece that's genuinely, permanently
+obsolete (not just dormant) is specifically the `x-athena-prewarm` /
+`BASE44_INTERNAL_API_KEY` equality check: grepped the whole codebase —
+no caller anywhere sends this header. The prewarm pipeline it was built for
+was ported directly into `scheduledCrawl` instead of calling `reflectizAgent`
+over HTTP, so even reactivating `SOFT_LAUNCH_GATE` tomorrow would never let
+any real caller satisfy this specific check.
+
+**Recommendation: option (c), split.** Leave `SOFT_LAUNCH_GATE` and the
+IP-allowlist gate mechanism alone — correct, reusable dormant logic, not a
+risk. The `x-athena-prewarm` line specifically can be removed whenever
+convenient as genuinely-orphaned dead code — low priority, cosmetic only,
+no security implication either way since it's unreachable now.
+
+**No code changes made — awaiting Oran's decision on Finding 1 specifically**
+(Finding 2 is a low-priority cleanup call, not blocking).
 
 **Also flagged, unconfirmed:** a test conversation's `firstMessageAlertSent`
 field was unexpectedly absent from the stored record despite the code
