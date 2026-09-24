@@ -4,6 +4,13 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.25";
 // Shared secret for internal cross-function calls within this app.
 const BASE44_INTERNAL_API_KEY = Deno.env.get("BASE44_INTERNAL_API_KEY");
 
+// Same "Athena Webite Agent" Slack bot (chat.postMessage) used by slackAlert -- reused
+// here (ported, not imported, per this codebase's no-shared-module-between-functions
+// convention) so the item #18 auth-probe below can self-report instead of relying on a
+// manual same-day log pull.
+const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN");
+const SLACK_CHANNEL = Deno.env.get("SLACK_ATHENA_CHANNEL") || "athena-chat";
+
 const HUB_PAGES_CRAWL = [
   "https://www.reflectiz.com/learning-hub/",
   "https://www.reflectiz.com/events/",
@@ -809,13 +816,40 @@ async function prewarmPageOpeners(base44, limit) {
   // own "Daily Website Crawl" scheduled trigger sends an Authorization header matching
   // BASE44_INTERNAL_API_KEY automatically -- guessing and shipping a hard check risks
   // silently breaking the legitimate nightly cron. Logging only, nothing is rejected yet.
-  // Remove this block once the nightly run has been observed and real enforcement ships.
+  // Also posts to Slack so the answer shows up on its own the moment the cron next runs,
+  // instead of depending on someone remembering to pull same-day-retention-only logs.
+  // Remove this whole block once the nightly run has been observed and real enforcement ships.
   const _authHeader = req.headers.get("Authorization");
+  const _headerPresent = !!_authHeader;
+  const _matchesInternalKey = _authHeader === `Bearer ${BASE44_INTERNAL_API_KEY}`;
+  const _isSingleUrl = !!(await req.clone().json().catch(() => ({}))).singleUrl;
   console.log("[item18-auth-probe]", {
-    headerPresent: !!_authHeader,
-    matchesInternalKey: _authHeader === `Bearer ${BASE44_INTERNAL_API_KEY}`,
-    singleUrl: !!(await req.clone().json().catch(() => ({}))).singleUrl,
+    headerPresent: _headerPresent,
+    matchesInternalKey: _matchesInternalKey,
+    singleUrl: _isSingleUrl,
   });
+  if (SLACK_BOT_TOKEN) {
+    const probeText = [
+      "*[item18-auth-probe]* scheduledCrawl was invoked",
+      `• Authorization header present: *${_headerPresent}*`,
+      `• Matches BASE44_INTERNAL_API_KEY: *${_matchesInternalKey}*`,
+      `• singleUrl request: *${_isSingleUrl}*`,
+      _isSingleUrl
+        ? "_(singleUrl call -- already known to carry the correct header via reflectizAgent's own trigger)_"
+        : "_(main crawl call -- if this is the nightly cron and the header is missing/wrong, that's the answer we needed)_",
+    ].join("\n");
+    await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SLACK_BOT_TOKEN}` },
+      body: JSON.stringify({
+        channel: SLACK_CHANNEL,
+        text: probeText,
+        mrkdwn: true,
+        unfurl_links: false,
+        unfurl_media: false,
+      }),
+    }).catch(e => console.error("item18-auth-probe Slack post failed:", e.message));
+  }
 
   let options = {};
   try { options = await req.json(); } catch (_e) { options = {}; }
