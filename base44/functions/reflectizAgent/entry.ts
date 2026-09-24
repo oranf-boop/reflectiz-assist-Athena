@@ -406,8 +406,17 @@ async function searchWebsiteContent(base44, query, currentPageUrl) {
 
   const META_URL_PATTERNS = ["/event-locations/", "/careers/", "/team/", "/author/", "/tag/", "/category/", "/page/", "/feed/"];
 
-  const allPages = (await base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500))
-    .filter(p => !META_URL_PATTERNS.some(pat => (p.pageUrl || "").includes(pat)));
+  // Same time-boxing as getCandidatesForCategory's scan below -- a slow read here just
+  // means no RAG candidates were found in time, falling through to the existing empty-
+  // results path (formatRetrievedPages already renders "" for an empty array) instead
+  // of hanging the whole chat-message request.
+  const ragListTimeout = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+  const rawPages = await Promise.race([
+    base44.asServiceRole.entities.WebsiteContent.list("-lastScanned", 500),
+    ragListTimeout,
+  ]);
+  if (!rawPages) return [];
+  const allPages = rawPages.filter(p => !META_URL_PATTERNS.some(pat => (p.pageUrl || "").includes(pat)));
 
   const reflectizPages = allPages.filter(page => (page.pageUrl || "").includes("reflectiz.com"));
 
