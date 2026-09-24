@@ -20,6 +20,57 @@ Status legend: ✅ Done (live-verified) · 🟡 In progress · 🔴 Open · ⏸�
 
 ---
 
+## 19. Broader investigative leads for open rate / fallback rate (1.0% target)
+**Status: 🔵 Queued — do not start until items #8 and #18 are resolved**
+
+Seven untested hypotheses for what else could be affecting open rate and
+fallback rate, beyond what's already been investigated (content quality,
+bubble timing/duration — both already tested, see #12/#13/#16). Recorded
+here so none of these get lost before they're picked up.
+
+1. **Device type (mobile vs. desktop) — highest priority, cheapest to
+   check, completely unexplored.** Mobile has no auto-expire timer at all;
+   desktop cuts off at 25s. Never segmented open/fallback rate by device.
+   If the two populations behave very differently, we've been averaging
+   them together and possibly masking a real, fixable split.
+2. **Competing on-page elements** — cookie banners, exit-intent popups,
+   other chat widgets on the same pages. Never checked whether Athena's
+   bubble visually collides with or gets hidden behind something else,
+   which would show up as "abandoned" but really means "never seen."
+3. **Trigger condition (time-based vs. reading behavior)** — duration was
+   ruled out (#16), but WHEN the bubble appears (a fixed 3-15s timer)
+   was not. A scroll-depth or dwell-time trigger might catch genuinely
+   attentive visitors instead of firing on a clock regardless of what
+   they're doing.
+4. **Audience quality by traffic source** — 88% of traffic is Direct +
+   Organic Social, barely any Search. Never asked whether that audience
+   (e.g. casual LinkedIn readers) structurally differs in buying intent
+   from what small amount of Search traffic exists — no amount of better
+   copy fixes a source/intent mismatch.
+5. **Ad blockers / privacy browsers silently missing from our own count**
+   — if a meaningful share of visitors never get an impression logged
+   because their browser blocks the widget script entirely, our own
+   denominator (and therefore our rate) could be systematically skewed
+   in a way we can't currently see.
+6. **Shared infrastructure contention beyond this codebase** — the
+   Gemini/Vertex-AI quota is confirmed shared across every function in
+   this app (item #3's finding). Untested: whether it's also shared with
+   OTHER tenants on the same underlying Google Cloud project, which would
+   explain instability with nothing to do with anything in this repo.
+7. **Bot contamination in the raw impression denominator, re-examined
+   properly** — an earlier rough pass suggested ~4.7% bot-like traffic.
+   GA4 filters known bots by default; our own raw OpenerImpressions
+   tracking may not, meaning the real, human open rate could differ
+   from what's currently reported. Worth a tighter, dedicated check, not
+   the rough pass done earlier.
+
+**Recommended order once started:** #1 first (cheapest, most concrete,
+answers a real question with data we already have). Scope each
+subsequent one as its own small, isolated session based on what #1
+finds — explicitly NOT a single combined investigation across all
+seven, per this project's own standing lesson about large multi-task
+sessions underperforming small isolated ones.
+
 ## 1. Structural crawl-coverage gap
 **Status: ✅ Done — verified live**
 
