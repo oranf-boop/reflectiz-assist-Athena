@@ -853,7 +853,9 @@ async function prewarmPageOpeners(base44, limit) {
       // chat.postMessage returns HTTP 200 even on a logical failure (e.g. channel_not_found,
       // not_in_channel) -- checking only the fetch promise, not this ok flag, would silently
       // "succeed" while nothing actually posted. Log it so a bad channel/token is visible.
-      console.log("item18-auth-probe Slack post response:", JSON.stringify(probeSlackRes));
+      if (!probeSlackRes.ok) {
+        console.error("item18-auth-probe Slack post returned an error:", probeSlackRes.error);
+      }
     } catch (e) {
       console.error("item18-auth-probe Slack post failed:", e.message);
     }
