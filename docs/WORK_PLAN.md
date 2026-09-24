@@ -740,12 +740,58 @@ itself has not been explicitly performed in any session on record — worth a
 quick manual glance next time an event fires.
 
 ## 10. Slack threading
-**Status: ✅ Done — verified live, holding**
+**Status: ✅ Done — regressed and re-fixed 2026-09-24, live-verified with real threading**
 
 Session activity posts as one top-level message per session with
 subsequent events threaded as replies (`thread_ts` / `Conversations.
 slackMessageTs`), instead of a flood of separate top-level posts per
 visitor. Re-confirmed live multiple times through 2026-09-17.
+
+**Regression found 2026-09-24** (item #20's infrastructure review):
+confirmed broken for real sessions — 2 real recent multi-turn sessions
+posted as 3 and 6 separate top-level messages instead of one threaded
+conversation. **Two independent root causes, both fixed:**
+
+1. `reflectizAgent`'s 3 `slackAlert` HTTP calls (`new_conversation`,
+   conversion, first-message) were fired without `await`, right before
+   the function's own `return` — functionally identical to post-response
+   background work, the same failure class item #3a proved and fixed for
+   Gemini calls, never applied here. **Fixed** by wrapping all 3 in
+   `waitUntil()` (`import { waitUntil } from "base44:runtime"`, per
+   Base44's own docs — researched, not guessed), which keeps the
+   function alive for this background work without making the visitor
+   wait on it. Documented as best-effort by Base44 itself, the correct
+   tradeoff for a notification side-channel.
+2. **A second, deeper bug found live-testing the first fix**: even when
+   `slackAlert` successfully posted and correctly attempted its own
+   `Conversations.update(conv.id, { slackMessageTs: ... })` write-back,
+   the field never persisted — and separately, `firstMessageAlertSent`
+   (set unconditionally inside an already-`await`ed `Conversations.
+   create()` call, nothing to do with the Slack fetch at all) was also
+   never persisting. Root cause: **neither field was ever declared in
+   `base44/entities/Conversations.jsonc`'s schema** — Base44 silently
+   drops any written field not in the declared schema, on every write,
+   unconditionally. This fully and separately explains the long-
+   unresolved `firstMessageAlertSent`-absent mystery from items #2/#6/
+   #18 — it was never the same cause as the threading bug, a wrong
+   assumption corrected by live testing rather than left unverified.
+   **Fixed** by adding both fields to the entity schema.
+
+**Live-verified after both fixes, real Slack data, not just field
+values:** a deliberate multi-event test session (INIT-equivalent message
+→ a conversion-triggering follow-up) was read back directly from
+#athena-chat via `slack_read_thread`: **one top-level "New Conversation"
+message, with the conversion event correctly threaded as a reply
+underneath it.** `Conversations` record for that session: both
+`firstMessageAlertSent: true` and `slackMessageTs` populated. Broader
+sanity check: 2 more independent test sessions immediately after both
+also show correct `slackMessageTs`/`firstMessageAlertSent` (5 of 5 post-
+both-fixes, vs. 1 of 3 when only the `waitUntil` fix was live —
+confirming the schema fix was the missing piece, not redundant). No
+genuinely organic (non-test) multi-turn session had occurred yet in the
+few minutes since publish, so the "sample real organic sessions" check
+couldn't be done with real traffic this session — worth a quick spot
+check next time this file is touched.
 
 ## 11. Registration-page personalization
 **Status: ✅ Done — verified live, holding**
